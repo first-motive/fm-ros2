@@ -11,10 +11,7 @@ if ! command -v docker >/dev/null 2>&1; then
   echo "ERROR: docker not found. Install OrbStack: https://orbstack.dev" >&2
   exit 1
 fi
-if ! docker info >/dev/null 2>&1; then
-  echo "ERROR: Docker daemon not reachable. Start OrbStack and retry." >&2
-  exit 1
-fi
+./scripts/ensure-docker.sh
 if docker info 2>/dev/null | grep -qi orbstack; then
   echo "    OrbStack detected."
 else
