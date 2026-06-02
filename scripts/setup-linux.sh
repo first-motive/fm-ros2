@@ -30,10 +30,11 @@ command -v xhost >/dev/null 2>&1 && xhost +local:docker || \
 
 echo "==> Importing external dependencies (placeholder pins)..."
 if command -v vcs >/dev/null 2>&1; then
-  vcs import src/external < external.repos || \
-    echo "    vcs import failed — pins are placeholders, edit external.repos."
+  ./scripts/import-externals.sh
 else
-  echo "    vcs not on host; import runs inside the container instead."
+  echo "    vcs not on host; import runs inside the container instead:"
+  echo "      docker compose -f docker/compose.yaml -f docker/compose.linux.yaml run --rm fm_ros2 \\"
+  echo "        ./scripts/import-externals.sh"
 fi
 
 echo "==> Building base image..."

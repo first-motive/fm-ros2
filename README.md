@@ -68,8 +68,10 @@ docker compose -f docker/compose.yaml -f docker/compose.linux.yaml up
 ## External Dependencies
 
 ```bash
-vcs import src/external < external.repos
+./scripts/import-externals.sh        # wraps: vcs import src/external < external.repos
 ```
 
-Pins are placeholders — see `external.repos`. Vendored sources live under
-`src/external/` and are gitignored.
+Pins in `external.repos` are placeholders (LeRobot, OpenArm, Unitree) — replace
+with real tags and fork before patching upstream. Vendored sources live under
+`src/external/` and are gitignored. The setup scripts call this step; run it
+standalone to refresh. If `vcs` is not on the host, run it inside the container.

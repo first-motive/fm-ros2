@@ -24,12 +24,11 @@ fi
 
 echo "==> Importing external dependencies (placeholder pins)..."
 if command -v vcs >/dev/null 2>&1; then
-  vcs import src/external < external.repos || \
-    echo "    vcs import failed — pins are placeholders, edit external.repos."
+  ./scripts/import-externals.sh
 else
   echo "    vcs not on host; import runs inside the container instead:"
   echo "      docker compose -f docker/compose.yaml -f docker/compose.macos.yaml run --rm fm_ros2 \\"
-  echo "        vcs import src/external < external.repos"
+  echo "        ./scripts/import-externals.sh"
 fi
 
 echo "==> Building base image (arm64)..."
