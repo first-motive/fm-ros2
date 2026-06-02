@@ -1,0 +1,19 @@
+# Shared compose base. Always combine with an overlay:
+#   macOS:  docker compose -f docker/compose.yaml -f docker/compose.macos.yaml up
+#   Linux:  docker compose -f docker/compose.yaml -f docker/compose.linux.yaml up
+services:
+  fm_ros2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.base
+    image: fm-ros2:humble
+    # Mount the workspace so edits on the host rebuild without reimaging.
+    volumes:
+      - ../:/ws:cached
+    working_dir: /ws
+    # Foxglove bridge — overlays decide whether the port is published.
+    expose:
+      - "8765"
+    stdin_open: true
+    tty: true
+    command: bash
