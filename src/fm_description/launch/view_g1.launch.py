@@ -27,11 +27,9 @@ files. CMakeLists installs the G1 description into this package's share, so the
 package:// path resolves. The bridge's default asset_uri_allowlist already
 permits package://, so no allowlist override is needed.
 
-Variant is a launch arg because the G1-D hand is not yet locked (Inspire U6
-leading). Swap with `variant:=g1_29dof_rev_1_0_with_inspire_hand_FTP`, etc.
-
-Caveat: every upstream G1 URDF is bipedal; no wheeled-base G1 description exists.
-This renders the closest reference body, not the G1-D wheeled platform.
+Default variant is g1_d: the wheeled G1-D (AGV base, two wheels, dual arms).
+Switch to the bipedal 29 DOF body with
+`g1_root:=<share>/g1_description variant:=g1_29dof_rev_1_0`.
 """
 
 import os
@@ -46,9 +44,11 @@ from launch_ros.actions import Node
 
 PKG = "fm_description"
 
-# The G1 description is installed into this package's share by CMakeLists,
+# The G1 descriptions are installed into this package's share by CMakeLists,
 # sourced from the vcs-imported unitree_ros (run import-externals.sh, then build).
-DEFAULT_G1_ROOT = os.path.join(get_package_share_directory(PKG), "g1_description")
+# Default is g1_d_description: the wheeled G1-D (AGV base + arms). Switch to the
+# bipedal body with g1_root:=<share>/g1_description variant:=g1_29dof_rev_1_0.
+DEFAULT_G1_ROOT = os.path.join(get_package_share_directory(PKG), "g1_d_description")
 
 
 def _launch_setup(context, *args, **kwargs):
@@ -69,9 +69,11 @@ def _launch_setup(context, *args, **kwargs):
         robot_description = f.read()
 
     # Rewrite relative mesh paths to package:// so Foxglove fetches them via the
-    # bridge. The meshes live in this package's share (installed by CMakeLists).
+    # bridge. The meshes live in this package's share (installed by CMakeLists)
+    # under a dir named after the variant's description (g1_d_description, ...).
+    desc_dir = os.path.basename(os.path.normpath(g1_root))
     robot_description = robot_description.replace(
-        'filename="meshes/', f'filename="package://{PKG}/g1_description/meshes/'
+        'filename="meshes/', f'filename="package://{PKG}/{desc_dir}/meshes/'
     )
 
     nodes = [
@@ -118,7 +120,7 @@ def generate_launch_description():
         [
             DeclareLaunchArgument(
                 "variant",
-                default_value="g1_29dof_rev_1_0",
+                default_value="g1_d",
                 description="G1 URDF basename in g1_root (no .urdf suffix).",
             ),
             DeclareLaunchArgument(

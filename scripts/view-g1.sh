@@ -8,9 +8,12 @@
 #     run --rm fm_ros2 colcon build --symlink-install
 #
 # Then:
-#   ./scripts/view-g1.sh                         # default 29dof, no hands
-#   ./scripts/view-g1.sh variant:=g1_29dof_rev_1_0_with_inspire_hand_FTP
+#   ./scripts/view-g1.sh                         # g1_d wheeled G1-D (default)
 #   ./scripts/view-g1.sh use_rviz:=true          # needs an X display
+#   # bipedal body instead:
+#   ./scripts/view-g1.sh \
+#     g1_root:=$(ros2 pkg prefix fm_description)/share/fm_description/g1_description \
+#     variant:=g1_29dof_rev_1_0
 #
 # Any extra args are passed straight through to `ros2 launch`.
 set -euo pipefail
