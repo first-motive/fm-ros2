@@ -1,27 +1,30 @@
-# vcs import < external.repos
+# vcs import src/external < external.repos
 #
 # External dependencies vendored into src/external/. These are PLACEHOLDER pins —
 # replace `version` with a real tag/commit, and swap to a First Motive fork when
 # we start patching upstream. Imported sources are gitignored (src/external/).
 #
-# Run:  vcs import src/external < external.repos
+# Keys are bare names (no `external/` prefix) so they land at src/external/<name>,
+# not src/external/external/<name>.
+#
+# Run:  ./scripts/import-externals.sh   (wraps the vcs import above)
 repositories:
-  external/lerobot:
+  lerobot:
     type: git
     url: https://github.com/huggingface/lerobot.git
     version: main          # TODO: pin to a release tag
-  external/openarm:
+  openarm:
     type: git
     url: https://github.com/enactic/openarm.git
     version: main          # TODO: pin; fork before patching
-  external/unitree_ros:
+  unitree_ros:
     # G1 (and all Unitree) robot descriptions: flat URDF + STL meshes under
     # robots/g1_description/. Distinct from unitree_ros2 (the DDS SDK below).
     # No upstream tags exist, so pinned to a commit.
     type: git
     url: https://github.com/unitreerobotics/unitree_ros.git
     version: ae2b2a7e9ba1b5814b5cb78b3c5800829c5591dd
-  external/unitree_ros2:
+  unitree_ros2:
     type: git
     url: https://github.com/unitreerobotics/unitree_ros2.git
-    version: main          # TODO: pin; fork before patching
+    version: master        # TODO: pin to a commit; fork before patching
