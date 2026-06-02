@@ -13,6 +13,9 @@ if ! command -v vcs >/dev/null 2>&1; then
 fi
 
 mkdir -p src/external
+# Keep colcon out of the vendored tree: externals are sources to read or build
+# selectively, not part of the workspace build. COLCON_IGNORE skips the subtree.
+touch src/external/COLCON_IGNORE
 echo "==> Importing externals into src/external/ ..."
 vcs import src/external < external.repos
 echo "==> Current versions:"
