@@ -14,6 +14,13 @@ repositories:
     type: git
     url: https://github.com/enactic/openarm.git
     version: main          # TODO: pin; fork before patching
+  external/unitree_ros:
+    # G1 (and all Unitree) robot descriptions: flat URDF + STL meshes under
+    # robots/g1_description/. Distinct from unitree_ros2 (the DDS SDK below).
+    # No upstream tags exist, so pinned to a commit.
+    type: git
+    url: https://github.com/unitreerobotics/unitree_ros.git
+    version: ae2b2a7e9ba1b5814b5cb78b3c5800829c5591dd
   external/unitree_ros2:
     type: git
     url: https://github.com/unitreerobotics/unitree_ros2.git
