@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-humble-xacro \
     && rm -rf /var/lib/apt/lists/*
 
+# MuJoCo — arm64 CPU wheel for headless sim on M5 (also fine on Linux).
+RUN pip install --no-cache-dir mujoco
+
 WORKDIR /ws
 
 # Entrypoint sources the ROS distro + the workspace overlay (if built).

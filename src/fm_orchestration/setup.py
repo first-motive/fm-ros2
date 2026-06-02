@@ -20,6 +20,7 @@ setup(
     entry_points={
         "console_scripts": [
             "orchestrator = fm_orchestration.orchestrator:main",
+            "sim_loop = fm_orchestration.sim_loop:main",
         ],
     },
 )
