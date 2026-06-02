@@ -15,17 +15,17 @@
 """
 View the Unitree G1 (G1-D reference) URDF as a robot_description.
 
-Loads a flat G1 URDF from the vcs-imported `unitree_ros` working copy
-(`src/external/`, gitignored), rewrites its relative mesh paths to absolute
-`file://` URIs, and publishes it via robot_state_publisher. A foxglove_bridge is
-started so Foxglove Studio on the macOS host can render the model with meshes.
+Loads a flat G1 URDF and publishes it via robot_state_publisher, then starts a
+foxglove_bridge so Foxglove Studio on the macOS host can render it with meshes.
 
-Mesh resolution: the G1 URDFs reference meshes as relative `meshes/foo.STL`,
-which neither RViz nor Foxglove can resolve on their own. We rewrite them to
-`file://<g1_root>/meshes/foo.STL`. foxglove_bridge reads those files inside the
-container and streams the bytes to Studio, so the host never needs the files.
-The bridge blocks file:// by default, so we widen `asset_uri_allowlist` to the
-mesh directory.
+Mesh resolution: the G1 URDFs reference meshes as relative `meshes/foo.STL`. We
+rewrite them to `package://fm_description/g1_description/meshes/foo.STL`. That is
+the only scheme Foxglove Studio fetches through the bridge — Studio routes
+`package://` to the bridge's resource_retriever (in the container) and resolves
+every other scheme (file://, http://) host-side, which cannot see container
+files. CMakeLists installs the G1 description into this package's share, so the
+package:// path resolves. The bridge's default asset_uri_allowlist already
+permits package://, so no allowlist override is needed.
 
 Variant is a launch arg because the G1-D hand is not yet locked (Inspire U6
 leading). Swap with `variant:=g1_29dof_rev_1_0_with_inspire_hand_FTP`, etc.
@@ -35,7 +35,8 @@ This renders the closest reference body, not the G1-D wheeled platform.
 """
 
 import os
-import re
+
+from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
@@ -43,14 +44,11 @@ from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-# Default vcs-import location of g1_description inside the container (/ws is the
-# workspace mount). The external/external nesting is the current vcs layout: the
-# repos keys carry an `external/` prefix and import into `src/external`. Override
-# with g1_root:= when running elsewhere.
-DEFAULT_G1_ROOT = "/ws/src/external/external/unitree_ros/robots/g1_description"
+PKG = "fm_description"
 
-# Mesh extensions foxglove_bridge is allowed to serve over file://.
-MESH_EXTS = "STL|stl|dae|obj|glb|gltf"
+# The G1 description is installed into this package's share by CMakeLists,
+# sourced from the vcs-imported unitree_ros (run import-externals.sh, then build).
+DEFAULT_G1_ROOT = os.path.join(get_package_share_directory(PKG), "g1_description")
 
 
 def _launch_setup(context, *args, **kwargs):
@@ -64,19 +62,17 @@ def _launch_setup(context, *args, **kwargs):
     if not os.path.isfile(urdf_path):
         raise RuntimeError(
             f"G1 URDF not found: {urdf_path}\n"
-            "Did you import externals? Run ./scripts/import-externals.sh"
+            "Import externals then build: ./scripts/import-externals.sh && colcon build"
         )
 
     with open(urdf_path, "r") as f:
         robot_description = f.read()
 
-    # Rewrite relative mesh paths to absolute file:// URIs the bridge can serve.
+    # Rewrite relative mesh paths to package:// so Foxglove fetches them via the
+    # bridge. The meshes live in this package's share (installed by CMakeLists).
     robot_description = robot_description.replace(
-        'filename="meshes/', f'filename="file://{g1_root}/meshes/'
+        'filename="meshes/', f'filename="package://{PKG}/g1_description/meshes/'
     )
-
-    # Anchor the bridge allowlist to this mesh dir only (keep package:// too).
-    mesh_allow = f"^file://{re.escape(g1_root)}/meshes/.*\\.({MESH_EXTS})$"
 
     nodes = [
         Node(
@@ -110,13 +106,7 @@ def _launch_setup(context, *args, **kwargs):
                 executable="foxglove_bridge",
                 name="foxglove_bridge",
                 output="screen",
-                parameters=[
-                    {
-                        "port": 8765,
-                        "address": "0.0.0.0",
-                        "asset_uri_allowlist": [mesh_allow, "^package://.*"],
-                    }
-                ],
+                parameters=[{"port": 8765, "address": "0.0.0.0"}],
             )
         )
 
@@ -134,7 +124,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "g1_root",
                 default_value=DEFAULT_G1_ROOT,
-                description="Path to the g1_description dir holding the URDF + meshes/.",
+                description="Dir holding the URDF + meshes/ (default: this package's share).",
             ),
             DeclareLaunchArgument(
                 "use_foxglove",
