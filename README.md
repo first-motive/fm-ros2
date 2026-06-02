@@ -65,6 +65,9 @@ Connect Foxglove Studio to `ws://localhost:8765`.
 docker compose -f docker/compose.yaml -f docker/compose.linux.yaml up
 ```
 
+Full macOS walkthrough: [docs/setup-macos.md](docs/setup-macos.md).
+Each package has its own README under `src/<package>/`.
+
 ## External Dependencies
 
 ```bash
