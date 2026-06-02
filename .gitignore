@@ -1,0 +1,23 @@
+# Planning notes (local only)
+plans/
+
+# ROS2 / colcon build artifacts
+build/
+install/
+log/
+
+# Vendored external sources (pulled via vcs import)
+src/external/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

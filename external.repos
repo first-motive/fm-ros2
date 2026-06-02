@@ -1,0 +1,20 @@
+# vcs import < external.repos
+#
+# External dependencies vendored into src/external/. These are PLACEHOLDER pins —
+# replace `version` with a real tag/commit, and swap to a First Motive fork when
+# we start patching upstream. Imported sources are gitignored (src/external/).
+#
+# Run:  vcs import src/external < external.repos
+repositories:
+  external/lerobot:
+    type: git
+    url: https://github.com/huggingface/lerobot.git
+    version: main          # TODO: pin to a release tag
+  external/openarm:
+    type: git
+    url: https://github.com/enactic/openarm.git
+    version: main          # TODO: pin; fork before patching
+  external/unitree_ros2:
+    type: git
+    url: https://github.com/unitreerobotics/unitree_ros2.git
+    version: main          # TODO: pin; fork before patching
