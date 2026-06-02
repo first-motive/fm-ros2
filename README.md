@@ -56,7 +56,7 @@ fm-ros2/
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml up
 ```
 
-Connect Foxglove Studio to `ws://localhost:8765`.
+Then start the Foxglove bridge — see [Foxglove](#foxglove).
 
 ### Linux (native GPU / hardware)
 
@@ -67,6 +67,28 @@ docker compose -f docker/compose.yaml -f docker/compose.linux.yaml up
 
 Full macOS walkthrough: [docs/setup-macos.md](docs/setup-macos.md).
 Each package has its own README under `src/<package>/`.
+
+## Foxglove
+
+The dev container runs `foxglove_bridge`; Foxglove Studio on the host connects at
+`ws://localhost:8765`. Plain `docker compose ... up` opens a shell, not the bridge —
+use the helper to serve the port:
+
+```bash
+./scripts/foxglove.sh           # shared stack (default)
+./scripts/foxglove.sh -t        # throwaway container, auto-cleans on exit
+./scripts/foxglove.sh -p 9000   # custom in-container bridge port
+```
+
+| Mode | Command | Container | ROS graph |
+|------|---------|-----------|-----------|
+| shared (default) | `up -d` + `exec` | long-lived | shared with sim / other `exec` sessions |
+| throwaway (`-t`) | `run --rm` | fresh, auto-clean | isolated |
+
+Shared keeps one container, so the bridge sees topics from sim and other `exec`
+sessions with no extra DDS config. Tear it down with
+`docker compose -f docker/compose.yaml -f docker/compose.macos.yaml down`. Throwaway
+runs an isolated bridge that cleans up on exit.
 
 ## External Dependencies
 
