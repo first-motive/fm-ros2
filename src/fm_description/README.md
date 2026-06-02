@@ -81,3 +81,14 @@ Studio. Other schemes (`file://`, `http://`) are fetched host-side by Studio and
 cannot see container files, so they fail. CMakeLists installs the descriptions
 into the package share to make the `package://` path resolve; the bridge's
 default `asset_uri_allowlist` already permits it.
+
+### Foxglove gotcha: meshes tipped 90° about X
+
+If the robot renders with correct link positions but every mesh rotated 90° about
+X, set the Foxglove 3D panel's mesh up-axis to match ROS. Foxglove defaults to
+Y-up and rotates STL meshes +90° about X; Unitree STLs are Z-up, so they end up
+over-rotated. This is a display setting, not a URDF/TF issue (RViz is unaffected):
+
+```
+3D panel → settings → Scene → Mesh "up" axis → Z-up   (then Ctrl-R to refresh)
+```
