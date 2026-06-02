@@ -12,11 +12,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# ROS setup files reference unbound vars; relax `set -u` only across sourcing.
+set +u
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
+set -u
 
 echo "==> build"
 colcon build --symlink-install
+set +u
 source install/setup.bash
+set -u
 
 PIDS=()
 cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; }
