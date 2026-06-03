@@ -32,7 +32,7 @@ Footer
 
 ## Theming — nish-tui (optional, recommended)
 
-[nish-tui](https://github.com/nishalan/nish-tui) is a soft dependency. fm_tui
+[nish-tui](https://github.com/ubunish/nish-tui) is a soft dependency. fm_tui
 detects it at import time and picks a widget set accordingly:
 
 ```
