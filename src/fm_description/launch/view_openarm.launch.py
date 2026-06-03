@@ -21,16 +21,25 @@ relative mesh paths to `package://fm_description/...` at launch. OpenArm instead
 ships as a real, built ament_cmake ROS package (enactic/openarm_description):
 import-externals.sh leaves it OUT of COLCON_IGNORE, so `colcon build` compiles
 it into the workspace. We therefore process its xacro at launch with
-`xacro.process_file`, and the meshes already reference
-`package://openarm_description/...` throughout, which foxglove_bridge's
-resource_retriever resolves in-container — no path rewrite is needed for them.
+`xacro.process_file`.
 
-The meshes do need one bridge tweak. OpenArm's package:// paths run through a
-dotted directory (openarm_v2.0), and foxglove_bridge's default asset_uri_allowlist
-regex permits only [\\w-] in path segments — so it rejects every mesh with
-"Asset URI not allowed", and nothing renders. We widen the allowlist to permit
-the dot (see the foxglove_bridge node below). The G1/SO101 paths have no dotted
-dirs, so they need no override.
+Visual mesh up-axis baking. The upstream visual meshes are COLLADA (.dae) with
+inconsistent declared up-axes (arm and pinch gripper Y_UP, body Z_UP). RViz honours
+each file's up_axis, so it renders upright; Foxglove Studio ignores per-file
+up_axis and applies one global mesh-up setting, so the raw .dae meshes render
+mis-rotated. fm_description's build converts every OpenArm visual mesh to STL with
+assimp, which bakes each file's up_axis into the geometry — yielding the
+orientation RViz already presents, with no extra rotation (see CMakeLists.txt). We
+rewrite each visual reference here from `package://openarm_description/<rel>.dae`
+to `package://fm_description/openarm_meshes/<rel>.stl`. Collision meshes are already
+STL, are not rendered by default, and are left pointing at openarm_description.
+
+The rewritten meshes still need one bridge tweak. Their package:// paths run
+through a dotted directory (openarm_v2.0), and foxglove_bridge's default
+asset_uri_allowlist regex permits only [\\w-] in path segments — so it rejects
+every mesh with "Asset URI not allowed", and nothing renders. We widen the
+allowlist to permit the dot (see the foxglove_bridge node below). The G1/SO101
+paths have no dotted dirs, so they need no override.
 
 Xacro entry point (relative to the built openarm_description share):
     assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro
@@ -50,6 +59,7 @@ but the raised limit lets every preset render.
 """
 
 import os
+import re
 
 import xacro
 
@@ -69,6 +79,12 @@ PKG = "fm_description"
 # Relative path to the xacro entry point inside the built openarm_description
 # share. The package is an upstream ament_cmake package, not vendored here.
 OPENARM_XACRO_REL = "assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro"
+
+# Rewrite visual COLLADA mesh references onto the Z-up STL set vendored into this
+# package's share at build (see CMakeLists.txt). Only visual meshes are .dae, so
+# matching the .dae suffix targets them without touching collision STL refs.
+_VISUAL_MESH_RE = re.compile(r"package://openarm_description/([^\"']+?)\.dae")
+_VISUAL_MESH_SUB = r"package://fm_description/openarm_meshes/\1.stl"
 
 
 def _launch_setup(context, *args, **kwargs):
@@ -106,6 +122,8 @@ def _launch_setup(context, *args, **kwargs):
     try:
         doc = xacro.process_file(xacro_path, mappings=mappings)
         robot_description = doc.toxml()
+        # Point visual meshes at the Z-up STL set in this package's share.
+        robot_description = _VISUAL_MESH_RE.sub(_VISUAL_MESH_SUB, robot_description)
     except Exception as exc:
         raise RuntimeError(
             f"Failed to process OpenArm xacro: {xacro_path}\n"

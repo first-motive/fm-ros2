@@ -153,29 +153,36 @@ G1 / SO101                          OpenArm
 ─────────────────────────────────   ─────────────────────────────────────────
 flat URDF vendored into             built ament_cmake package
   fm_description share                (openarm_description, NOT vendored)
-launch rewrites assets/ → package://  xacro entry uses $(find ...) + package://
-  (path rewrite)                      already; no path rewrite
-file copy at build                  colcon build compiles it into the workspace
-STL meshes, plain paths             DAE meshes under a dotted dir (openarm_v2.0)
-                                      → needs a wider bridge asset allowlist
+file copy at build                  colcon build compiles the package; the
+                                      build also converts its visual meshes
+launch rewrites assets/ → package://  launch rewrites visual .dae refs →
+  (path rewrite)                       package://fm_description/openarm_meshes/*.stl
+STL meshes, plain paths             DAE meshes under a dotted dir (openarm_v2.0),
+                                      mixed up-axes → baked into STL via assimp +
+                                      a wider bridge asset allowlist
 ```
 
 `openarm_description` is the one external left out of `COLCON_IGNORE` (see
 `scripts/import-externals.sh`), so `colcon build` compiles it into the workspace.
 The launch then processes its xacro at runtime with `xacro.process_file`. The
-xacro already references meshes as `package://openarm_description/...`, so those
-URIs need no path rewrite — foxglove_bridge resolves them in-container once the
-package is built and sourced. The COLLADA (`.dae`) visual meshes render as-is.
+xacro references meshes as `package://openarm_description/...`. Collision meshes
+are already STL and resolve in-container as-is. The visual meshes are COLLADA
+(`.dae`) with mixed up-axes that Foxglove cannot read, so the build converts them
+to STL (baking each file's up_axis) and the launch rewrites each visual reference
+to `package://fm_description/openarm_meshes/...stl` (see [up-axis
+baking](#visual-mesh-up-axis-baking) below).
 
-One bridge tweak is required, though (see the [allowlist
-note](#foxglove-asset-allowlist-dotted-paths) below): OpenArm's mesh paths run
-through a dotted directory, which the bridge's default asset allowlist rejects.
+One bridge tweak is required, too (see the [allowlist
+note](#foxglove-asset-allowlist-dotted-paths) below): the mesh paths run through a
+dotted directory, which the bridge's default asset allowlist rejects.
 
 ```
 openarm_description (vcs, built — NOT COLCON_IGNORE'd)
-  assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro
-        │  colcon build → openarm_description on the workspace overlay
-        │  launch: xacro.process_file(...) → URDF with package://openarm_description meshes
+  assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro  +  visual *.dae (mixed up-axes)
+        │  colcon build → openarm_description on the overlay; fm_description build
+        │    converts visual .dae → STL into share/fm_description/openarm_meshes/
+        │  launch: xacro.process_file(...) → URDF, then rewrites visual refs
+        │    package://openarm_description/*.dae → package://fm_description/openarm_meshes/*.stl
         ▼
 robot_state_publisher → /robot_description, /tf, /tf_static
 joint_state_publisher → /joint_states (default pose)
@@ -202,6 +209,41 @@ docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
 `display_openarm.launch.py`). The default `right_arm` disables the body and left
 arm, leaving a single right arm. The preset's ros2_control include runs with fake
 hardware and is harmless for a view, so no disable flag is needed.
+
+### Visual mesh up-axis baking
+
+OpenArm's upstream visual meshes are COLLADA (`.dae`) with **inconsistent declared
+up-axes**: the arm and pinch-gripper meshes are `Y_UP`, the body mesh is `Z_UP`.
+
+```
+RViz                                Foxglove Studio
+honours each file's <up_axis>       ignores per-file <up_axis>,
+  → renders upright                   shows raw .dae geometry
+                                    → mixed up-axes render mis-rotated,
+                                      no single mesh-up toggle fixes them
+```
+
+The fix is to bake each file's `up_axis` into the geometry, so the meshes no longer
+depend on a reader honouring `<up_axis>`. assimp does this on load: it applies the
+declared `up_axis` and exports STL in that resolved frame — the same orientation
+RViz presents. So the conversion is a plain DAE → STL export per visual mesh, with
+**no extra rotation**:
+
+```
+.dae (declared up_axis)  ──assimp export (bakes up_axis)──▶  STL
+```
+
+`fm_description`'s build (see `CMakeLists.txt` +
+`scripts/convert_openarm_visual_meshes.py`) runs this for every visual mesh and
+installs the results into `share/fm_description/openarm_meshes/`, mirroring the
+upstream path; the launch rewrites visual references onto them. The URDF's own
+`<visual>` origins then orient each mesh exactly as in RViz — adding a rotation
+here would double-rotate the meshes and scatter the assembled robot. Collision
+meshes are already STL and are not rendered by default, so they are left pointing at
+`openarm_description`.
+
+Set the Foxglove 3D panel's mesh up-axis to Z-up (the same setting the G1/SO101
+views use) and the robot renders upright for every preset.
 
 ### Foxglove asset allowlist: dotted paths
 
