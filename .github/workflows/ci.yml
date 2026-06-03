@@ -37,5 +37,9 @@ jobs:
         run: |
           source /opt/ros/humble/setup.bash
           source install/setup.bash
-          colcon test --return-code-on-test-failure
+          # colcon test alone exits 0 even on test failures; run it without the
+          # return-code flag so the next step always prints the verbose result,
+          # then let colcon test-result set the non-zero exit. This surfaces the
+          # failing test's output instead of dying before it prints.
+          colcon test
           colcon test-result --verbose
