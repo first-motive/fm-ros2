@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Convert OpenArm visual COLLADA meshes to STL.
+"""
+Convert OpenArm visual COLLADA meshes to STL.
 
 Why this exists: OpenArm's upstream visual meshes are COLLADA (.dae) with
 inconsistent declared ``up_axis`` values (the arm and pinch-gripper meshes are
