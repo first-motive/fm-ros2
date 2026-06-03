@@ -96,3 +96,47 @@ over-rotated. This is a display setting, not a URDF/TF issue (RViz is unaffected
 To skip this each time, import the ready-made layout `foxglove/g1_view.json`
 (Foxglove Studio → Layouts → import from file). It pre-sets the 3D panel:
 Z-up meshes, follow `AGV_link`, `/robot_description` visible.
+
+## View the SO101
+
+`launch/view_so101.launch.py` loads the LeRobot **SO101** arm URDF as
+`robot_description` and serves it to Foxglove Studio with meshes. The SO101
+upstream (`TheRobotStudio/SO-ARM100`) ships as plain files — a flat
+`so101_new_calib.urdf` plus `assets/*.stl` — not a ROS package. This is the same
+shape as the G1: the files are vendored into this package's share at build, then
+the launch rewrites relative mesh paths to `package://` so they resolve.
+
+```
+SO-ARM100 (vcs, gitignored)
+  Simulation/SO101/so101_new_calib.urdf  +  assets/*.stl
+        │  colcon build → install into share/fm_description/so101_description/
+        │  launch reads URDF, rewrites assets/ → package://fm_description/...
+        ▼
+robot_state_publisher → /robot_description, /tf, /tf_static
+joint_state_publisher → /joint_states (default pose)
+foxglove_bridge       → ws://8765  (Foxglove Studio on the host renders it)
+```
+
+Setup, then launch:
+
+```bash
+./scripts/import-externals.sh    # clone SO-ARM100 into src/external/ (once)
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
+  run --rm fm_ros2 colcon build --symlink-install
+./scripts/view-so101.sh          # then connect Foxglove Studio to ws://localhost:8765
+```
+
+| Arg | Default | Meaning |
+|-----|---------|---------|
+| `so101_root` | `<share>/fm_description/so101_description` | dir holding `so101_new_calib.urdf` + `assets/` |
+| `use_foxglove` | `true` | start foxglove_bridge on `ws://8765` |
+| `use_rviz` | `false` | start RViz (needs an X display) |
+| `use_jsp` | `true` | start joint_state_publisher so non-fixed joints get TF |
+
+### Mesh resolution
+
+The SO101 URDF references meshes as relative `assets/foo.stl`. The launch rewrites
+them to `package://fm_description/so101_description/assets/foo.stl`. CMakeLists
+installs the description into the package share so the `package://` path resolves
+through foxglove_bridge — identical to the G1 path. The same Z-up mesh gotcha
+applies (see above) if meshes render tipped 90° about X.

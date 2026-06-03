@@ -28,6 +28,24 @@ foreach(desc g1_d_description g1_description)
   endif()
 endforeach()
 
+# Vendor the LeRobot SO101 arm into this package's share as so101_description so
+# its meshes resolve as package://fm_description/so101_description/assets/... —
+# the only mesh scheme Foxglove Studio fetches through foxglove_bridge. The
+# SO101 upstream ships as plain files (flat so101_new_calib.urdf + assets/*.stl),
+# vendored from the vcs-imported SO-ARM100 working copy (src/external/,
+# gitignored), so present only after import-externals.sh. The trailing slash on
+# the source installs its contents (URDF + assets/) into so101_description.
+# Guarded so a clean checkout (e.g. CI without externals) still builds.
+set(SO101_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../external/SO-ARM100/Simulation/SO101")
+if(EXISTS "${SO101_SRC}/assets")
+  install(DIRECTORY "${SO101_SRC}/" DESTINATION share/${PROJECT_NAME}/so101_description)
+  message(STATUS "fm_description: vendoring so101_description from ${SO101_SRC}")
+else()
+  message(WARNING
+    "fm_description: SO101 not found under ${SO101_SRC} — run "
+    "./scripts/import-externals.sh before building to view the SO101.")
+endif()
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
