@@ -92,3 +92,7 @@ over-rotated. This is a display setting, not a URDF/TF issue (RViz is unaffected
 ```
 3D panel → settings → Scene → Mesh "up" axis → Z-up   (then Ctrl-R to refresh)
 ```
+
+To skip this each time, import the ready-made layout `foxglove/g1_view.json`
+(Foxglove Studio → Layouts → import from file). It pre-sets the 3D panel:
+Z-up meshes, follow `AGV_link`, `/robot_description` visible.
