@@ -1,5 +1,8 @@
 # fm-ros2
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/Ubundi/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/Ubundi/fm-ros2/actions/workflows/ci.yml)
+
 First Motive's canonical ROS2 (Humble) workspace. One monorepo the whole team runs
 from work laptops: build, Docker, and external vendoring live in one place. The
 directory layout mirrors the planned polyrepo split, so growth is a clean
@@ -105,3 +108,8 @@ Pins in `external.repos` are placeholders (LeRobot, OpenArm, Unitree) — replac
 with real tags and fork before patching upstream. Vendored sources live under
 `src/external/` and are gitignored. The setup scripts call this step; run it
 standalone to refresh. If `vcs` is not on the host, run it inside the container.
+
+## License & Ownership
+
+Maintained by First Motive, a Ubundi subsidiary, under the `Ubundi` GitHub org.
+Released under the MIT License — see [LICENSE](LICENSE).
