@@ -1,8 +1,9 @@
 # vcs import src/external < external.repos
 #
-# External dependencies vendored into src/external/. These are PLACEHOLDER pins —
-# replace `version` with a real tag/commit, and swap to a First Motive fork when
-# we start patching upstream. Imported sources are gitignored (src/external/).
+# External dependencies vendored into src/external/. Each `version` is pinned to
+# an exact commit for reproducible imports — swap to a First Motive fork (and
+# re-pin) when we start patching upstream. Imported sources are gitignored
+# (src/external/). Re-pin with: git ls-remote <url> <branch>.
 #
 # Keys are bare names (no `external/` prefix) so they land at src/external/<name>,
 # not src/external/external/<name>.
@@ -12,11 +13,11 @@ repositories:
   lerobot:
     type: git
     url: https://github.com/huggingface/lerobot.git
-    version: main          # TODO: pin to a release tag
+    version: 741c2d0a3939ba54d6cf47f29a7fbbba3766a600  # main @ 2026-06-03; no release tag yet
   openarm:
     type: git
     url: https://github.com/enactic/openarm.git
-    version: main          # TODO: pin; fork before patching
+    version: 6e07f343c3a3324b67bc8fed41f0d4ec9ff47327  # main @ 2026-06-03; fork before patching
   unitree_ros:
     # G1 (and all Unitree) robot descriptions: flat URDF + STL meshes under
     # robots/g1_description/. Distinct from unitree_ros2 (the DDS SDK below).
@@ -27,4 +28,4 @@ repositories:
   unitree_ros2:
     type: git
     url: https://github.com/unitreerobotics/unitree_ros2.git
-    version: master        # TODO: pin to a commit; fork before patching
+    version: 5204e6e098ee53f4bd929bd77eb1d387cd0fa842  # master @ 2026-06-03; fork before patching
