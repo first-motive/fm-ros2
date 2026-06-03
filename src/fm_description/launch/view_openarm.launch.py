@@ -29,10 +29,18 @@ directly. No mesh rewrite is needed.
 Xacro entry point (relative to the built openarm_description share):
     assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro
 
-The xacro pulls in a ros2_control include that errors during view-only
-processing, so we pass a mapping that disables ros2_control. The default view is
-a single right arm (arm_type:=right_arm). Other presets: left_arm,
-default_bimanual, and the *_with_pinch_gripper variants.
+The v2.0 xacro selects its links through a `robot_preset` arg (the upstream
+display_openarm.launch.py is the reference). The default here is `right_arm`: a
+single right arm with the body and left arm disabled. Other presets:
+`default_bimanual`, `left_arm`, and the `*_with_pinch_gripper` variants. The
+preset's ros2_control include runs with fake hardware and is harmless for a
+view, so no disable flag is needed.
+
+foxglove_bridge's `send_buffer_limit` is raised above its 10 MB default: the
+`default_bimanual` preset includes a ~10.8 MB body mesh (body_link0.dae) that
+exceeds the default, which silently drops that asset (and resets the asset
+channel, so sibling meshes fail too). `right_arm` stays well under the default,
+but the raised limit lets every preset render.
 """
 
 import os
@@ -58,9 +66,7 @@ OPENARM_XACRO_REL = "assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro"
 
 
 def _launch_setup(context, *args, **kwargs):
-    arm_type = LaunchConfiguration("arm_type").perform(context)
-    preset = LaunchConfiguration("preset").perform(context)
-    ros2_control = LaunchConfiguration("ros2_control").perform(context)
+    robot_preset = LaunchConfiguration("robot_preset").perform(context)
     use_foxglove = LaunchConfiguration("use_foxglove").perform(context) == "true"
     use_rviz = LaunchConfiguration("use_rviz")
     use_jsp = LaunchConfiguration("use_jsp")
@@ -86,20 +92,10 @@ def _launch_setup(context, *args, **kwargs):
             "./scripts/import-externals.sh && colcon build --symlink-install"
         )
 
-    # Mappings passed into the xacro. All values must be strings.
-    #
-    # The `ros2_control` key disables the ros2_control include for view-only
-    # processing. This key name mirrors upstream display_openarm.launch.py; if
-    # the upstream xacro names the flag differently, adjust it once the package
-    # is imported on disk.
-    mappings = {
-        "arm_type": arm_type,
-        "ros2_control": ros2_control,
-    }
-    # `preset` is an optional override; only forward it when set, so an empty
-    # default does not clobber the xacro's own preset handling.
-    if preset:
-        mappings["preset"] = preset
+    # The v2.0 xacro selects links through robot_preset (string). This is the
+    # only model arg upstream display_openarm.launch.py passes for v2.0; the
+    # ros2_control include runs with fake hardware and needs no disable flag.
+    mappings = {"robot_preset": robot_preset}
 
     try:
         doc = xacro.process_file(xacro_path, mappings=mappings)
@@ -108,9 +104,9 @@ def _launch_setup(context, *args, **kwargs):
         raise RuntimeError(
             f"Failed to process OpenArm xacro: {xacro_path}\n"
             f"mappings={mappings}\n"
-            "If a ros2_control include errors during view-only processing, "
-            "ensure ros2_control is disabled (ros2_control:=false). See upstream "
-            "display_openarm.launch.py for the reference xacro mappings."
+            "Valid robot_preset values: default_bimanual, right_arm, left_arm, "
+            "right_arm_with_pinch_gripper, left_arm_with_pinch_gripper. See "
+            "upstream display_openarm.launch.py for the reference mappings."
         ) from exc
 
     nodes = [
@@ -145,7 +141,16 @@ def _launch_setup(context, *args, **kwargs):
                 executable="foxglove_bridge",
                 name="foxglove_bridge",
                 output="screen",
-                parameters=[{"port": 8765, "address": "0.0.0.0"}],
+                # send_buffer_limit raised from the 10 MB default so the
+                # default_bimanual preset's ~10.8 MB body mesh serves (see module
+                # docstring). 128 MB covers every preset with headroom.
+                parameters=[
+                    {
+                        "port": 8765,
+                        "address": "0.0.0.0",
+                        "send_buffer_limit": 134217728,
+                    }
+                ],
             )
         )
 
@@ -156,22 +161,13 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument(
-                "arm_type",
+                "robot_preset",
                 default_value="right_arm",
                 description=(
-                    "Which arm/preset: right_arm, left_arm, default_bimanual, "
-                    "*_with_pinch_gripper."
+                    "OpenArm v2.0 preset: right_arm (default), left_arm, "
+                    "default_bimanual, right_arm_with_pinch_gripper, "
+                    "left_arm_with_pinch_gripper."
                 ),
-            ),
-            DeclareLaunchArgument(
-                "preset",
-                default_value="",
-                description="Optional preset override; forwarded to xacro only when non-empty.",
-            ),
-            DeclareLaunchArgument(
-                "ros2_control",
-                default_value="false",
-                description="Enable the ros2_control xacro include (disabled for view-only).",
             ),
             DeclareLaunchArgument(
                 "use_foxglove",

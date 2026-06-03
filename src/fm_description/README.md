@@ -187,14 +187,21 @@ docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
 
 | Arg | Default | Meaning |
 |-----|---------|---------|
-| `arm_type` | `right_arm` | preset: `right_arm`, `left_arm`, `default_bimanual`, `*_with_pinch_gripper` |
-| `preset` | `""` | optional preset override; forwarded to xacro only when non-empty |
-| `ros2_control` | `false` | enable the ros2_control xacro include (disabled for view-only) |
+| `robot_preset` | `right_arm` | v2.0 preset: `right_arm`, `left_arm`, `default_bimanual`, `right_arm_with_pinch_gripper`, `left_arm_with_pinch_gripper` |
 | `use_foxglove` | `true` | start foxglove_bridge on `ws://8765` |
 | `use_rviz` | `false` | start RViz (needs an X display) |
 | `use_jsp` | `true` | start joint_state_publisher so non-fixed joints get TF |
 
-`ros2_control` is disabled by default: its xacro include errors during view-only
-processing and is not needed to render geometry. The mapping key mirrors upstream
-`display_openarm.launch.py`; if the upstream xacro names it differently, adjust
-the mapping in the launch once the package is imported on disk.
+`robot_preset` is the only model arg the v2.0 xacro takes (mirrors upstream
+`display_openarm.launch.py`). The default `right_arm` disables the body and left
+arm, leaving a single right arm. The preset's ros2_control include runs with fake
+hardware and is harmless for a view, so no disable flag is needed.
+
+### Foxglove send-buffer limit
+
+The launch raises foxglove_bridge's `send_buffer_limit` from its 10 MB default to
+128 MB. The `default_bimanual` preset includes a ~10.8 MB body mesh
+(`body_link0.dae`) that exceeds the default; over the limit the bridge silently
+drops that asset and resets the asset channel, so neighbouring meshes fail to
+load too (links render with errors). The default `right_arm` preset stays well
+under 10 MB, but the raised limit lets every preset render.
