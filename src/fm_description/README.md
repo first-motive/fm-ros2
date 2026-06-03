@@ -140,3 +140,61 @@ them to `package://fm_description/so101_description/assets/foo.stl`. CMakeLists
 installs the description into the package share so the `package://` path resolves
 through foxglove_bridge — identical to the G1 path. The same Z-up mesh gotcha
 applies (see above) if meshes render tipped 90° about X.
+
+## View the OpenArm
+
+`launch/view_openarm.launch.py` loads the Enactic **OpenArm** as
+`robot_description`. This path differs from the G1 and SO101 on purpose — it
+proves the viewing setup adapts to a vendor that ships a real ROS package rather
+than flat files.
+
+```
+G1 / SO101                          OpenArm
+─────────────────────────────────   ─────────────────────────────────────────
+flat URDF vendored into             built ament_cmake package
+  fm_description share                (openarm_description, NOT vendored)
+launch rewrites assets/ → package://  xacro entry uses $(find ...) + package://
+                                      already; no rewrite needed
+file copy at build                  colcon build compiles it into the workspace
+```
+
+`openarm_description` is the one external left out of `COLCON_IGNORE` (see
+`scripts/import-externals.sh`), so `colcon build` compiles it into the workspace.
+The launch then processes its xacro at runtime with `xacro.process_file`. Because
+the xacro already references meshes as `package://openarm_description/...`, those
+URIs resolve through foxglove_bridge once the package is built and sourced — no
+rewrite step.
+
+```
+openarm_description (vcs, built — NOT COLCON_IGNORE'd)
+  assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro
+        │  colcon build → openarm_description on the workspace overlay
+        │  launch: xacro.process_file(...) → URDF with package://openarm_description meshes
+        ▼
+robot_state_publisher → /robot_description, /tf, /tf_static
+joint_state_publisher → /joint_states (default pose)
+foxglove_bridge       → ws://8765  (Foxglove Studio on the host renders it)
+```
+
+Setup, then launch:
+
+```bash
+./scripts/import-externals.sh    # imports openarm_description WITHOUT COLCON_IGNORE
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
+  run --rm fm_ros2 colcon build --symlink-install   # must build the package
+./scripts/view-openarm.sh        # then connect Foxglove Studio to ws://localhost:8765
+```
+
+| Arg | Default | Meaning |
+|-----|---------|---------|
+| `arm_type` | `right_arm` | preset: `right_arm`, `left_arm`, `default_bimanual`, `*_with_pinch_gripper` |
+| `preset` | `""` | optional preset override; forwarded to xacro only when non-empty |
+| `ros2_control` | `false` | enable the ros2_control xacro include (disabled for view-only) |
+| `use_foxglove` | `true` | start foxglove_bridge on `ws://8765` |
+| `use_rviz` | `false` | start RViz (needs an X display) |
+| `use_jsp` | `true` | start joint_state_publisher so non-fixed joints get TF |
+
+`ros2_control` is disabled by default: its xacro include errors during view-only
+processing and is not needed to render geometry. The mapping key mirrors upstream
+`display_openarm.launch.py`; if the upstream xacro names it differently, adjust
+the mapping in the launch once the package is imported on disk.
