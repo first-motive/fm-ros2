@@ -32,11 +32,12 @@ endforeach()
 # its meshes resolve as package://fm_description/so101_description/assets/... —
 # the only mesh scheme Foxglove Studio fetches through foxglove_bridge. The
 # SO101 upstream ships as plain files (flat so101_new_calib.urdf + assets/*.stl),
-# vendored from the vcs-imported SO-ARM100 working copy (src/external/,
-# gitignored), so present only after import-externals.sh. The trailing slash on
-# the source installs its contents (URDF + assets/) into so101_description.
-# Guarded so a clean checkout (e.g. CI without externals) still builds.
-set(SO101_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../external/SO-ARM100/Simulation/SO101")
+# vendored from the vcs-imported SO-ARM100 working copy. vcs names the dir after
+# its external.repos key (so_arm), not the repo, so the source lives at
+# src/external/so_arm/ (gitignored), present only after import-externals.sh. The
+# trailing slash on the source installs its contents (URDF + assets/) into
+# so101_description. Guarded so a clean checkout (e.g. CI without externals) still builds.
+set(SO101_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../external/so_arm/Simulation/SO101")
 if(EXISTS "${SO101_SRC}/assets")
   install(DIRECTORY "${SO101_SRC}/" DESTINATION share/${PROJECT_NAME}/so101_description)
   message(STATUS "fm_description: vendoring so101_description from ${SO101_SRC}")
