@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
+r"""
 View the Enactic OpenArm URDF as a robot_description.
 
 OpenArm differs from the G1 and SO101 views in how the description is sourced.
