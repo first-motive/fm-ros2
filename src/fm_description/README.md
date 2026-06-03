@@ -154,16 +154,22 @@ G1 / SO101                          OpenArm
 flat URDF vendored into             built ament_cmake package
   fm_description share                (openarm_description, NOT vendored)
 launch rewrites assets/ → package://  xacro entry uses $(find ...) + package://
-                                      already; no rewrite needed
+  (path rewrite)                      already; no path rewrite
 file copy at build                  colcon build compiles it into the workspace
+STL meshes, plain paths             DAE meshes under a dotted dir (openarm_v2.0)
+                                      → needs a wider bridge asset allowlist
 ```
 
 `openarm_description` is the one external left out of `COLCON_IGNORE` (see
 `scripts/import-externals.sh`), so `colcon build` compiles it into the workspace.
-The launch then processes its xacro at runtime with `xacro.process_file`. Because
-the xacro already references meshes as `package://openarm_description/...`, those
-URIs resolve through foxglove_bridge once the package is built and sourced — no
-rewrite step.
+The launch then processes its xacro at runtime with `xacro.process_file`. The
+xacro already references meshes as `package://openarm_description/...`, so those
+URIs need no path rewrite — foxglove_bridge resolves them in-container once the
+package is built and sourced. The COLLADA (`.dae`) visual meshes render as-is.
+
+One bridge tweak is required, though (see the [allowlist
+note](#foxglove-asset-allowlist-dotted-paths) below): OpenArm's mesh paths run
+through a dotted directory, which the bridge's default asset allowlist rejects.
 
 ```
 openarm_description (vcs, built — NOT COLCON_IGNORE'd)
@@ -197,11 +203,21 @@ docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
 arm, leaving a single right arm. The preset's ros2_control include runs with fake
 hardware and is harmless for a view, so no disable flag is needed.
 
+### Foxglove asset allowlist: dotted paths
+
+OpenArm's mesh URIs run through a dotted directory, e.g.
+`package://openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link1.dae`.
+foxglove_bridge's default `asset_uri_allowlist` regex permits only `[\w-]` in
+path segments, so the dot in `openarm_v2.0` makes it reject every mesh with
+`Asset URI not allowed` — the links show load errors and nothing appears. The
+launch widens the allowlist to permit dots (`[-\w.]`). The G1/SO101 paths have no
+dotted dirs, so they need no override.
+
 ### Foxglove send-buffer limit
 
-The launch raises foxglove_bridge's `send_buffer_limit` from its 10 MB default to
-128 MB. The `default_bimanual` preset includes a ~10.8 MB body mesh
+The launch also raises foxglove_bridge's `send_buffer_limit` from its 10 MB
+default to 128 MB. The `default_bimanual` preset includes a ~10.8 MB body mesh
 (`body_link0.dae`) that exceeds the default; over the limit the bridge silently
 drops that asset and resets the asset channel, so neighbouring meshes fail to
-load too (links render with errors). The default `right_arm` preset stays well
-under 10 MB, but the raised limit lets every preset render.
+load too. The default `right_arm` preset stays well under 10 MB, but the raised
+limit lets every preset render.

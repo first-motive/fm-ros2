@@ -22,9 +22,15 @@ ships as a real, built ament_cmake ROS package (enactic/openarm_description):
 import-externals.sh leaves it OUT of COLCON_IGNORE, so `colcon build` compiles
 it into the workspace. We therefore process its xacro at launch with
 `xacro.process_file`, and the meshes already reference
-`package://openarm_description/...` throughout — once the package is built and
-sourced, foxglove_bridge's resource_retriever resolves those package:// URIs
-directly. No mesh rewrite is needed.
+`package://openarm_description/...` throughout, which foxglove_bridge's
+resource_retriever resolves in-container — no path rewrite is needed for them.
+
+The meshes do need one bridge tweak. OpenArm's package:// paths run through a
+dotted directory (openarm_v2.0), and foxglove_bridge's default asset_uri_allowlist
+regex permits only [\\w-] in path segments — so it rejects every mesh with
+"Asset URI not allowed", and nothing renders. We widen the allowlist to permit
+the dot (see the foxglove_bridge node below). The G1/SO101 paths have no dotted
+dirs, so they need no override.
 
 Xacro entry point (relative to the built openarm_description share):
     assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro
@@ -141,14 +147,24 @@ def _launch_setup(context, *args, **kwargs):
                 executable="foxglove_bridge",
                 name="foxglove_bridge",
                 output="screen",
+                # asset_uri_allowlist widened from the default: OpenArm mesh paths
+                # contain a dotted directory (openarm_v2.0), and the bridge's
+                # default regex allows only [\w-] in path segments, so it rejects
+                # every mesh ("Asset URI not allowed"). [-\w.] permits the dot. The
+                # G1/SO101 paths have no dotted dirs, so the default suffices there.
+                #
                 # send_buffer_limit raised from the 10 MB default so the
-                # default_bimanual preset's ~10.8 MB body mesh serves (see module
-                # docstring). 128 MB covers every preset with headroom.
+                # default_bimanual preset's ~10.8 MB body mesh (body_link0.dae)
+                # serves. 128 MB covers every preset with headroom.
                 parameters=[
                     {
                         "port": 8765,
                         "address": "0.0.0.0",
                         "send_buffer_limit": 134217728,
+                        "asset_uri_allowlist": [
+                            r"^package://(?:[-\w.]+/)*[-\w.]+"
+                            r"\.(?:dae|stl|obj|glb|gltf|mtl|png|jpe?g|tiff?)$"
+                        ],
                     }
                 ],
             )
