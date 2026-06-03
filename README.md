@@ -101,13 +101,23 @@ for variants and caveats.
 ## External Dependencies
 
 ```bash
-./scripts/import-externals.sh        # wraps: vcs import src/external < external.repos
+./scripts/import-externals.sh        # vendor sources: vcs import src/external < external.repos
+./scripts/setup-lerobot.sh           # then: editable lerobot env from the vendored source
 ```
 
 Pins in `external.repos` are placeholders (LeRobot, OpenArm, Unitree) — replace
 with real tags and fork before patching upstream. Vendored sources live under
 `src/external/` and are gitignored. The setup scripts call this step; run it
 standalone to refresh. If `vcs` is not on the host, run it inside the container.
+
+### LeRobot Env
+
+`setup-lerobot.sh` creates `~/.venvs/lerobot` and installs lerobot editable from
+the vendored `src/external/lerobot`, so it runs **after** `import-externals.sh`.
+The env is host-native — same story as the MuJoCo env on the M5 (CPU sim and
+dataset work, no container). The script is idempotent: it skips when the venv
+already exists. Pass `--force` to wipe and reinstall, which also migrates an
+older PyPI lerobot venv to this editable source install.
 
 ## License & Ownership
 
