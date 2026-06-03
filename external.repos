@@ -14,10 +14,21 @@ repositories:
     type: git
     url: https://github.com/huggingface/lerobot.git
     version: 741c2d0a3939ba54d6cf47f29a7fbbba3766a600  # main @ 2026-06-03; no release tag yet
-  openarm:
+  openarm_description:
+    # OpenArm description: a real ament_cmake ROS package (NOT flat files). Its
+    # xacro entry uses $(find openarm_description) and package:// throughout, so it
+    # must be BUILT into the workspace for those to resolve — see import-externals.sh,
+    # which leaves this one out of COLCON_IGNORE. Apache-2.0.
     type: git
-    url: https://github.com/enactic/openarm.git
-    version: 6e07f343c3a3324b67bc8fed41f0d4ec9ff47327  # main @ 2026-06-03; fork before patching
+    url: https://github.com/enactic/openarm_description.git
+    version: 846a82d8baf64efdbb7f55c7f64b9b004939061b  # HEAD @ 2026-06-03; fork before patching
+  so_arm:
+    # SO-ARM100 (LeRobot SO101): plain files, NOT a ROS package. Only
+    # Simulation/SO101 is consumed — a flat URDF + assets/ vendored into
+    # fm_description's share like the G1. Apache-2.0.
+    type: git
+    url: https://github.com/TheRobotStudio/SO-ARM100.git
+    version: fda892cba81032c46c40976a48c9ceadbf40a9ca  # HEAD @ 2026-06-03; fork before patching
   unitree_ros:
     # G1 (and all Unitree) robot descriptions: flat URDF + STL meshes under
     # robots/g1_description/. Distinct from unitree_ros2 (the DDS SDK below).
