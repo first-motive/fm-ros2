@@ -40,3 +40,26 @@ repositories:
     type: git
     url: https://github.com/unitreerobotics/unitree_ros2.git
     version: 5204e6e098ee53f4bd929bd77eb1d387cd0fa842  # master @ 2026-06-03; fork before patching
+  openarm_ros2:
+    # OpenArm control stack: the hardware plugin (openarm_hardware), the bringup
+    # package, and the bimanual MoveIt config. A real ament workspace — its bringup
+    # and moveit_config join our build; openarm_hardware (C++ SocketCAN, Linux-only)
+    # is COLCON_IGNORE'd by import-externals.sh and built only for the real backend.
+    # ROS2 Humble is the primary target. Apache-2.0.
+    type: git
+    url: https://github.com/enactic/openarm_ros2.git
+    version: 01b9f3815222b490a593f01379d8e2106c8da6a0  # main @ 2026-06-03; fork before patching
+  openarm_can:
+    # OpenArm CAN/CAN-FD motor library (C++, Linux SocketCAN). Consumed only by the
+    # real hardware backend (openarm_hardware), so COLCON_IGNORE'd on the Mac/sim
+    # path and built alongside openarm_hardware on Linux. Apache-2.0.
+    type: git
+    url: https://github.com/enactic/openarm_can.git
+    version: 4063506136c60f62dbd159c0ce150094426279d7  # main @ 2026-06-03; fork before patching
+  openarm_mujoco:
+    # OpenArm MuJoCo MJCF models (v0.3/v1/v2). File-vendored, not built — the
+    # mujoco_ros2_control backend loads the v2 MJCF directly. master carries v2;
+    # the ros2_control branch does not. Apache-2.0.
+    type: git
+    url: https://github.com/enactic/openarm_mujoco.git
+    version: 5c6e1b4c71cbe27c6a4b58c7f198f080449e1b9c  # master @ 2026-06-03; fork before patching
