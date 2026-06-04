@@ -35,7 +35,7 @@ scripts/view-robot.sh --robot <key>
 ROBOTS[<key>].build_description(share, variant)  →  URDF (mesh refs rewritten to package://)
         ▼
 robot_state_publisher → /robot_description, /tf, /tf_static
-joint_state_publisher → /joint_states (default pose)
+joint_state_publisher → /joint_states (default pose; source_list ← /joint_command)
 foxglove_bridge       → ws://8765  (Foxglove Studio on the host renders it)
 ```
 
@@ -87,6 +87,7 @@ Common launch args (every robot):
 | `use_foxglove` | `true` | start foxglove_bridge on `ws://8765` |
 | `use_rviz` | `false` | start RViz (needs an X display) |
 | `use_jsp` | `true` | start joint_state_publisher so non-fixed joints get TF |
+| `panel_topic` | `/joint_command` | topic jsp subscribes to (point the Foxglove panel here) |
 
 An unknown `--robot` key (shell) or `robot:=` value (launch) fails loud, listing
 the valid keys.
@@ -122,6 +123,30 @@ over-rotated. This is a display setting, not a URDF/TF issue (RViz is unaffected
 To skip this each time, import the ready-made layout `foxglove/g1_view.json`
 (Foxglove Studio → Layouts → import from file). It pre-sets the 3D panel: Z-up
 meshes, follow `AGV_link`, `/robot_description` visible.
+
+### Foxglove gotcha: Joint State Publisher panel flips between poses
+
+If the robot oscillates between two poses when you open Foxglove's **Joint State
+Publisher** panel, the panel and the headless `joint_state_publisher` node are both
+publishing `/joint_states`, and `robot_state_publisher` interleaves them:
+
+```
+joint_state_publisher node ──► /joint_states (default pose, 10 Hz)
+                                  ▲
+Foxglove panel ───────────────────┘ (slider values)   → two publishers race → flip-flop
+```
+
+The launch wires `joint_state_publisher` with `source_list:=[/joint_command]`, so it
+is the only `/joint_states` publisher and the panel feeds it instead. Point the panel
+at that topic once:
+
+```
+Joint State Publisher panel → settings → Publish topic → /joint_command
+```
+
+Now the panel publishes `/joint_command`, jsp holds the last value and republishes a
+single consistent `/joint_states`, and the flip-flop is gone. Override the topic with
+`panel_topic:=<topic>` if you prefer a different name.
 
 ### OpenArm: visual mesh up-axis baking
 

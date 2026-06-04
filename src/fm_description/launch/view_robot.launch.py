@@ -251,6 +251,7 @@ def _launch_setup(context, *args, **kwargs):
     use_foxglove = LaunchConfiguration("use_foxglove").perform(context) == "true"
     use_rviz = LaunchConfiguration("use_rviz")
     use_jsp = LaunchConfiguration("use_jsp")
+    panel_topic = LaunchConfiguration("panel_topic").perform(context)
 
     entry = ROBOTS.get(robot)
     if entry is None:
@@ -272,13 +273,26 @@ def _launch_setup(context, *args, **kwargs):
             output="screen",
             parameters=[{"robot_description": robot_description}],
         ),
+        # joint_state_publisher is the SOLE publisher of /joint_states. It seeds a
+        # default pose so movable joints get TF without any interactive client, and
+        # subscribes to `panel_topic` via source_list so Foxglove's Joint State
+        # Publisher panel drives the joints WITHOUT publishing /joint_states itself.
+        # Point the panel at /joint_command (not the default /joint_states): two
+        # publishers on /joint_states race and the robot flips between poses. With
+        # source_list, jsp holds the last panel value and republishes one consistent
+        # /joint_states — no flip-flop.
         Node(
             package="joint_state_publisher",
             executable="joint_state_publisher",
             name="joint_state_publisher",
             output="screen",
             condition=IfCondition(use_jsp),
-            parameters=[{"robot_description": robot_description}],
+            parameters=[
+                {
+                    "robot_description": robot_description,
+                    "source_list": [panel_topic],
+                }
+            ],
         ),
         Node(
             package="rviz2",
@@ -337,6 +351,15 @@ def generate_launch_description():
                 "use_jsp",
                 default_value="true",
                 description="Start joint_state_publisher so non-fixed joints get TF.",
+            ),
+            DeclareLaunchArgument(
+                "panel_topic",
+                default_value="/joint_command",
+                description=(
+                    "Topic joint_state_publisher subscribes to via source_list. "
+                    "Set the Foxglove Joint State Publisher panel to publish here "
+                    "(not /joint_states) so it feeds jsp instead of racing it."
+                ),
             ),
             OpaqueFunction(function=_launch_setup),
         ]
