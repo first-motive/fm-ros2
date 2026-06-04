@@ -52,21 +52,40 @@ fm-ros2/
 
 ## Quick Start
 
+The front door is `./run.sh`. It auto-detects the host OS, brings the dev
+container up, and opens the **fm_tui launcher** — an arrow-key menu that walks
+action → robot → variant and dispatches the launch:
+
+```bash
+./run.sh            # auto-detect overlay, open the launcher
+./run.sh --linux    # force the Linux overlay (GPU / hardware)
+./run.sh --macos    # force the macOS overlay (OrbStack, sim only)
+```
+
+Robot Description is wired end-to-end (G1-D, SO101, OpenArm); Teleop and
+Autonomous show as stubs until their launch graphs land. Connect Foxglove Studio
+to `ws://localhost:8765` to view a robot — see [Foxglove](#foxglove).
+
+First time, or after changing externals / sources, run setup and build once:
+
 ### macOS (M5, OrbStack)
 
 ```bash
 ./scripts/setup-macos.sh
-docker compose -f docker/compose.yaml -f docker/compose.macos.yaml up
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
+  run --rm fm_ros2 colcon build --symlink-install
 ```
-
-Then start the Foxglove bridge — see [Foxglove](#foxglove).
 
 ### Linux (native GPU / hardware)
 
 ```bash
 ./scripts/setup-linux.sh
-docker compose -f docker/compose.yaml -f docker/compose.linux.yaml up
+docker compose -f docker/compose.yaml -f docker/compose.linux.yaml \
+  run --rm fm_ros2 colcon build --symlink-install
 ```
+
+Then `./run.sh`. For one robot without the menu, `./scripts/view-robot.sh` is the
+direct path to the same launch file (see [Foxglove](#foxglove)).
 
 Full macOS walkthrough: [docs/setup-macos.md](docs/setup-macos.md).
 Each package has its own README under `src/<package>/`.

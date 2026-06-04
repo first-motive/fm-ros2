@@ -1,16 +1,18 @@
 # fm_tui
 
-A single-screen ROS2 terminal monitor. Python (Textual). Shows live nodes,
-topics, and colour-coded `/rosout` logs.
+Two terminal UIs over the ROS2 stack, Python (Textual):
 
-## Role
+| Mode | Entry | Does |
+|------|-------|------|
+| **monitor** | `fm_tui` | watch the live graph — nodes, topics, `/rosout` |
+| **launcher** | `fm_tui_launcher` | pick a launch from a menu and dispatch it |
+
+## Monitor
 
 ```
 ROS2 graph ──► fm_tui (rclpy) ──► terminal UI
   /rosout, node + topic lists       severity-coloured panels
 ```
-
-## Run
 
 ```bash
 ros2 run fm_tui fm_tui
@@ -18,6 +20,29 @@ ros2 run fm_tui fm_tui
 
 Press `q` to quit. The UI needs a real terminal; it does not render under a
 pipe or in CI.
+
+## Launcher Mode
+
+The launcher is the menu behind the repo-root `./run.sh`. It walks a declarative
+registry — action → robot → variant — then dispatches the matching launch:
+
+```
+registry.py (data) ──► launcher.py (Textual menu) ──► ros2 launch …
+  actions, robots, variants    arrow-key walk          wired action only
+```
+
+```bash
+ros2 run fm_tui fm_tui_launcher
+```
+
+Selecting a variant exits the UI and hands the terminal to the launch. Today
+Robot Description is wired (to `fm_description view_robot.launch.py`); Teleop and
+Autonomous render as disabled stubs until their launch graphs land.
+
+`registry.py` is the single source of truth for the **menu**; the launch file
+owns the **dispatch params**. `scripts/view-robot.sh` drives the same launch file
+from the host as the direct, scriptable path — the launcher and the script are
+two doors onto one launch file.
 
 ## Layout
 
