@@ -21,8 +21,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-humble-xacro \
     && rm -rf /var/lib/apt/lists/*
 
-# MuJoCo — arm64 CPU wheel for headless sim on M5 (also fine on Linux).
-RUN pip install --no-cache-dir mujoco
+# Python runtime deps not provided by apt/ROS:
+#   mujoco  — arm64 CPU wheel for headless sim on M5 (also fine on Linux)
+#   textual — fm_tui's TUI framework (monitor + launcher); colcon does not pip-
+#             install a package's install_requires, so the image carries it. Pin
+#             tracks fm_tui/setup.py.
+RUN pip install --no-cache-dir mujoco textual==0.74.0
 
 WORKDIR /ws
 
