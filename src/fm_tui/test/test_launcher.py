@@ -62,6 +62,23 @@ def test_stub_does_not_dispatch():
     asyncio.run(go())
 
 
+def test_first_row_highlighted_after_each_level():
+    async def go():
+        async with FmLauncherApp().run_test() as pilot:
+            await pilot.pause()
+            menu = pilot.app.query_one("#menu", ListView)
+            # Action level: first row highlighted without any arrow key.
+            assert menu.index == 0
+            assert menu.highlighted_child is menu.children[0]
+            await pilot.press("enter")  # into robot level
+            await pilot.pause()
+            # Robot level: first row highlighted immediately on entry.
+            assert menu.index == 0
+            assert menu.highlighted_child is menu.children[0]
+
+    asyncio.run(go())
+
+
 def test_back_from_robot_returns_to_actions():
     async def go():
         async with FmLauncherApp().run_test() as pilot:

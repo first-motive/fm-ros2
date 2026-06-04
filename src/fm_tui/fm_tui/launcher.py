@@ -84,8 +84,20 @@ class FmLauncherApp(App):
         menu.clear()
         for item in self._items_for_level():
             menu.append(item)
-        menu.index = 0
         self._set_prompt()
+        # Appended items mount on the next refresh; setting the index now would
+        # land before they exist, so the first row paints unhighlighted until an
+        # arrow key re-evaluates it. Defer the highlight (and focus) past the
+        # mount so the first row is selected and visible straight away.
+        self.call_after_refresh(self._highlight_first, menu)
+
+    def _highlight_first(self, menu: ListView) -> None:
+        """Select and show the first row once the new items have mounted."""
+        # Force a Highlighted event even when the index is already 0 (clearing
+        # to None first), then take focus so the highlight is drawn.
+        menu.index = None
+        menu.index = 0
+        menu.focus()
 
     def _items_for_level(self) -> list[_MenuItem]:
         if self._level == _ACTION:
