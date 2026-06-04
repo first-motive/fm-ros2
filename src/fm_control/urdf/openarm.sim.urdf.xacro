@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+First Motive OpenArm description with a backend-selectable ros2_control System.
+
+This wraps openarm_description's geometry (the openarm_v20_robot macro) and injects
+First Motive's own <ros2_control> blocks instead of upstream's fixed bimanual ones.
+The geometry is preset-driven; the control blocks are emitted to match exactly the
+arms the preset enables, so single-arm presets (right_arm) and bimanual presets
+(default_bimanual) both produce a consistent controller set.
+
+Args:
+  robot_preset   openarm_description v2.0 preset (right_arm, default_bimanual, ...)
+  sim_backend    mock | mujoco | gazebo | isaac | real  (selects the System plugin)
+  can_interface  SocketCAN device for the real backend (ignored by sim backends)
+  can_fd         CAN-FD toggle for the real backend
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="openarm">
+
+  <xacro:arg name="robot_preset" default="right_arm"/>
+  <xacro:arg name="sim_backend" default="mock"/>
+  <xacro:arg name="collapse_internal_empty_links" default="true"/>
+  <xacro:arg name="emit_grasp_frame" default="false"/>
+  <xacro:arg name="can_interface" default="can0"/>
+  <xacro:arg name="can_fd" default="true"/>
+  <xacro:arg name="isaac_joint_commands_topic" default="/isaac_joint_commands"/>
+  <xacro:arg name="isaac_joint_states_topic" default="/isaac_joint_states"/>
+
+  <!-- Geometry from openarm_description, plus First Motive's ros2_control macros. -->
+  <xacro:include filename="$(find openarm_description)/assets/robot/openarm_v2.0/urdf/utils/openarm_v20_robot.xacro"/>
+  <xacro:include filename="$(find fm_control)/urdf/openarm.ros2_control.xacro"/>
+
+  <xacro:property name="robot_root" value="$(find openarm_description)/assets/robot/openarm_v2.0"/>
+  <xacro:property name="config_root" value="${robot_root + '/config'}"/>
+  <xacro:property name="preset_cfg"
+      value="${xacro.load_yaml(config_root + '/robot_presets/' + '$(arg robot_preset)' + '.yaml')}"/>
+
+  <!-- Emit links + joints for the preset. -->
+  <xacro:openarm_v20_robot
+      config_root="${config_root}"
+      robot_preset="${preset_cfg}"
+      collapse_internal_empty_links="$(arg collapse_internal_empty_links)"
+      emit_grasp_frame="$(arg emit_grasp_frame)"/>
+
+  <!-- Resolve one spec per enabled arm: its prefix and whether it carries a gripper
+       (an enabled end_effector attached to it). Iteration order follows the preset's
+       robot.components, so joint order matches the geometry. -->
+  <xacro:property name="components" value="${preset_cfg['robot']['components']}"/>
+  <xacro:property name="arm_names"
+      value="${[n for n in components
+                if preset_cfg[n]['type'] == 'robot'
+                and preset_cfg[n]['config'] == 'arm'
+                and preset_cfg[n]['enabled']]}"/>
+  <xacro:property name="arm_specs"
+      value="${[dict(prefix=preset_cfg[n]['prefix'],
+                     hand=len([m for m in components
+                               if preset_cfg[m]['type'] == 'end_effector'
+                               and preset_cfg[m]['enabled']
+                               and 'connection' in preset_cfg[m]
+                               and 'attach_to' in preset_cfg[m]['connection']
+                               and preset_cfg[m]['connection']['attach_to'] == n]) > 0)
+                for n in arm_names]}"/>
+
+  <!-- Control gains feed the real backend only; loaded once and passed through. -->
+  <xacro:property name="control_gains"
+      value="${xacro.load_yaml(config_root + '/arm/control/control_gains.yaml')}"/>
+
+  <xacro:openarm_emit_arm_systems
+      arm_specs="${arm_specs}"
+      index="0"
+      sim_backend="$(arg sim_backend)"
+      control_gains="${control_gains}"
+      can_interface="$(arg can_interface)"
+      can_fd="$(arg can_fd)"
+      isaac_joint_commands_topic="$(arg isaac_joint_commands_topic)"
+      isaac_joint_states_topic="$(arg isaac_joint_states_topic)"/>
+
+</robot>

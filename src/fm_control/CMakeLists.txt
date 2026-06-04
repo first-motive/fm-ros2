@@ -18,6 +18,9 @@ ament_target_dependencies(control_node rclcpp)
 install(TARGETS control_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
 
+# Backend-selectable ros2_control xacro consumed by the sim/teleop launches.
+install(DIRECTORY urdf DESTINATION share/${PROJECT_NAME})
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()

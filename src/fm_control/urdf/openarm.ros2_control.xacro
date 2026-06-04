@@ -1,0 +1,158 @@
+<?xml version="1.0"?>
+<!--
+First Motive backend-selectable ros2_control for the OpenArm.
+
+One <ros2_control> system per enabled arm. The controllers, controller_manager,
+and the command/state interface set stay identical across every backend — only the
+<hardware> System plugin swaps, selected by the `sim_backend` arg:
+
+  mock    -> mock_components/GenericSystem        (no sim; perfect state echo)
+  mujoco  -> mujoco_ros2_control/MujocoSystemInterface  (Mac daily driver, CPU)
+  gazebo  -> gz_ros2_control/GazeboSimSystem      (Linux/GPU)
+  isaac   -> topic_based_ros2_control/TopicBasedSystem  (Isaac Sim over ROS topics)
+  real    -> openarm_hardware/OpenArmHW           (Linux SocketCAN -> DM motors)
+
+Joint names mirror openarm_description geometry exactly: <prefix>joint1..7, plus
+<prefix>finger_joint1 when the arm carries a gripper. `prefix` is the preset's full
+arm prefix, e.g. openarm_right_.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Emit the <hardware> block for the selected backend. control_gains/can_* are
+       consumed only by the real backend; sim backends ignore them. -->
+  <xacro:macro name="openarm_backend_hardware"
+      params="prefix sim_backend control_gains can_interface can_fd
+              isaac_joint_commands_topic isaac_joint_states_topic">
+
+    <xacro:if value="${sim_backend == 'mock'}">
+      <hardware>
+        <plugin>mock_components/GenericSystem</plugin>
+        <param name="fake_sensor_commands">false</param>
+        <param name="state_following_offset">0.0</param>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'mujoco'}">
+      <hardware>
+        <plugin>mujoco_ros2_control/MujocoSystemInterface</plugin>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'gazebo'}">
+      <hardware>
+        <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'isaac'}">
+      <hardware>
+        <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
+        <param name="joint_commands_topic">${isaac_joint_commands_topic}</param>
+        <param name="joint_states_topic">${isaac_joint_states_topic}</param>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'real'}">
+      <hardware>
+        <plugin>openarm_hardware/OpenArmHW</plugin>
+        <param name="can_interface">${can_interface}</param>
+        <param name="arm_prefix">${prefix}</param>
+        <param name="can_fd">${can_fd}</param>
+        <param name="kp1">${control_gains['joint1']['kp']}</param>
+        <param name="kp2">${control_gains['joint2']['kp']}</param>
+        <param name="kp3">${control_gains['joint3']['kp']}</param>
+        <param name="kp4">${control_gains['joint4']['kp']}</param>
+        <param name="kp5">${control_gains['joint5']['kp']}</param>
+        <param name="kp6">${control_gains['joint6']['kp']}</param>
+        <param name="kp7">${control_gains['joint7']['kp']}</param>
+        <param name="kd1">${control_gains['joint1']['kd']}</param>
+        <param name="kd2">${control_gains['joint2']['kd']}</param>
+        <param name="kd3">${control_gains['joint3']['kd']}</param>
+        <param name="kd4">${control_gains['joint4']['kd']}</param>
+        <param name="kd5">${control_gains['joint5']['kd']}</param>
+        <param name="kd6">${control_gains['joint6']['kd']}</param>
+        <param name="kd7">${control_gains['joint7']['kd']}</param>
+      </hardware>
+    </xacro:if>
+  </xacro:macro>
+
+  <!-- One joint: position/velocity/effort command + position/velocity/effort state.
+       Identical across backends so the controller set never changes. -->
+  <xacro:macro name="openarm_joint" params="joint_name initial_position:=0.0">
+    <joint name="${joint_name}">
+      <command_interface name="position"/>
+      <command_interface name="velocity"/>
+      <command_interface name="effort"/>
+      <state_interface name="position">
+        <param name="initial_value">${initial_position}</param>
+      </state_interface>
+      <state_interface name="velocity">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="effort">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+    </joint>
+  </xacro:macro>
+
+  <!-- One <ros2_control> system for a single arm: backend hardware + 7 arm joints,
+       plus finger_joint1 when the arm carries a gripper. -->
+  <xacro:macro name="openarm_arm_system"
+      params="prefix hand sim_backend control_gains
+              can_interface:=can0 can_fd:=true
+              isaac_joint_commands_topic:=/isaac_joint_commands
+              isaac_joint_states_topic:=/isaac_joint_states">
+
+    <ros2_control name="${prefix}system" type="system">
+      <xacro:openarm_backend_hardware
+          prefix="${prefix}"
+          sim_backend="${sim_backend}"
+          control_gains="${control_gains}"
+          can_interface="${can_interface}"
+          can_fd="${can_fd}"
+          isaac_joint_commands_topic="${isaac_joint_commands_topic}"
+          isaac_joint_states_topic="${isaac_joint_states_topic}" />
+
+      <xacro:openarm_joint joint_name="${prefix}joint1"/>
+      <xacro:openarm_joint joint_name="${prefix}joint2"/>
+      <xacro:openarm_joint joint_name="${prefix}joint3"/>
+      <xacro:openarm_joint joint_name="${prefix}joint4"/>
+      <xacro:openarm_joint joint_name="${prefix}joint5"/>
+      <xacro:openarm_joint joint_name="${prefix}joint6"/>
+      <xacro:openarm_joint joint_name="${prefix}joint7"/>
+
+      <xacro:if value="${hand}">
+        <xacro:openarm_joint joint_name="${prefix}finger_joint1"/>
+      </xacro:if>
+    </ros2_control>
+  </xacro:macro>
+
+  <!-- Recurse over the resolved arm specs (one dict per enabled arm) and emit a
+       system for each. Iteration mirrors openarm_description's index recursion. -->
+  <xacro:macro name="openarm_emit_arm_systems"
+      params="arm_specs index sim_backend control_gains
+              can_interface can_fd isaac_joint_commands_topic isaac_joint_states_topic">
+    <xacro:if value="${index &lt; len(arm_specs)}">
+      <xacro:property name="spec" value="${arm_specs[index]}" lazy_eval="false"/>
+      <xacro:openarm_arm_system
+          prefix="${spec['prefix']}"
+          hand="${spec['hand']}"
+          sim_backend="${sim_backend}"
+          control_gains="${control_gains}"
+          can_interface="${can_interface}"
+          can_fd="${can_fd}"
+          isaac_joint_commands_topic="${isaac_joint_commands_topic}"
+          isaac_joint_states_topic="${isaac_joint_states_topic}" />
+      <xacro:openarm_emit_arm_systems
+          arm_specs="${arm_specs}"
+          index="${index + 1}"
+          sim_backend="${sim_backend}"
+          control_gains="${control_gains}"
+          can_interface="${can_interface}"
+          can_fd="${can_fd}"
+          isaac_joint_commands_topic="${isaac_joint_commands_topic}"
+          isaac_joint_states_topic="${isaac_joint_states_topic}" />
+    </xacro:if>
+  </xacro:macro>
+
+</robot>
