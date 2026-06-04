@@ -19,12 +19,10 @@ vcs import src/external < external.repos
 # Selective workspace build: externals are sources to read or file-vendor, NOT to
 # build — except real ament packages whose code or xacro we consume directly:
 #   openarm_description  — xacro needs $(find openarm_description) + package://
-#   openarm_ros2         — bringup + bimanual MoveIt config; joins the build once
-#                          the ros2_control/MoveIt deps land (see Dockerfile.base),
-#                          add it to BUILD_DIRS then.
+#   openarm_ros2         — bringup + bimanual MoveIt config (launch/config only)
 # Everything else (lerobot, so_arm, unitree_*, openarm_can, openarm_mujoco) is
 # file-vendored or Linux-only, so it gets a COLCON_IGNORE marker.
-BUILD_DIRS=(openarm_description)
+BUILD_DIRS=(openarm_description openarm_ros2)
 # Sub-packages inside a built repo that must stay OUT of the build. openarm_hardware
 # is C++ SocketCAN (Linux-only, needs openarm_can) and joins the build only on the
 # real backend — drop a nested marker so the rest of openarm_ros2 still builds.

@@ -21,6 +21,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-humble-xacro \
     && rm -rf /var/lib/apt/lists/*
 
+# ros2_control + simulation + MoveIt stack. One image serves every sim backend;
+# the compose overlay only swaps GPU/devices, never the controllers. All arm64 +
+# amd64 on the Humble apt mirror, so no source builds.
+#   ros2-control / ros2-controllers / joint-trajectory-controller
+#                              — controller_manager + JTC + forward + broadcasters
+#   moveit / moveit-servo      — planning scene + Cartesian/joint jogging for teleop
+#   mujoco-ros2-control        — MuJoCo System plugin (Mac daily driver)
+#   gz-ros2-control            — Gazebo System plugin (Linux/GPU overlay; pulls gz-sim)
+#   topic-based-ros2-control   — topic bridge System for Isaac Sim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ros-humble-ros2-control \
+      ros-humble-ros2-controllers \
+      ros-humble-joint-trajectory-controller \
+      ros-humble-moveit \
+      ros-humble-moveit-servo \
+      ros-humble-mujoco-ros2-control \
+      ros-humble-gz-ros2-control \
+      ros-humble-topic-based-ros2-control \
+    && rm -rf /var/lib/apt/lists/*
+
 # Python runtime deps not provided by apt/ROS:
 #   mujoco  — arm64 CPU wheel for headless sim on M5 (also fine on Linux)
 #   textual — fm_tui's TUI framework (monitor + launcher); colcon does not pip-
