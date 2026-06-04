@@ -93,10 +93,11 @@ sessions with no extra DDS config. Tear it down with
 `docker compose -f docker/compose.yaml -f docker/compose.macos.yaml down`. Throwaway
 runs an isolated bridge that cleans up on exit.
 
-To view the Unitree G1 (G1-D) URDF in Foxglove, run `./scripts/view-g1.sh` — it
-starts robot_state_publisher plus the bridge with meshes. See
-[src/fm_description/README.md](src/fm_description/README.md#view-the-unitree-g1)
-for variants and caveats.
+To view a robot URDF in Foxglove, run `./scripts/view-robot.sh` (default G1-D;
+`--robot so101` or `--robot openarm` for the others) — it starts
+robot_state_publisher plus the bridge with meshes. See
+[src/fm_description/README.md](src/fm_description/README.md#view-robots) for the
+robot table, variants, and caveats.
 
 ## External Dependencies
 

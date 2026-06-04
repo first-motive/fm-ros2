@@ -20,73 +20,99 @@ launch/   description-only launch helpers
 
 `ament_cmake`. Installs `urdf/`, `meshes/`, `launch/` to the package share.
 
-## View the Unitree G1
+## View Robots
 
-`launch/view_g1.launch.py` loads a Unitree G1 URDF as `robot_description` and
-serves it to Foxglove Studio with meshes. Default is **g1_d** — the wheeled G1-D
-(AGV base, two wheels, dual arms). Sources come from the `unitree_ros` repo,
-vendored into `src/external/` via vcs, then installed into this package's share at
-build (so meshes resolve as `package://`).
+One entry point renders any supported robot. `scripts/view-robot.sh` brings the
+container stack up and serves the view to Foxglove Studio on the host;
+`launch/view_robot.launch.py` holds an inline `ROBOTS` registry, one entry per
+robot. Default robot is **g1_d** (the wheeled G1-D). Adding a robot is one new
+registry entry plus one row in the table below — no new launch file or wrapper.
 
 ```
-unitree_ros (vcs, gitignored)
-  robots/g1_d_description/g1_d.urdf  +  meshes/*.STL
-        │  colcon build → install into share/fm_description/g1_d_description/
-        │  launch reads URDF, rewrites meshes/ → package://fm_description/...
+scripts/view-robot.sh --robot <key>
+        │  docker compose up -d  →  ros2 launch fm_description view_robot.launch.py robot:=<key>
+        ▼
+ROBOTS[<key>].build_description(share, variant)  →  URDF (mesh refs rewritten to package://)
         ▼
 robot_state_publisher → /robot_description, /tf, /tf_static
 joint_state_publisher → /joint_states (default pose)
 foxglove_bridge       → ws://8765  (Foxglove Studio on the host renders it)
 ```
 
-Setup, then launch:
+### Usage
+
+Vendor the sources and build once, then launch any robot:
 
 ```bash
-./scripts/import-externals.sh    # clone unitree_ros into src/external/ (once)
+./scripts/import-externals.sh    # vendor / import robot sources into src/external/ (once)
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
   run --rm fm_ros2 colcon build --symlink-install
-./scripts/view-g1.sh             # then connect Foxglove Studio to ws://localhost:8765
+./scripts/view-robot.sh                                  # g1_d wheeled G1-D (default)
+./scripts/view-robot.sh --robot g1_d --variant g1_29dof_rev_1_0   # bipedal body
+./scripts/view-robot.sh --robot so101
+./scripts/view-robot.sh --robot openarm                  # right_arm
+./scripts/view-robot.sh --robot openarm --variant default_bimanual
+./scripts/view-robot.sh use_rviz:=true                   # RViz (needs an X display)
 ```
 
-### Variants
+Then connect Foxglove Studio to `ws://localhost:8765`. `--robot` accepts hyphen
+or underscore (`g1-d` == `g1_d`); any extra args pass straight through to
+`ros2 launch`.
 
-Both the wheeled G1-D and the bipedal body are installed. Switch with launch args:
+### Robots
 
-```bash
-./scripts/view-g1.sh                                          # g1_d (wheeled, default)
-./scripts/view-g1.sh g1_root:=$(ros2 pkg prefix fm_description)/share/fm_description/g1_description variant:=g1_29dof_rev_1_0
-./scripts/view-g1.sh use_rviz:=true                           # RViz (needs an X display)
-```
+| `--robot` | `--variant` (default first) | Source | Mesh rewrite |
+|-----------|------------------------------|--------|--------------|
+| `g1_d` | `g1_d`, `g1_29dof_rev_1_0` | `unitree_ros` flat URDF, vendored into share | `meshes/` → `package://fm_description/<desc>/meshes/` |
+| `so101` | _(none — single description)_ | `SO-ARM100` flat URDF, vendored into share | `assets/` → `package://fm_description/so101_description/assets/` |
+| `openarm` | `right_arm`, `left_arm`, `default_bimanual`, `*_with_pinch_gripper` | `openarm_description` built ament_cmake package | visual `.dae` → `package://fm_description/openarm_meshes/*.stl` |
+
+- **g1_d** — both the wheeled G1-D and the bipedal 29 DOF body are installed; pick
+  with `--variant`. The bipedal `g1_description` ships hand variants too (e.g.
+  `g1_29dof_rev_1_0_with_inspire_hand_FTP`); the G1-D hand is not yet locked
+  (Inspire U6 leading).
+- **so101** — the upstream (`TheRobotStudio/SO-ARM100`) ships plain files, not a
+  ROS package; `--variant` is ignored.
+- **openarm** — `--variant` is the xacro `robot_preset` (mirrors upstream
+  `display_openarm.launch.py`). The default `right_arm` disables the body and left
+  arm. The preset's ros2_control include runs with fake hardware and is harmless
+  for a view, so no disable flag is needed.
+
+Common launch args (every robot):
 
 | Arg | Default | Meaning |
 |-----|---------|---------|
-| `variant` | `g1_d` | URDF basename in `g1_root` |
-| `g1_root` | `<share>/fm_description/g1_d_description` | dir holding the URDF + `meshes/` |
+| `robot` | `g1_d` | registry key: `g1_d`, `so101`, `openarm` |
+| `variant` | _(empty → entry default)_ | robot sub-form (see the table above) |
 | `use_foxglove` | `true` | start foxglove_bridge on `ws://8765` |
 | `use_rviz` | `false` | start RViz (needs an X display) |
 | `use_jsp` | `true` | start joint_state_publisher so non-fixed joints get TF |
 
-The bipedal `g1_description` ships hand variants too (e.g.
-`g1_29dof_rev_1_0_with_inspire_hand_FTP`); the G1-D hand is not yet locked
-(Inspire U6 leading).
+An unknown `--robot` key (shell) or `robot:=` value (launch) fails loud, listing
+the valid keys.
 
 ### Mesh resolution
 
-G1 URDFs reference meshes as relative `meshes/foo.STL`, which RViz and Foxglove
-cannot resolve alone. The launch rewrites them to
-`package://fm_description/<desc>/meshes/foo.STL` (`<desc>` = the `g1_root` dir
-name). Foxglove Studio routes `package://` (and only `package://`) to
-foxglove_bridge, which resolves it inside the container and streams the bytes to
-Studio. Other schemes (`file://`, `http://`) are fetched host-side by Studio and
-cannot see container files, so they fail. CMakeLists installs the descriptions
-into the package share to make the `package://` path resolve; the bridge's
-default `asset_uri_allowlist` already permits it.
+Every registry entry rewrites its mesh references to `package://fm_description/...`
+before publishing the URDF. Foxglove Studio routes `package://` (and only
+`package://`) to foxglove_bridge, which resolves it inside the container and
+streams the bytes to Studio. Other schemes (`file://`, `http://`) are fetched
+host-side by Studio and cannot see container files, so they fail. CMakeLists
+installs every description into the package share to make the `package://` path
+resolve; the bridge's default `asset_uri_allowlist` permits the simple paths
+(OpenArm widens it — see below).
+
+The g1_d and so101 entries read a flat vendored URDF and do a relative-path
+rewrite (`meshes/` or `assets/` → `package://`). OpenArm instead ships as a built
+ament_cmake package, so its entry processes the xacro at launch with
+`xacro.process_file` and rewrites visual `.dae` references onto a converted STL
+set — detailed below.
 
 ### Foxglove gotcha: meshes tipped 90° about X
 
-If the robot renders with correct link positions but every mesh rotated 90° about
-X, set the Foxglove 3D panel's mesh up-axis to match ROS. Foxglove defaults to
-Y-up and rotates STL meshes +90° about X; Unitree STLs are Z-up, so they end up
+If a robot renders with correct link positions but every mesh rotated 90° about X,
+set the Foxglove 3D panel's mesh up-axis to match ROS. Foxglove defaults to Y-up
+and rotates meshes +90° about X; the vendored meshes are Z-up, so they end up
 over-rotated. This is a display setting, not a URDF/TF issue (RViz is unaffected):
 
 ```
@@ -94,123 +120,10 @@ over-rotated. This is a display setting, not a URDF/TF issue (RViz is unaffected
 ```
 
 To skip this each time, import the ready-made layout `foxglove/g1_view.json`
-(Foxglove Studio → Layouts → import from file). It pre-sets the 3D panel:
-Z-up meshes, follow `AGV_link`, `/robot_description` visible.
+(Foxglove Studio → Layouts → import from file). It pre-sets the 3D panel: Z-up
+meshes, follow `AGV_link`, `/robot_description` visible.
 
-## View the SO101
-
-`launch/view_so101.launch.py` loads the LeRobot **SO101** arm URDF as
-`robot_description` and serves it to Foxglove Studio with meshes. The SO101
-upstream (`TheRobotStudio/SO-ARM100`) ships as plain files — a flat
-`so101_new_calib.urdf` plus `assets/*.stl` — not a ROS package. This is the same
-shape as the G1: the files are vendored into this package's share at build, then
-the launch rewrites relative mesh paths to `package://` so they resolve.
-
-```
-SO-ARM100 (vcs, gitignored)
-  Simulation/SO101/so101_new_calib.urdf  +  assets/*.stl
-        │  colcon build → install into share/fm_description/so101_description/
-        │  launch reads URDF, rewrites assets/ → package://fm_description/...
-        ▼
-robot_state_publisher → /robot_description, /tf, /tf_static
-joint_state_publisher → /joint_states (default pose)
-foxglove_bridge       → ws://8765  (Foxglove Studio on the host renders it)
-```
-
-Setup, then launch:
-
-```bash
-./scripts/import-externals.sh    # clone SO-ARM100 into src/external/ (once)
-docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm_ros2 colcon build --symlink-install
-./scripts/view-so101.sh          # then connect Foxglove Studio to ws://localhost:8765
-```
-
-| Arg | Default | Meaning |
-|-----|---------|---------|
-| `so101_root` | `<share>/fm_description/so101_description` | dir holding `so101_new_calib.urdf` + `assets/` |
-| `use_foxglove` | `true` | start foxglove_bridge on `ws://8765` |
-| `use_rviz` | `false` | start RViz (needs an X display) |
-| `use_jsp` | `true` | start joint_state_publisher so non-fixed joints get TF |
-
-### Mesh resolution
-
-The SO101 URDF references meshes as relative `assets/foo.stl`. The launch rewrites
-them to `package://fm_description/so101_description/assets/foo.stl`. CMakeLists
-installs the description into the package share so the `package://` path resolves
-through foxglove_bridge — identical to the G1 path. The same Z-up mesh gotcha
-applies (see above) if meshes render tipped 90° about X.
-
-## View the OpenArm
-
-`launch/view_openarm.launch.py` loads the Enactic **OpenArm** as
-`robot_description`. This path differs from the G1 and SO101 on purpose — it
-proves the viewing setup adapts to a vendor that ships a real ROS package rather
-than flat files.
-
-```
-G1 / SO101                          OpenArm
-─────────────────────────────────   ─────────────────────────────────────────
-flat URDF vendored into             built ament_cmake package
-  fm_description share                (openarm_description, NOT vendored)
-file copy at build                  colcon build compiles the package; the
-                                      build also converts its visual meshes
-launch rewrites assets/ → package://  launch rewrites visual .dae refs →
-  (path rewrite)                       package://fm_description/openarm_meshes/*.stl
-STL meshes, plain paths             DAE meshes under a dotted dir (openarm_v2.0),
-                                      mixed up-axes → baked into STL via assimp +
-                                      a wider bridge asset allowlist
-```
-
-`openarm_description` is the one external left out of `COLCON_IGNORE` (see
-`scripts/import-externals.sh`), so `colcon build` compiles it into the workspace.
-The launch then processes its xacro at runtime with `xacro.process_file`. The
-xacro references meshes as `package://openarm_description/...`. Collision meshes
-are already STL and resolve in-container as-is. The visual meshes are COLLADA
-(`.dae`) with mixed up-axes that Foxglove cannot read, so the build converts them
-to STL (baking each file's up_axis) and the launch rewrites each visual reference
-to `package://fm_description/openarm_meshes/...stl` (see [up-axis
-baking](#visual-mesh-up-axis-baking) below).
-
-One bridge tweak is required, too (see the [allowlist
-note](#foxglove-asset-allowlist-dotted-paths) below): the mesh paths run through a
-dotted directory, which the bridge's default asset allowlist rejects.
-
-```
-openarm_description (vcs, built — NOT COLCON_IGNORE'd)
-  assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro  +  visual *.dae (mixed up-axes)
-        │  colcon build → openarm_description on the overlay; fm_description build
-        │    converts visual .dae → STL into share/fm_description/openarm_meshes/
-        │  launch: xacro.process_file(...) → URDF, then rewrites visual refs
-        │    package://openarm_description/*.dae → package://fm_description/openarm_meshes/*.stl
-        ▼
-robot_state_publisher → /robot_description, /tf, /tf_static
-joint_state_publisher → /joint_states (default pose)
-foxglove_bridge       → ws://8765  (Foxglove Studio on the host renders it)
-```
-
-Setup, then launch:
-
-```bash
-./scripts/import-externals.sh    # imports openarm_description WITHOUT COLCON_IGNORE
-docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm_ros2 colcon build --symlink-install   # must build the package
-./scripts/view-openarm.sh        # then connect Foxglove Studio to ws://localhost:8765
-```
-
-| Arg | Default | Meaning |
-|-----|---------|---------|
-| `robot_preset` | `right_arm` | v2.0 preset: `right_arm`, `left_arm`, `default_bimanual`, `right_arm_with_pinch_gripper`, `left_arm_with_pinch_gripper` |
-| `use_foxglove` | `true` | start foxglove_bridge on `ws://8765` |
-| `use_rviz` | `false` | start RViz (needs an X display) |
-| `use_jsp` | `true` | start joint_state_publisher so non-fixed joints get TF |
-
-`robot_preset` is the only model arg the v2.0 xacro takes (mirrors upstream
-`display_openarm.launch.py`). The default `right_arm` disables the body and left
-arm, leaving a single right arm. The preset's ros2_control include runs with fake
-hardware and is harmless for a view, so no disable flag is needed.
-
-### Visual mesh up-axis baking
+### OpenArm: visual mesh up-axis baking
 
 OpenArm's upstream visual meshes are COLLADA (`.dae`) with **inconsistent declared
 up-axes**: the arm and pinch-gripper meshes are `Y_UP`, the body mesh is `Z_UP`.
@@ -242,24 +155,34 @@ here would double-rotate the meshes and scatter the assembled robot. Collision
 meshes are already STL and are not rendered by default, so they are left pointing at
 `openarm_description`.
 
-Set the Foxglove 3D panel's mesh up-axis to Z-up (the same setting the G1/SO101
-views use) and the robot renders upright for every preset.
-
-### Foxglove asset allowlist: dotted paths
+### OpenArm: Foxglove asset allowlist and send-buffer limit
 
 OpenArm's mesh URIs run through a dotted directory, e.g.
 `package://openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link1.dae`.
-foxglove_bridge's default `asset_uri_allowlist` regex permits only `[\w-]` in
-path segments, so the dot in `openarm_v2.0` makes it reject every mesh with
-`Asset URI not allowed` — the links show load errors and nothing appears. The
-launch widens the allowlist to permit dots (`[-\w.]`). The G1/SO101 paths have no
-dotted dirs, so they need no override.
+foxglove_bridge's default `asset_uri_allowlist` regex permits only `[\w-]` in path
+segments, so the dot in `openarm_v2.0` makes it reject every mesh with `Asset URI
+not allowed` — the links show load errors and nothing appears. The openarm entry's
+`bridge_params` widen the allowlist to permit dots (`[-\w.]`). The g1_d/so101 paths
+have no dotted dirs, so they keep the default.
 
-### Foxglove send-buffer limit
+The same entry raises `send_buffer_limit` from its 10 MB default to 128 MB. The
+`default_bimanual` preset includes a ~10.8 MB body mesh (`body_link0.dae`) that
+exceeds the default; over the limit the bridge silently drops that asset and
+resets the asset channel, so neighbouring meshes fail to load too. The default
+`right_arm` preset stays well under 10 MB, but the raised limit lets every preset
+render.
 
-The launch also raises foxglove_bridge's `send_buffer_limit` from its 10 MB
-default to 128 MB. The `default_bimanual` preset includes a ~10.8 MB body mesh
-(`body_link0.dae`) that exceeds the default; over the limit the bridge silently
-drops that asset and resets the asset channel, so neighbouring meshes fail to
-load too. The default `right_arm` preset stays well under 10 MB, but the raised
-limit lets every preset render.
+### Adding a robot
+
+Each robot is one entry in the `ROBOTS` dict in `launch/view_robot.launch.py`:
+
+1. Vendor or build the source — flat URDF into the package share (like g1_d /
+   so101), or a built ROS package left out of `COLCON_IGNORE` (like openarm) —
+   and ensure the meshes install into the package share so `package://` resolves.
+2. Add a `build_description(share, variant) -> urdf_xml` callable that reads the
+   source and rewrites its mesh references to `package://fm_description/...`.
+3. Register an entry: `label`, `default_variant`, `build_description`, and
+   `bridge_params` (start from the default `{port, address}`; extend only if the
+   vendor needs it, as openarm does for the dotted-path allowlist and send buffer).
+4. Add a row to the [Robots](#robots) table here, and update the valid-key list in
+   `scripts/view-robot.sh`.
