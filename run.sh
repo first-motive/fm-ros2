@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Single front door for the fm_ros2 stack. Brings the dev container up and opens
+# the fm_tui launcher — an arrow-key menu that walks action -> robot -> variant
+# and dispatches the launch (robot description today; teleop/autonomous stubbed).
+#
+# It auto-detects the host OS to pick the compose overlay (macOS / Linux) and
+# reuses the shared-stack pattern from scripts/view-robot.sh: `up -d`, then `exec`
+# the launcher through the image entrypoint so ROS + the workspace overlay are
+# sourced.
+#
+#   ./run.sh                  # auto-detect overlay, open the launcher
+#   ./run.sh --linux          # force the Linux overlay (GPU / hardware)
+#   ./run.sh --macos          # force the macOS overlay (OrbStack, sim only)
+#
+# Prerequisites (run once, or after changing externals / sources):
+#   ./scripts/import-externals.sh    # vendor robot sources into src/external/
+#   docker compose -f docker/compose.yaml -f docker/compose.<os>.yaml \
+#     run --rm fm_ros2 colcon build --symlink-install
+#
+# scripts/view-robot.sh coexists as the direct, scriptable path to the same
+# view_robot.launch.py — use it when you want one robot without the menu.
+set -euo pipefail
+
+OVERLAY=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --macos)
+      OVERLAY=docker/compose.macos.yaml
+      shift
+      ;;
+    --linux)
+      OVERLAY=docker/compose.linux.yaml
+      shift
+      ;;
+    *)
+      echo "error: unknown argument '$1'" >&2
+      echo "usage: ./run.sh [--macos|--linux]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Auto-detect the overlay from the host OS when not forced by a flag.
+if [[ -z "$OVERLAY" ]]; then
+  case "$(uname -s)" in
+    Darwin)
+      OVERLAY=docker/compose.macos.yaml
+      ;;
+    Linux)
+      OVERLAY=docker/compose.linux.yaml
+      ;;
+    *)
+      echo "error: unsupported host OS '$(uname -s)' — pass --macos or --linux" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+cd "$(dirname "$0")"
+
+COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
+SERVICE=fm_ros2
+
+echo ">> shared stack — bringing container up (idempotent), overlay: $OVERLAY"
+"${COMPOSE[@]}" up -d
+echo ">> opening fm_tui launcher — pick action -> robot -> variant"
+echo ">> Foxglove Studio: connect to ws://localhost:8765"
+echo ">> tear down with: ${COMPOSE[*]} down"
+# `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
+exec "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh fm_tui_launcher
