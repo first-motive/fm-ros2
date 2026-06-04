@@ -4,18 +4,18 @@
 # and dispatches the launch (robot description today; teleop/autonomous stubbed).
 #
 # It auto-detects the host OS to pick the compose overlay (macOS / Linux) and
-# reuses the shared-stack pattern from scripts/view-robot.sh: `up -d`, then `exec`
-# the launcher through the image entrypoint so ROS + the workspace overlay are
-# sourced.
+# reuses the shared-stack pattern from scripts/view-robot.sh: `up -d`, build the
+# workspace, then `exec` the launcher through the image entrypoint so ROS + the
+# workspace overlay are sourced.
 #
-#   ./run.sh                  # auto-detect overlay, open the launcher
+#   ./run.sh                  # auto-detect overlay, build, open the launcher
 #   ./run.sh --linux          # force the Linux overlay (GPU / hardware)
 #   ./run.sh --macos          # force the macOS overlay (OrbStack, sim only)
 #
-# Prerequisites (run once, or after changing externals / sources):
+# Every run rebuilds the workspace (colcon) before opening the launcher, so source
+# and console-script changes are always picked up. The build is incremental, so a
+# warm tree is quick. Robot sources must be vendored first, once:
 #   ./scripts/import-externals.sh    # vendor robot sources into src/external/
-#   docker compose -f docker/compose.yaml -f docker/compose.<os>.yaml \
-#     run --rm fm_ros2 colcon build --symlink-install
 #
 # scripts/view-robot.sh coexists as the direct, scriptable path to the same
 # view_robot.launch.py — use it when you want one robot without the menu.
@@ -64,8 +64,14 @@ SERVICE=fm_ros2
 
 echo ">> shared stack — bringing container up (idempotent), overlay: $OVERLAY"
 "${COMPOSE[@]}" up -d
+echo ">> building workspace (colcon, incremental) — picks up source changes"
+# Route through the entrypoint so ROS is sourced; build from /ws (the compose
+# working_dir). Incremental, so a warm tree returns fast.
+"${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
 echo ">> opening fm_tui launcher — pick action -> robot -> variant"
 echo ">> Foxglove Studio: connect to ws://localhost:8765"
 echo ">> tear down with: ${COMPOSE[*]} down"
 # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
-exec "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh fm_tui_launcher
+# The launcher is an ament_python console_script (installed under lib/fm_tui/, not
+# on PATH), so reach it via `ros2 run`, not by name.
+exec "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
