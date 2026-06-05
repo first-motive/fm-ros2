@@ -21,6 +21,9 @@
   <exec_depend>joint_trajectory_controller</exec_depend>
   <exec_depend>forward_command_controller</exec_depend>
 
+  <!-- Sim backend that hosts its own controller_manager. -->
+  <exec_depend>mujoco_ros2_control</exec_depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
