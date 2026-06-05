@@ -30,6 +30,7 @@ _VALID_INPUTS = ("foxglove", "joy", "spacenav")
 def _launch_setup(context, *args, **kwargs):
     sim_backend = LaunchConfiguration("sim_backend").perform(context)
     teleop_input = LaunchConfiguration("input").perform(context)
+    variant = LaunchConfiguration("variant").perform(context) or "right_arm"
 
     if teleop_input not in _VALID_INPUTS:
         raise RuntimeError(
@@ -45,7 +46,10 @@ def _launch_setup(context, *args, **kwargs):
                     "servo.launch.py",
                 )
             ),
-            launch_arguments={"sim_backend": sim_backend}.items(),
+            launch_arguments={
+                "sim_backend": sim_backend,
+                "variant": variant,
+            }.items(),
         )
     ]
 
@@ -74,9 +78,9 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "variant",
-                default_value="",
-                description="OpenArm preset (informational; Servo uses the right_arm "
-                "group of the bimanual MoveIt config).",
+                default_value="right_arm",
+                description="Preset; must match the running sim. Servo's SRDF + "
+                "description follow it (right_arm or default_bimanual).",
             ),
             DeclareLaunchArgument(
                 "sim_backend",
