@@ -49,6 +49,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-humble-ros-gz-bridge \
     && rm -rf /var/lib/apt/lists/*
 
+# Headless display for MuJoCo. mujoco_ros2_control opens a GLFW viewer, which needs
+# a display — absent in the headless macOS/OrbStack container. Xvfb gives it a
+# virtual one (the mujoco launch runs the node under `xvfb-run`), and mesa provides
+# software GL so rendering works without a GPU. This is what makes the MuJoCo
+# backend the Mac daily driver.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      xvfb \
+      libgl1-mesa-dri \
+      libglu1-mesa \
+    && rm -rf /var/lib/apt/lists/*
+
 # Python runtime deps not provided by apt/ROS:
 #   mujoco  — arm64 CPU wheel for headless sim on M5 (also fine on Linux)
 #   textual — fm_tui's TUI framework (monitor + launcher); colcon does not pip-

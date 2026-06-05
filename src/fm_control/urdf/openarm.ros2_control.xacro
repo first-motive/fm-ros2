@@ -35,6 +35,9 @@ arm prefix, e.g. openarm_right_.
     <xacro:if value="${sim_backend == 'mujoco'}">
       <hardware>
         <plugin>mujoco_ros2_control/MujocoSystemInterface</plugin>
+        <!-- MujocoSystemInterface reads the MJCF from this URDF param.
+             mujoco_model_path is set by the top-level xacro. -->
+        <param name="mujoco_model">${mujoco_model_path}</param>
       </hardware>
     </xacro:if>
 

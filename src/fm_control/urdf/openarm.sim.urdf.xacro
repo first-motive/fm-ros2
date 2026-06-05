@@ -25,6 +25,11 @@ Args:
   <xacro:arg name="can_fd" default="true"/>
   <xacro:arg name="isaac_joint_commands_topic" default="/isaac_joint_commands"/>
   <xacro:arg name="isaac_joint_states_topic" default="/isaac_joint_states"/>
+  <!-- MJCF the MuJoCo backend loads. MujocoSystemInterface reads it from this URDF
+       <param>, not a node param. Defaults to the vendored v2 bimanual model
+       (in-container path; src/external is gitignored, mounted at /ws). -->
+  <xacro:arg name="mujoco_model" default="/ws/src/external/openarm_mujoco/v2/openarm_bimanual.xml"/>
+  <xacro:property name="mujoco_model_path" value="$(arg mujoco_model)"/>
   <!-- Controllers file the Gazebo gz_ros2_control plugin loads into its embedded
        controller_manager. Only used by the gazebo backend. -->
   <xacro:arg name="gazebo_controllers_file" default=""/>
