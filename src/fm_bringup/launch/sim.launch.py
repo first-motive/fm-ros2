@@ -56,6 +56,21 @@ _CONTROLLERS = {
 
 _DEFAULT_VARIANT = "right_arm"
 
+# foxglove_bridge params for the OpenArm, mirroring fm_description's view_robot:
+# its package:// mesh paths run through a dotted directory (openarm_v2.0), which the
+# default asset_uri_allowlist ([\w-] only) rejects, so nothing renders; [-\w.] admits
+# the dot. send_buffer_limit is raised above the 10 MB default for the large
+# default_bimanual body mesh.
+_FOXGLOVE_PARAMS = {
+    "port": 8765,
+    "address": "0.0.0.0",
+    "send_buffer_limit": 134217728,
+    "asset_uri_allowlist": [
+        r"^package://(?:[-\w.]+/)*[-\w.]+"
+        r"\.(?:dae|stl|obj|glb|gltf|mtl|png|jpe?g|tiff?)$"
+    ],
+}
+
 
 def _build_description(variant, sim_backend, controllers_file):
     """Process the fm_control backend-selectable xacro into a description string."""
@@ -106,7 +121,7 @@ def _launch_setup(context, *args, **kwargs):
         Node(
             package="foxglove_bridge",
             executable="foxglove_bridge",
-            parameters=[{"port": 8765, "address": "0.0.0.0"}],
+            parameters=[_FOXGLOVE_PARAMS],
             output="screen",
             condition=IfCondition(use_foxglove),
         ),
