@@ -17,12 +17,20 @@ def test_robot_description_is_wired_with_robots():
     assert {r.key for r in rd.robots} == {"g1_d", "so101", "openarm"}
 
 
-def test_teleop_and_autonomous_are_stubs():
-    for key in ("teleop", "autonomous"):
+def test_autonomous_is_a_stub():
+    entry = action("autonomous")
+    assert not entry.wired
+    assert entry.launch is None
+    assert entry.robots == ()
+
+
+def test_simulation_and_teleop_are_wired_with_backends():
+    for key in ("simulation", "teleop"):
         entry = action(key)
-        assert not entry.wired
-        assert entry.launch is None
-        assert entry.robots == ()
+        assert entry.wired
+        assert entry.has_backends
+        assert {r.key for r in entry.robots} == {"openarm"}
+        assert "mujoco" in entry.backends
 
 
 def test_every_robot_default_is_a_listed_variant():
@@ -42,6 +50,16 @@ def test_launch_command_wires_robot_and_variant():
         "robot:=openarm",
         "variant:=left_arm",
     ]
+
+
+def test_launch_command_appends_backend_when_set():
+    spec = action("simulation").launch
+    cmd = spec.command("openarm", "right_arm", "mujoco")
+    assert cmd[-3:] == ["robot:=openarm", "variant:=right_arm", "sim_backend:=mujoco"]
+    # No backend arg -> no trailing sim_backend.
+    assert "sim_backend:=mujoco" not in action("robot_description").launch.command(
+        "openarm", "right_arm", "mujoco"
+    )
 
 
 def test_robot_rejects_default_outside_variants():

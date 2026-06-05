@@ -28,16 +28,18 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class LaunchSpec:
-    """How a wired action turns a robot + variant into a ``ros2 launch`` call."""
+    """How a wired action turns a robot + variant (+ backend) into a launch call."""
 
     package: str
     launch_file: str
     robot_arg: str = "robot"
     variant_arg: str = "variant"
+    # Sim/teleop actions also pick a backend; set this to pass it as a launch arg.
+    backend_arg: str | None = None
 
-    def command(self, robot: str, variant: str) -> list[str]:
-        """Build the ``ros2 launch`` argv for ``robot`` and ``variant``."""
-        return [
+    def command(self, robot: str, variant: str, backend: str | None = None) -> list[str]:
+        """Build the ``ros2 launch`` argv for ``robot``, ``variant`` (+ ``backend``)."""
+        argv = [
             "ros2",
             "launch",
             self.package,
@@ -45,6 +47,9 @@ class LaunchSpec:
             f"{self.robot_arg}:={robot}",
             f"{self.variant_arg}:={variant}",
         ]
+        if self.backend_arg and backend:
+            argv.append(f"{self.backend_arg}:={backend}")
+        return argv
 
 
 @dataclass(frozen=True)
@@ -72,11 +77,19 @@ class Action:
     label: str
     launch: LaunchSpec | None = None
     robots: tuple[Robot, ...] = field(default_factory=tuple)
+    # Sim backends this action offers; empty means no backend step (robot -> variant
+    # dispatches directly).
+    backends: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def wired(self) -> bool:
         """True when this action can dispatch a launch."""
         return self.launch is not None
+
+    @property
+    def has_backends(self) -> bool:
+        """True when the launcher should add a backend selection step."""
+        return bool(self.backends)
 
 
 # Robot + variant lists mirror fm_description/launch/view_robot.launch.py.
@@ -110,6 +123,30 @@ _ROBOTS = (
 )
 
 
+# Sim + teleop target OpenArm only, and only the presets with a controllers.yaml
+# (see fm_bringup/config/openarm). Backends mirror sim.launch.py's sim_backend.
+_SIM_ROBOTS = (
+    Robot(
+        key="openarm",
+        label="Enactic OpenArm",
+        variants=("right_arm", "default_bimanual"),
+        default_variant="right_arm",
+    ),
+)
+_SIM_BACKENDS = ("mujoco", "mock", "gazebo", "isaac")
+
+_SIM = LaunchSpec(
+    package="fm_bringup",
+    launch_file="sim.launch.py",
+    backend_arg="sim_backend",
+)
+_TELEOP = LaunchSpec(
+    package="fm_bringup",
+    launch_file="teleop.launch.py",
+    backend_arg="sim_backend",
+)
+
+
 ACTIONS: tuple[Action, ...] = (
     Action(
         key="robot_description",
@@ -117,8 +154,21 @@ ACTIONS: tuple[Action, ...] = (
         launch=_VIEW_ROBOT,
         robots=_ROBOTS,
     ),
-    # Stubs — planned surface, no launch graph yet. launch=None renders disabled.
-    Action(key="teleop", label="Teleop"),
+    Action(
+        key="simulation",
+        label="Simulation",
+        launch=_SIM,
+        robots=_SIM_ROBOTS,
+        backends=_SIM_BACKENDS,
+    ),
+    Action(
+        key="teleop",
+        label="Teleop",
+        launch=_TELEOP,
+        robots=_SIM_ROBOTS,
+        backends=_SIM_BACKENDS,
+    ),
+    # Stub — planned surface, no launch graph yet. launch=None renders disabled.
     Action(key="autonomous", label="Autonomous"),
 )
 

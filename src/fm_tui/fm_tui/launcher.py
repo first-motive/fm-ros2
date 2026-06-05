@@ -1,8 +1,9 @@
 """fm_tui launcher — an arrow-key menu that picks and dispatches a launch.
 
 This is the launcher mode, a sibling to the ``fm_tui`` monitor (``app.py``). It
-walks the declarative :mod:`fm_tui.registry` in three steps — action -> robot ->
-variant — then dispatches the matching ``ros2 launch`` for wired actions::
+walks the declarative :mod:`fm_tui.registry` — action -> robot -> variant, plus a
+backend step for sim/teleop actions — then dispatches the matching ``ros2 launch``
+for wired actions::
 
     Header
     ┌ menu ───────────────────────────┐
@@ -32,8 +33,9 @@ from textual.widgets import Footer, Label, ListItem, ListView
 from fm_tui.registry import Action, Robot, actions
 from fm_tui.theme import BorderedPanel, Header, apply_theme
 
-# Navigation levels, in walk order.
-_ACTION, _ROBOT, _VARIANT = "action", "robot", "variant"
+# Navigation levels, in walk order. Wired sim/teleop actions add a backend step
+# after the variant; robot_description dispatches straight from the variant.
+_ACTION, _ROBOT, _VARIANT, _BACKEND = "action", "robot", "variant", "backend"
 
 
 class _MenuItem(ListItem):
@@ -66,6 +68,7 @@ class FmLauncherApp(App):
         self._level = _ACTION
         self._action: Action | None = None
         self._robot: Robot | None = None
+        self._variant: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header("fm_tui launcher — pick an action")
@@ -111,12 +114,21 @@ class FmLauncherApp(App):
             ]
         if self._level == _ROBOT:
             return [_MenuItem(r.label, r) for r in self._action.robots]
+        if self._level == _VARIANT:
+            return [
+                _MenuItem(
+                    v if v != self._robot.default_variant else f"{v}  (default)",
+                    v,
+                )
+                for v in self._robot.variants
+            ]
+        # _BACKEND: first backend is the default.
         return [
             _MenuItem(
-                v if v != self._robot.default_variant else f"{v}  (default)",
-                v,
+                b if i != 0 else f"{b}  (default)",
+                b,
             )
-            for v in self._robot.variants
+            for i, b in enumerate(self._action.backends)
         ]
 
     def _set_prompt(self) -> None:
@@ -125,8 +137,10 @@ class FmLauncherApp(App):
             header.update("fm_tui launcher — pick an action")
         elif self._level == _ROBOT:
             header.update(f"{self._action.label} — pick a robot")
-        else:
+        elif self._level == _VARIANT:
             header.update(f"{self._robot.label} — pick a variant")
+        else:
+            header.update(f"{self._action.label} {self._variant} — pick a backend")
 
     # --- navigation --------------------------------------------------------
 
@@ -138,8 +152,16 @@ class FmLauncherApp(App):
             self._robot = value
             self._level = _VARIANT
             self._rebuild()
+        elif self._level == _VARIANT:
+            # Sim/teleop pick a backend next; everything else dispatches now.
+            if self._action.has_backends:
+                self._variant = value
+                self._level = _BACKEND
+                self._rebuild()
+            else:
+                self._dispatch(value)
         else:
-            self._dispatch(value)
+            self._dispatch(self._variant, value)
 
     def _select_action(self, act: Action) -> None:
         if not act.wired:
@@ -151,7 +173,10 @@ class FmLauncherApp(App):
 
     def action_back(self) -> None:
         """Step back one level; quit from the top."""
-        if self._level == _VARIANT:
+        if self._level == _BACKEND:
+            self._level = _VARIANT
+            self._variant = None
+        elif self._level == _VARIANT:
             self._level = _ROBOT
             self._robot = None
         elif self._level == _ROBOT:
@@ -164,9 +189,9 @@ class FmLauncherApp(App):
 
     # --- dispatch ----------------------------------------------------------
 
-    def _dispatch(self, variant: str) -> None:
+    def _dispatch(self, variant: str, backend: str | None = None) -> None:
         """Exit with the launch argv; :func:`main` runs it post-teardown."""
-        self.exit(self._action.launch.command(self._robot.key, variant))
+        self.exit(self._action.launch.command(self._robot.key, variant, backend))
 
 
 def main() -> None:

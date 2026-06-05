@@ -18,9 +18,9 @@ def test_menu_builds_from_registry():
             await pilot.pause()
             menu = pilot.app.query_one("#menu", ListView)
             assert len(menu) == len(actions())
-            # First action is wired; the two stubs carry the disabled class.
+            # Only autonomous remains a stub; it carries the disabled class.
             stub_count = sum("stub" in item.classes for item in menu.children)
-            assert stub_count == 2
+            assert stub_count == 1
 
     asyncio.run(go())
 
@@ -46,12 +46,36 @@ def test_wired_path_dispatches_launch():
     asyncio.run(go())
 
 
+def test_backend_path_dispatches_with_sim_backend():
+    async def go():
+        async with FmLauncherApp().run_test() as pilot:
+            await pilot.pause()
+            menu = pilot.app.query_one("#menu", ListView)
+            menu.index = 1  # Simulation (wired, has backends)
+            await pilot.press("enter")  # action -> robot (openarm)
+            await pilot.press("enter")  # robot -> variant (right_arm)
+            await pilot.press("enter")  # variant -> backend (mujoco default)
+            await pilot.press("enter")  # backend -> dispatch + exit
+            await pilot.pause()
+        assert pilot.app.return_value == [
+            "ros2",
+            "launch",
+            "fm_bringup",
+            "sim.launch.py",
+            "robot:=openarm",
+            "variant:=right_arm",
+            "sim_backend:=mujoco",
+        ]
+
+    asyncio.run(go())
+
+
 def test_stub_does_not_dispatch():
     async def go():
         async with FmLauncherApp().run_test() as pilot:
             await pilot.pause()
             menu = pilot.app.query_one("#menu", ListView)
-            menu.index = 1  # teleop (stub)
+            menu.index = 3  # autonomous (stub)
             await pilot.press("enter")
             await pilot.pause()
             # No dispatch: app still running on the action level, no exit value.
