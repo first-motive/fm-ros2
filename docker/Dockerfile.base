@@ -41,6 +41,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-humble-topic-based-ros2-control \
     && rm -rf /var/lib/apt/lists/*
 
+# Gazebo ROS integration: spawn entities + bridge the sim clock for the gazebo
+# backend. Separate layer so the larger control/sim layer above stays cached.
+# Gazebo runs on the Linux/GPU overlay only; carried here to keep one shared image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ros-humble-ros-gz-sim \
+      ros-humble-ros-gz-bridge \
+    && rm -rf /var/lib/apt/lists/*
+
 # Python runtime deps not provided by apt/ROS:
 #   mujoco  — arm64 CPU wheel for headless sim on M5 (also fine on Linux)
 #   textual — fm_tui's TUI framework (monitor + launcher); colcon does not pip-

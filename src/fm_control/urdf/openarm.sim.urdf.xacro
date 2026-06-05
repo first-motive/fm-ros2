@@ -24,6 +24,9 @@ Args:
   <xacro:arg name="can_fd" default="true"/>
   <xacro:arg name="isaac_joint_commands_topic" default="/isaac_joint_commands"/>
   <xacro:arg name="isaac_joint_states_topic" default="/isaac_joint_states"/>
+  <!-- Controllers file the Gazebo gz_ros2_control plugin loads into its embedded
+       controller_manager. Only used by the gazebo backend. -->
+  <xacro:arg name="gazebo_controllers_file" default=""/>
 
   <!-- Geometry from openarm_description, plus First Motive's ros2_control macros. -->
   <xacro:include filename="$(find openarm_description)/assets/robot/openarm_v2.0/urdf/utils/openarm_v20_robot.xacro"/>
@@ -73,5 +76,16 @@ Args:
       can_fd="$(arg can_fd)"
       isaac_joint_commands_topic="$(arg isaac_joint_commands_topic)"
       isaac_joint_states_topic="$(arg isaac_joint_states_topic)"/>
+
+  <!-- Gazebo hosts the controller_manager inside the sim via this world plugin,
+       which loads the controllers.yaml. Emitted only for the gazebo backend. -->
+  <xacro:if value="${'$(arg sim_backend)' == 'gazebo'}">
+    <gazebo>
+      <plugin filename="gz_ros2_control-system"
+              name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <parameters>$(arg gazebo_controllers_file)</parameters>
+      </plugin>
+    </gazebo>
+  </xacro:if>
 
 </robot>
