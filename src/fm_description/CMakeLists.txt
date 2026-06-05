@@ -70,21 +70,47 @@ if(EXISTS "${OPENARM_SRC}/assets")
       "converted. Rebuild the dev image (it installs assimp-utils) to view the "
       "OpenArm.")
   else()
-    # Build-time target: reruns when the converter or meshes change, and
-    # regenerates the output dir before the install step copies it. The script
-    # is idempotent (skips meshes already up to date), so this is cheap on
-    # incremental builds.
-    add_custom_target(openarm_meshes ALL
-      COMMAND "${Python3_EXECUTABLE}"
-              "${CMAKE_CURRENT_SOURCE_DIR}/scripts/convert_openarm_visual_meshes.py"
-              --src "${OPENARM_SRC}"
-              --out "${OPENARM_MESH_OUT}"
-              --assimp "${ASSIMP_EXE}"
-      BYPRODUCTS "${OPENARM_MESH_OUT}"
-      COMMENT "fm_description: converting OpenArm visual meshes to STL"
-      VERBATIM)
-    install(DIRECTORY "${OPENARM_MESH_OUT}/"
-            DESTINATION share/${PROJECT_NAME}/openarm_meshes)
+    # Enumerate the visual .dae sources and the .stl outputs they map to, mirroring
+    # the converter's rule (src "*/visual/*.dae" -> out "<rel>.stl"). Declaring the
+    # real .stl files as add_custom_command OUTPUTs (not a directory BYPRODUCT) lets
+    # CMake track them individually: it reruns the convert whenever an .stl is
+    # missing or its .dae/the script is newer. A bare custom target could not detect
+    # a deleted output, so a wiped build/ left dangling install symlinks that never
+    # regenerated. CONFIGURE_DEPENDS re-globs when the source set changes.
+    file(GLOB_RECURSE OPENARM_DAE_ALL CONFIGURE_DEPENDS "${OPENARM_SRC}/*.dae")
+    set(OPENARM_DAE "")
+    set(OPENARM_STL "")
+    foreach(dae ${OPENARM_DAE_ALL})
+      if(dae MATCHES "/visual/")
+        file(RELATIVE_PATH rel "${OPENARM_SRC}" "${dae}")
+        string(REGEX REPLACE "\\.dae$" ".stl" rel_stl "${rel}")
+        list(APPEND OPENARM_DAE "${dae}")
+        list(APPEND OPENARM_STL "${OPENARM_MESH_OUT}/${rel_stl}")
+      endif()
+    endforeach()
+
+    if(OPENARM_STL)
+      # The converter is idempotent (skips up-to-date meshes), so this is cheap on
+      # incremental builds and regenerates only what is missing or stale.
+      add_custom_command(
+        OUTPUT ${OPENARM_STL}
+        COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/scripts/convert_openarm_visual_meshes.py"
+                --src "${OPENARM_SRC}"
+                --out "${OPENARM_MESH_OUT}"
+                --assimp "${ASSIMP_EXE}"
+        DEPENDS ${OPENARM_DAE}
+                "${CMAKE_CURRENT_SOURCE_DIR}/scripts/convert_openarm_visual_meshes.py"
+        COMMENT "fm_description: converting OpenArm visual meshes to STL"
+        VERBATIM)
+      add_custom_target(openarm_meshes ALL DEPENDS ${OPENARM_STL})
+      install(DIRECTORY "${OPENARM_MESH_OUT}/"
+              DESTINATION share/${PROJECT_NAME}/openarm_meshes)
+    else()
+      message(WARNING
+        "fm_description: no OpenArm visual .dae found under ${OPENARM_SRC} — "
+        "meshes not converted.")
+    endif()
   endif()
 else()
   message(WARNING
