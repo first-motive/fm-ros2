@@ -6,6 +6,9 @@ build/
 install/
 log/
 
+# MuJoCo runtime log (written to cwd on each sim run)
+MUJOCO_LOG.TXT
+
 # Vendored external sources (pulled via vcs import)
 src/external/
 
