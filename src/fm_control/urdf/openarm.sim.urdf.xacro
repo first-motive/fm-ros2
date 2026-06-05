@@ -14,7 +14,8 @@ Args:
   can_interface  SocketCAN device for the real backend (ignored by sim backends)
   can_fd         CAN-FD toggle for the real backend
 -->
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="openarm">
+<!-- name must match the MoveIt SRDF (openarm_v20) so Servo/MoveIt accept the pair. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="openarm_v20">
 
   <xacro:arg name="robot_preset" default="right_arm"/>
   <xacro:arg name="sim_backend" default="mock"/>

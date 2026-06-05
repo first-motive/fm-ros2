@@ -1,0 +1,53 @@
+# MoveIt Servo for the OpenArm right_arm group — Cartesian + joint jogging.
+#
+# Servo subscribes /joint_states from the sim (any backend), turns incoming
+# TwistStamped / JointJog commands into a streamed JointTrajectory, and publishes it
+# to the right arm's JTC. Teleop inputs (Foxglove panel, joy, spacenav) publish onto
+# the delta command topics below.
+#
+# Targets the default_bimanual model so the vendored bimanual SRDF + kinematics apply
+# unchanged; the right_arm planning group jogs one arm. A single-arm SRDF would let
+# this run against the right_arm preset directly (follow-up).
+moveit_servo:
+  use_gazebo: false
+  command_in_type: unitless  # [-1, 1] for joystick-style inputs
+
+  scale:
+    linear: 0.4       # m/s at unit command
+    rotational: 0.8   # rad/s at unit command
+    joint: 0.5        # rad/s at unit command
+
+  low_latency_mode: false
+  publish_period: 0.034  # ~30 Hz command stream
+
+  # Stream a JointTrajectory to the right arm's joint_trajectory_controller.
+  command_out_type: trajectory_msgs/JointTrajectory
+  publish_joint_positions: true
+  publish_joint_velocities: false
+  publish_joint_accelerations: false
+
+  move_group_name: right_arm
+  planning_frame: openarm_right_base_link
+  ee_frame_name: openarm_right_ee_base_link
+  robot_link_command_frame: openarm_right_base_link
+
+  incoming_command_timeout: 0.1
+  joint_topic: /joint_states
+  status_topic: ~/status
+  cartesian_command_in_topic: ~/delta_twist_cmds
+  joint_command_in_topic: ~/delta_joint_cmds
+  command_out_topic: /openarm_right_arm_controller/joint_trajectory
+
+  # Collision + singularity safety — Servo slows near both.
+  check_collisions: true
+  collision_check_rate: 10.0
+  self_collision_proximity_threshold: 0.01
+  scene_collision_proximity_threshold: 0.02
+  collision_distance_safety_factor: 1000.0
+  min_allowable_collision_distance: 0.01
+
+  lower_singularity_threshold: 17.0
+  hard_stop_singularity_threshold: 30.0
+  leaving_singularity_threshold_multiplier: 2.0
+
+  joint_limit_margin: 0.1

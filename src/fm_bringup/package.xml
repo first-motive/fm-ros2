@@ -27,6 +27,10 @@
   <exec_depend>ros_gz_sim</exec_depend>
   <exec_depend>ros_gz_bridge</exec_depend>
 
+  <!-- Interactive teleop: MoveIt Servo + the vendored OpenArm MoveIt config. -->
+  <exec_depend>moveit_servo</exec_depend>
+  <exec_depend>openarm_bimanual_moveit_config</exec_depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
