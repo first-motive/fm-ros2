@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Single front door for the fm_ros2 stack. Brings the dev container up and opens
 # the fm_tui launcher — an arrow-key menu that walks action -> robot -> variant
-# and dispatches the launch (robot description today; teleop/autonomous stubbed).
+# (-> backend for sim/teleop) and dispatches the launch. Wired actions: robot
+# description, simulation, and teleop; autonomous is stubbed.
 #
 # It auto-detects the host OS to pick the compose overlay (macOS / Linux) and
 # reuses the shared-stack pattern from scripts/view-robot.sh: `up -d`, build the
@@ -17,8 +18,9 @@
 # warm tree is quick. Robot sources must be vendored first, once:
 #   ./scripts/import-externals.sh    # vendor robot sources into src/external/
 #
-# scripts/view-robot.sh coexists as the direct, scriptable path to the same
-# view_robot.launch.py — use it when you want one robot without the menu.
+# scripts/view-robot.sh, scripts/sim.sh, and scripts/teleop.sh coexist as the
+# direct, scriptable paths to the same launches — use them when you want one
+# capability without the menu.
 set -euo pipefail
 
 OVERLAY=""
@@ -68,7 +70,7 @@ echo ">> building workspace (colcon, incremental) — picks up source changes"
 # Route through the entrypoint so ROS is sourced; build from /ws (the compose
 # working_dir). Incremental, so a warm tree returns fast.
 "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
-echo ">> opening fm_tui launcher — pick action -> robot -> variant"
+echo ">> opening fm_tui launcher — pick action -> robot -> variant (-> backend)"
 echo ">> Foxglove Studio: connect to ws://localhost:8765"
 echo ">> tear down with: ${COMPOSE[*]} down"
 # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
