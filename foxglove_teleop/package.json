@@ -1,0 +1,22 @@
+{
+  "name": "fm-openarm-teleop",
+  "displayName": "First Motive OpenArm Teleop",
+  "description": "Jog the OpenArm through MoveIt Servo: publishes TwistStamped and JointJog from the browser.",
+  "publisher": "first-motive",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "main": "./dist/extension.js",
+  "keywords": ["foxglove", "ros2", "moveit", "servo", "teleop"],
+  "scripts": {
+    "build": "foxglove-extension build",
+    "local-install": "foxglove-extension install",
+    "package": "foxglove-extension package"
+  },
+  "devDependencies": {
+    "@foxglove/extension": "^2.0.0",
+    "create-foxglove-extension": "^1.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.4.0"
+  }
+}
