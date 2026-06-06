@@ -19,6 +19,10 @@ The macOS path is dev + build + sim + dataset only — no GPU, no hardware.
 
 ## Architecture
 
+Full structural diagrams — system context, component layers, runtime data flow,
+the backend-selectable hardware abstraction, deployment, and the data engine —
+live in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Quick summary:
+
 ```
 Data flow:  fm_vlta_serve -> fm_orchestration -> fm_control (ros2_control) -> hardware
             fm_description -> robot state / URDF
