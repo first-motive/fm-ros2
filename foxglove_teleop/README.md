@@ -60,6 +60,11 @@ npm run local-install   # builds and installs into the local Foxglove Studio
 
 `npm run package` produces a `.foxe` for distributing to other operators.
 
+> If a code change does not show up after `local-install` + a Foxglove restart, the build
+> cache served a stale `dist`. Force a clean rebuild: `rm -rf dist node_modules/.cache &&
+> npm run build`, then `npm run local-install`. Foxglove loads local extensions at startup,
+> so quit fully (Cmd+Q) and reopen to pick up the new bundle.
+
 ## Use
 
 1. Start the sim and Servo: `./scripts/teleop.sh --robot openarm` (default Foxglove input).

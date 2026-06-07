@@ -3,7 +3,7 @@
   "displayName": "First Motive Teleop",
   "description": "Jog a registered robot through MoveIt Servo: publishes TwistStamped and JointJog from the browser, with the joint set and frame chosen per robot in the panel settings.",
   "publisher": "first-motive",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "license": "Apache-2.0",
   "homepage": "https://github.com/Ubundi/fm-ros2/tree/main/foxglove_teleop",
   "main": "./dist/extension.js",
