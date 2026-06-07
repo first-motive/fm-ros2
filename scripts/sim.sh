@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Launch the OpenArm in a ros2_control simulation backend. One control stack, the
-# sim backend selectable with --backend; the compose overlay follows from it:
+# Launch a robot in a ros2_control simulation backend. One control stack across
+# three robots (--robot openarm | so101 | g1_d), the sim backend selectable with
+# --backend; the compose overlay follows from it:
 #
 #   mock, mujoco   -> compose.macos   (Mac daily driver, CPU)
 #   gazebo, isaac  -> compose.linux   (Linux/GPU)
@@ -14,10 +15,16 @@
 #
 # Then:
 #   ./scripts/sim.sh                                       # openarm right_arm, mujoco
-#   ./scripts/sim.sh --backend mock                        # no sim; perfect state echo
-#   ./scripts/sim.sh --variant default_bimanual            # both arms in mujoco
+#   ./scripts/sim.sh --robot so101 --backend mock          # SO101, no sim
+#   ./scripts/sim.sh --robot g1_d --backend mujoco         # G1-D right arm in mujoco
+#   ./scripts/sim.sh --variant default_bimanual            # both OpenArm arms
 #   ./scripts/sim.sh --backend gazebo                      # Linux/GPU overlay
 #   ./scripts/sim.sh --backend isaac                       # Isaac over ROS topics
+#
+# Notes: the G1-D simulates its right arm only (the rest of the body holds);
+# its mujoco model is the bipedal g1_29dof (arm joints match, wired-not-validated).
+# G1-D has no `real` sim backend — the real arm runs through the arm_sdk bridge,
+# not a controller_manager (see scripts/teleop.sh + src/fm_control).
 #
 # --robot/--backend accept hyphen or underscore form. Extra args pass straight
 # through to `ros2 launch`.

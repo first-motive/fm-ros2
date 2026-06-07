@@ -1,24 +1,37 @@
 #!/usr/bin/env bash
-# Jog the OpenArm interactively through MoveIt Servo. Brings up Servo plus the
-# selected teleop input against a sim (or real) target. The compose overlay follows
-# from --backend, same mapping as sim.sh:
+# Jog a robot's arm interactively through MoveIt Servo (--robot openarm | so101 |
+# g1_d). Brings up Servo plus the selected teleop input against a sim (or real)
+# target. The compose overlay follows from --backend, same mapping as sim.sh:
 #
 #   mock, mujoco   -> compose.macos   (Mac daily driver, CPU)
 #   gazebo, isaac  -> compose.linux   (Linux/GPU)
-#   real           -> compose.linux   (SocketCAN, Linux only)
+#   real           -> compose.linux   (hardware, Linux only)
 #
 # Teleop input devices (--input), scalability-first:
 #   foxglove   custom Foxglove panel -> TwistStamped/JointJog (browser, no HW) [default]
 #   joy        gamepad (Linux /dev/input, or Mac host-side HID->Joy bridge)
 #   spacenav   SpaceMouse 6-DOF (USB, Linux only)
 #
+# In the Foxglove panel, pick the robot in the panel settings so the joint set +
+# command frame match. Per-robot Cartesian reach:
+#   openarm  7-DOF  full 6-DOF Cartesian
+#   g1_d     7-DOF  full 6-DOF Cartesian (right arm; base driven separately)
+#   so101    5-DOF  JointJog primary; Cartesian is translation-only, orientation drifts
+#
+# Real backends differ by robot: OpenArm + SO101 use a ros2_control hardware plugin
+# (openarm SocketCAN, SO101 feetech serial); the G1-D has no such plugin — its real
+# arm runs through the Servo->arm_sdk bridge (src/fm_control/g1_arm_sdk_bridge), and
+# the wheeled base is driven separately by a Twist->AGV node. All real paths are
+# plumbed but untested — no physical hardware yet.
+#
 # Prerequisites: build the workspace first (see sim.sh). The sim/real target must
 # be reachable — run ./scripts/sim.sh in another terminal, or wire the real arm.
 #
 # Then:
 #   ./scripts/teleop.sh                              # openarm, mujoco target, foxglove
+#   ./scripts/teleop.sh --robot so101 --backend mock # SO101 teleop
+#   ./scripts/teleop.sh --robot g1_d                 # G1-D right arm, mujoco
 #   ./scripts/teleop.sh --input joy                  # gamepad
-#   ./scripts/teleop.sh --backend gazebo --input joy # Linux/GPU
 #
 # Extra args pass straight through to `ros2 launch`.
 set -euo pipefail

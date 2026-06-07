@@ -70,8 +70,8 @@ docker compose -f docker/compose.yaml -f docker/compose.<overlay>.yaml down
 
 ## Simulation & Teleop
 
-Beyond viewing a description, the launcher drives the OpenArm through `ros2_control`
-in a selectable simulator, and jogs it through MoveIt Servo. One control stack; the
+Beyond viewing a description, the launcher drives a robot through `ros2_control` in a
+selectable simulator, and jogs its arm through MoveIt Servo. One control stack; the
 sim backend swaps behind a single arg, and the backend picks the compose overlay.
 
 ```
@@ -83,24 +83,52 @@ backend → overlay              hosts the controller_manager
 ```
 
 The controllers, controller_manager, and `<ros2_control>` interfaces stay identical
-across backends — only the `<hardware>` System plugin changes. Today OpenArm is the
-wired robot (presets `right_arm` and `default_bimanual`); G1 and SO101 stay
-description-only.
+across backends — only the `<hardware>` System plugin changes. Three robots are wired
+through one registry (`fm_bringup.registry`); adding a fourth is one entry there.
+
+```
+robot    arm DOF   Servo Cartesian              real backend
+  openarm  7        full 6-DOF                   openarm_hardware (SocketCAN)
+  g1_d     7        full 6-DOF (right arm)       arm_sdk bridge — NOT ros2_control
+  so101    5        translation-only (orient. drifts)   feetech serial plugin
+```
+
+Two deliberate asymmetries:
+
+- **SO101 is 5-DOF.** It cannot span SE(3), so per-joint jogging is the primary
+  surface; Cartesian runs through Servo's inverse Jacobian, which least-squares the
+  under-actuated twist — translation tracks, orientation drifts on the unreachable
+  axis.
+- **The G1-D `real` arm is a bridge, not a ros2_control plugin.** No hardware
+  interface exists for the G1 upstream, so the real arm is driven by a Servo →
+  `unitree_hg/LowCmd` bridge on `rt/arm_sdk` (50 Hz, engagement weight on motor 29).
+  The sim backends still use standard ros2_control plugins. The wheeled base is driven
+  separately by a Twist → AGV node, not by Servo.
+
+Real backends for all three are plumbed but **untested** — no physical hardware yet.
+On the Mac, `mock` + `mujoco` validate; `gazebo`/`isaac` are wired-not-validated
+(Linux/GPU-gated). The G1-D's mujoco model is the bipedal `g1_29dof` (its arm joint
+names match; legs differ from the wheeled body), so G1 mujoco is wired-not-validated
+pending a wheeled-G1 MJCF — `mock` is its validated path.
 
 ```bash
 ./scripts/sim.sh                              # openarm right_arm in MuJoCo (default)
-./scripts/sim.sh --backend mock               # no sim; controllers on a state echo
-./scripts/sim.sh --variant default_bimanual   # both arms
-./scripts/sim.sh --backend gazebo             # Linux/GPU overlay
+./scripts/sim.sh --robot so101 --backend mock # SO101, no sim
+./scripts/sim.sh --robot g1_d --backend mock  # G1-D right arm (body holds)
+./scripts/sim.sh --variant default_bimanual   # both OpenArm arms
 ```
 
 Teleop adds MoveIt Servo plus an input source. Run `sim.sh` in one terminal, then
 `teleop.sh` in another:
 
 ```bash
-./scripts/teleop.sh                # Foxglove panel -> Servo (default)
-./scripts/teleop.sh --input joy    # gamepad
+./scripts/teleop.sh                            # openarm, Foxglove panel -> Servo
+./scripts/teleop.sh --robot so101 --backend mock
+./scripts/teleop.sh --robot g1_d               # G1-D right arm
 ```
+
+In the Foxglove panel, pick the robot in the panel settings so the joint set and
+command frame match the running target.
 
 ### Teleop Input — Scalability First
 
