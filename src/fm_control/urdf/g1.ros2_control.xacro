@@ -1,12 +1,13 @@
 <?xml version="1.0"?>
 <!--
-First Motive ros2_control for the Unitree G1-D arms (left + right, 7 joints each).
+First Motive ros2_control for the Unitree G1-D arms + wheeled base.
 
-One <ros2_control> system holds both arms; two joint_trajectory_controllers each
-claim their 7 joints (g1_right_arm_controller, g1_left_arm_controller). The waist,
-legs, hands, and the wheeled base are left unactuated here (they hold at zero via
-robot_state_publisher in sim). Only the <hardware> System plugin swaps, selected by
-`sim_backend`:
+One <ros2_control> system holds both arms (7 joints each) and the two drive wheels.
+Two joint_trajectory_controllers each claim an arm's 7 joints (g1_right_arm_controller,
+g1_left_arm_controller); a diff_drive_controller claims the two wheels' velocity
+interface (g1_base_controller). The waist, legs, and hands are left unactuated here
+(they hold at zero via robot_state_publisher in sim). Only the <hardware> System plugin
+swaps, selected by `sim_backend`:
 
   mock    -> mock_components/GenericSystem               (no sim; perfect state echo)
   mujoco  -> mujoco_ros2_control/MujocoSystemInterface   (CPU)
@@ -15,12 +16,14 @@ robot_state_publisher in sim). Only the <hardware> System plugin swaps, selected
 
 There is deliberately NO `real` ros2_control plugin: no hardware interface exists for
 the G1 upstream. The real arms are driven by the Servo->arm_sdk bridge (a 50 Hz
-unitree_hg/LowCmd loop on rt/arm_sdk), which replaces the controller + hardware at
-runtime — so for sim_backend=real this macro emits no <ros2_control> at all, leaving
-the description geometry-only for robot_state_publisher. See the bridge node.
+unitree_hg/LowCmd loop on rt/arm_sdk) and the real base by g1_base_teleop (Twist ->
+AGV Move RPC), which replace the controller + hardware at runtime — so for
+sim_backend=real this macro emits no <ros2_control> at all, leaving the description
+geometry-only for robot_state_publisher. See the bridge nodes.
 
-Joint names match the vendored g1_d URDF arms exactly. arm_sdk motor_cmd indices:
-right arm 22..28, left arm 15..21 (unitree_sdk2 JointIndex enum).
+Joint names match the vendored g1_d URDF exactly. arm_sdk motor_cmd indices: right arm
+22..28, left arm 15..21 (unitree_sdk2 JointIndex enum). The wheels (Left_Wheel_Joint,
+Right_Wheel_Joint) are velocity-controlled in sim only.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -77,14 +80,29 @@ right arm 22..28, left arm 15..21 (unitree_sdk2 JointIndex enum).
     </joint>
   </xacro:macro>
 
-  <!-- The 14-joint dual-arm system, emitted for sim backends only. -->
-  <xacro:macro name="g1_arm_system"
+  <!-- One drive wheel: velocity command + position/velocity state, claimed by the
+       diff_drive_controller. -->
+  <xacro:macro name="g1_wheel_joint" params="joint_name">
+    <joint name="${joint_name}">
+      <command_interface name="velocity"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+    </joint>
+  </xacro:macro>
+
+  <!-- The dual-arm + wheeled-base system (14 arm joints + 2 wheels), emitted for sim
+       backends only. -->
+  <xacro:macro name="g1_system"
       params="sim_backend mujoco_model_path:=''
               isaac_joint_commands_topic:=/isaac_joint_commands
               isaac_joint_states_topic:=/isaac_joint_states">
 
     <xacro:unless value="${sim_backend == 'real'}">
-      <ros2_control name="g1_arm_system" type="system">
+      <ros2_control name="g1_system" type="system">
         <xacro:g1_backend_hardware
             sim_backend="${sim_backend}"
             mujoco_model_path="${mujoco_model_path}"
@@ -106,9 +124,13 @@ right arm 22..28, left arm 15..21 (unitree_sdk2 JointIndex enum).
         <xacro:g1_arm_joint joint_name="left_wrist_roll_joint"/>
         <xacro:g1_arm_joint joint_name="left_wrist_pitch_joint"/>
         <xacro:g1_arm_joint joint_name="left_wrist_yaw_joint"/>
+
+        <xacro:g1_wheel_joint joint_name="Left_Wheel_Joint"/>
+        <xacro:g1_wheel_joint joint_name="Right_Wheel_Joint"/>
       </ros2_control>
     </xacro:unless>
-    <!-- real: no ros2_control; the Servo->arm_sdk bridge drives the arms at runtime. -->
+    <!-- real: no ros2_control; the Servo->arm_sdk bridge drives the arms and
+         g1_base_teleop drives the base at runtime. -->
   </xacro:macro>
 
 </robot>

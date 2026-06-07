@@ -110,6 +110,51 @@ PY
   sleep 2
 }
 
+# Assert the G1 sim diff-drive base: a /cmd_vel Twist reaches g1_base_controller (via the
+# cmd_vel_unstamped -> /cmd_vel remap) and the open-loop odometry tracks vx + vyaw.
+assert_g1_base_diff_drive() {
+  ros2 launch fm_bringup sim.launch.py \
+    robot:=g1_d sim_backend:=mock use_foxglove:=false >/tmp/g1_base.log 2>&1 &
+  local pid=$!
+  local up=false
+  for _ in $(seq 1 "$READY_TIMEOUT"); do
+    if ros2 control list_controllers 2>/dev/null | grep -E "g1_base_controller.*active" >/dev/null; then
+      up=true
+      break
+    fi
+    sleep 1
+  done
+  ros2 topic pub --rate 20 /cmd_vel geometry_msgs/msg/Twist \
+    "{linear: {x: 0.3}, angular: {z: 0.5}}" >/dev/null 2>&1 &
+  local ppid=$!
+  sleep 3
+  # --field dodges the tab-laden covariance arrays that break a full YAML parse.
+  local vx vyaw
+  vx=$(ros2 topic echo --once --field twist.twist.linear.x \
+    /g1_base_controller/odom 2>/dev/null | head -1)
+  vyaw=$(ros2 topic echo --once --field twist.twist.angular.z \
+    /g1_base_controller/odom 2>/dev/null | head -1)
+  kill "$ppid" 2>/dev/null || true
+  # open_loop odometry integrates the commanded vx + vyaw.
+  if $up && python3 - "$vx" "$vyaw" <<'PY'
+import sys
+try:
+    vx, vyaw = float(sys.argv[1]), float(sys.argv[2])
+    ok = abs(vx - 0.3) < 0.05 and abs(vyaw - 0.5) < 0.1
+    sys.exit(0 if ok else 1)
+except Exception as exc:
+    print(exc)
+    sys.exit(1)
+PY
+  then
+    pass "g1 base diff-drive: /cmd_vel -> g1_base_controller odom tracks vx=0.3, vyaw=0.5"
+  else
+    fail "g1 base diff-drive: controller inactive or odom did not track /cmd_vel"
+    tail -8 "/tmp/g1_base.log" || true
+  fi
+  teardown "$pid"
+}
+
 # Assert the G1 base teleop turns a Twist into the AGV Move request (api_id 1001).
 assert_g1_base_teleop() {
   ros2 run fm_control g1_base_teleop \
@@ -145,6 +190,7 @@ PY
 echo "==> ci-smoke: three-robot headless asserts"
 assert_mock_controllers so101 so101_arm_controller
 assert_mock_controllers g1_d g1_right_arm_controller
+assert_g1_base_diff_drive
 assert_g1_arm_bridge
 assert_g1_base_teleop
 

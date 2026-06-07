@@ -96,6 +96,9 @@ def _launch_setup(context, *args, **kwargs):
                     {"robot_description": robot_description},
                     controllers_file,
                 ],
+                # Global remaps reach the controllers loaded into this manager (e.g.
+                # diff_drive's cmd_vel_unstamped -> /cmd_vel). Empty for most robots.
+                remappings=list(spec.cmd_remaps),
                 output="screen",
             )
         )

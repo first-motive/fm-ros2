@@ -9,11 +9,11 @@ views.
 Each entry carries:
 
     description   backend-selectable xacro + per-robot visual-mesh rewrite
-    controllers   per-variant active/inactive sets + which backends need a
-                  standalone controller_manager
+    controllers   per-variant active/inactive sets, which backends need a
+                  standalone controller_manager, and any cmd_vel remaps
     foxglove      foxglove_bridge params (mesh allowlist, buffer limits)
     servo         MoveIt Servo context: SRDF locator, MoveIt config package,
-                  servo.yaml
+                  servo.yaml (plus extra servo_nodes for multi-arm robots)
 
 The launch files read a spec via :func:`get` and call its helpers; they hold no
 robot-specific data themselves.
@@ -96,6 +96,11 @@ class RobotSpec:
     # Multi-arm robots (the G1-D) run one servo_node per arm group, each with its own
     # servo.yaml + delta command topics under /<node_name>/. Empty for single-arm robots.
     extra_servo_configs: tuple = ()
+
+    # Topic remaps applied to the standalone controller_manager, as ((from, to), ...).
+    # Used to put a controller's fixed topic on a canonical name (e.g. diff_drive's
+    # cmd_vel_unstamped -> /cmd_vel). Empty for robots that need no remap.
+    cmd_remaps: tuple = ()
 
     # When the controllers drive only a SUBSET of the model's joints (the G1-D arm is
     # 7 of 34), the unactuated joints never reach /joint_states, so MoveIt's planning
@@ -239,10 +244,17 @@ _ROBOTS = {
         config_dir="g1_d",
         controllers={
             "g1_d": {
-                "active": ["g1_right_arm_controller", "g1_left_arm_controller"],
+                "active": [
+                    "g1_right_arm_controller",
+                    "g1_left_arm_controller",
+                    "g1_base_controller",
+                ],
                 "inactive": [],
             },
         },
+        # diff_drive_controller subscribes ~/cmd_vel_unstamped; remap it to the canonical
+        # /cmd_vel so the panel + g1_base_teleop share one base topic across sim and real.
+        cmd_remaps=(("/g1_base_controller/cmd_vel_unstamped", "/cmd_vel"),),
         # Only mock needs a standalone controller_manager; mujoco/gazebo/isaac host
         # their own. real is NOT here — the G1 has no ros2_control hardware interface,
         # so the real arm is driven by the Servo->arm_sdk bridge (g1_arm_sdk_bridge),

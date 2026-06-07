@@ -87,7 +87,21 @@ def test_g1_d_controller_set():
     assert spec.controllers["g1_d"]["active"] == [
         "g1_right_arm_controller",
         "g1_left_arm_controller",
+        "g1_base_controller",
     ]
+
+
+def test_g1_d_cmd_vel_remap():
+    # diff_drive's cmd_vel_unstamped is remapped to the canonical /cmd_vel.
+    spec = registry.get("g1_d")
+    assert spec.cmd_remaps == (
+        ("/g1_base_controller/cmd_vel_unstamped", "/cmd_vel"),
+    )
+
+
+def test_single_arm_robots_have_no_cmd_remaps():
+    assert registry.get("openarm").cmd_remaps == ()
+    assert registry.get("so101").cmd_remaps == ()
 
 
 def test_g1_d_servo_nodes_one_per_arm():

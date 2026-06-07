@@ -1,10 +1,11 @@
-# G1-D controllers: joint_state_broadcaster + a 7-joint JTC per arm.
+# G1-D controllers: joint_state_broadcaster + a 7-joint JTC per arm + a diff-drive
+# base controller.
 #
 # Sim backends only (mock/mujoco/gazebo/isaac) — the real backend is the
-# Servo->arm_sdk bridge, which replaces ros2_control. For mujoco/gazebo/isaac the sim
-# process hosts the controller_manager and reads these params; for mock a standalone
-# ros2_control_node does. Both arms' JTCs claim joints from the one g1_arm_system in
-# the description. Joint names match the vendored g1_d URDF arms.
+# Servo->arm_sdk bridge (arms) + g1_base_teleop (base), which replace ros2_control. For
+# mujoco/gazebo/isaac the sim process hosts the controller_manager and reads these
+# params; for mock a standalone ros2_control_node does. All controllers claim joints
+# from the one g1_system in the description. Joint names match the vendored g1_d URDF.
 controller_manager:
   ros__parameters:
     update_rate: 100  # Hz
@@ -18,6 +19,10 @@ controller_manager:
 
     g1_left_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
+
+    # Wheeled base: maps Twist (vx + vyaw) to the two drive wheels.
+    g1_base_controller:
+      type: diff_drive_controller/DiffDriveController
 
 g1_right_arm_controller:
   ros__parameters:
@@ -52,3 +57,22 @@ g1_left_arm_controller:
       - position
       - velocity
     allow_nonzero_velocity_at_trajectory_end: true
+
+# Differential drive over the two wheels. Geometry from the vendored g1_d URDF: the
+# wheels sit at y = +/-0.2031 (separation 0.4062 m) on AGV_link, mesh radius ~0.085 m.
+# use_stamped_vel: false -> subscribes geometry_msgs/Twist on ~/cmd_vel_unstamped, which
+# the launch remaps to the canonical /cmd_vel (same topic g1_base_teleop uses on real).
+# Holonomic vy is dropped here: a diff drive tracks only vx + vyaw (the real AGV adds vy).
+g1_base_controller:
+  ros__parameters:
+    left_wheel_names: ["Left_Wheel_Joint"]
+    right_wheel_names: ["Right_Wheel_Joint"]
+    wheel_separation: 0.4062
+    wheel_radius: 0.085
+    base_frame_id: AGV_link
+    odom_frame_id: odom
+    # The sim/description owns the base TF; do not also publish odom->base from here.
+    enable_odom_tf: false
+    open_loop: true
+    use_stamped_vel: false
+    publish_rate: 50.0
