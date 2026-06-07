@@ -24,6 +24,8 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
+from fm_bringup import registry
+
 _VALID_INPUTS = ("foxglove", "joy", "spacenav")
 
 
@@ -68,6 +70,12 @@ def _launch_setup(context, *args, **kwargs):
             Node(package="fm_bringup", executable="spacenav_to_servo", output="screen"),
         ]
     # foxglove: the browser panel is the publisher; no ROS-side input node.
+
+    # Robot-specific teleop adapters (e.g. the G1-D hand teleop, which maps the panel's
+    # hand presets/sliders onto the hand controllers). Registry-driven, so this file holds
+    # no robot-specific data.
+    for package, executable in registry.get(robot).teleop_nodes:
+        nodes.append(Node(package=package, executable=executable, output="screen"))
 
     return nodes
 

@@ -1,23 +1,30 @@
 # First Motive Teleop Panel
 
-A Foxglove Studio panel that jogs a registered robot through MoveIt Servo. It is the
-primary, fleet-scalable teleop input: a new operator opens a Foxglove URL — no
-per-operator hardware to ship.
+A Foxglove Studio panel that teleoperates a registered robot. It is the primary,
+fleet-scalable teleop input: a new operator opens a Foxglove URL — no per-operator
+hardware to ship.
 
-The joint set, command frame, and whether Cartesian jogging is offered are read from a
-per-robot config selected in the panel settings (mirrors `fm_bringup`'s robot
-registry). Adding a robot is one entry in the `ROBOTS` map in `src/panel.tsx`.
+Each robot's surface is read from a per-robot config selected in the panel settings
+(mirrors `fm_bringup`'s robot registry). Single-arm robots (OpenArm, SO101) expose one
+arm. The G1-D exposes its full body: both 7-DOF arms (each on its own `servo_node`), the
+wheeled base, and both Dex3 hands. Adding a robot is one entry in the `ROBOTS` map in
+`src/panel.tsx`.
 
 ## What It Publishes
 
 ```
-geometry_msgs/TwistStamped -> /servo_node/delta_twist_cmds   Cartesian jog (held = sustained)
-control_msgs/JointJog      -> /servo_node/delta_joint_cmds   per-joint jog
+geometry_msgs/TwistStamped -> <servo>/delta_twist_cmds   Cartesian arm jog (held = sustained)
+control_msgs/JointJog      -> <servo>/delta_joint_cmds   per-joint arm jog
+geometry_msgs/Twist        -> /cmd_vel                   wheeled base (vx + vyaw)
+std_msgs/String            -> /g1_hand_teleop/<side>/preset   hand preset (open/close/pinch)
+std_msgs/Float64MultiArray -> /g1_hand_teleop/<side>/sliders  hand per-joint targets
 ```
 
-Commands are unitless ([-1, 1]); MoveIt Servo scales them (see
-`fm_bringup/config/openarm/servo.yaml`). Buttons re-publish on a 50 ms timer while
-held so motion is continuous and stops on release.
+Arm `<servo>` is `/servo_node` for the right arm and `/servo_node_left` for the G1-D left
+arm. Arm + base commands are unitless ([-1, 1]); MoveIt Servo and the diff-drive
+controller scale them. Jog buttons re-publish on a 50 ms timer while held so motion is
+continuous and stops on release. Hand presets fire once; hand sliders publish the full
+7-joint vector on change.
 
 ## Build + Install
 
