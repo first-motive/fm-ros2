@@ -13,6 +13,9 @@
   <!-- G1-D Servo -> arm_sdk bridge: consumes JointTrajectory, emits unitree_hg/LowCmd. -->
   <depend>trajectory_msgs</depend>
   <depend>unitree_hg</depend>
+  <!-- G1-D base teleop: consumes Twist, emits the unitree_api AGV Move request. -->
+  <depend>geometry_msgs</depend>
+  <depend>unitree_api</depend>
 
   <!-- Description + xacro for the backend-selectable ros2_control system. -->
   <exec_depend>xacro</exec_depend>

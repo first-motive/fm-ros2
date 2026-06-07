@@ -7,8 +7,10 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(trajectory_msgs REQUIRED)
 find_package(unitree_hg REQUIRED)
+find_package(unitree_api REQUIRED)
 
 add_executable(control_node src/control_node.cpp)
 target_include_directories(control_node PUBLIC
@@ -25,7 +27,15 @@ target_include_directories(g1_arm_sdk_bridge PUBLIC
 target_compile_features(g1_arm_sdk_bridge PUBLIC cxx_std_17)
 ament_target_dependencies(g1_arm_sdk_bridge rclcpp trajectory_msgs unitree_hg)
 
-install(TARGETS control_node g1_arm_sdk_bridge DESTINATION lib/${PROJECT_NAME})
+# G1-D base teleop: Twist -> Unitree AGV Move RPC (separate from Servo).
+add_executable(g1_base_teleop src/g1_base_teleop.cpp)
+target_include_directories(g1_base_teleop PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(g1_base_teleop PUBLIC cxx_std_17)
+ament_target_dependencies(g1_base_teleop rclcpp geometry_msgs unitree_api)
+
+install(TARGETS control_node g1_arm_sdk_bridge g1_base_teleop DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
 
 # Backend-selectable ros2_control xacro consumed by the sim/teleop launches.
@@ -40,6 +50,11 @@ if(BUILD_TESTING)
   target_include_directories(test_g1_arm_sdk_bridge PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
   ament_target_dependencies(test_g1_arm_sdk_bridge unitree_hg)
+
+  ament_add_gtest(test_g1_base_teleop test/test_g1_base_teleop.cpp)
+  target_include_directories(test_g1_base_teleop PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  ament_target_dependencies(test_g1_base_teleop unitree_api)
 endif()
 
 ament_package()
