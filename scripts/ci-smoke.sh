@@ -155,6 +155,43 @@ PY
   teardown "$pid"
 }
 
+# Assert the G1 Dex3 hand bridge turns a hand JointTrajectory into a HandCmd: the
+# commanded finger lands on its motor index with the packed enable mode (0x10 | id).
+assert_g1_hand_bridge() {
+  ros2 run fm_control g1_hand_sdk_bridge \
+    --ros-args -p left_output_topic:=/ci_dex3_left >/tmp/hand.log 2>&1 &
+  local bpid=$!
+  sleep 3
+  # Full 7-joint left-hand point (the JTC + bridge use the Dex3 motor order).
+  ros2 topic pub --rate 10 /g1_left_hand_controller/joint_trajectory \
+    trajectory_msgs/msg/JointTrajectory \
+    "{joint_names: [left_hand_thumb_0_joint, left_hand_thumb_1_joint, left_hand_thumb_2_joint, left_hand_middle_0_joint, left_hand_middle_1_joint, left_hand_index_0_joint, left_hand_index_1_joint], points: [{positions: [0.0, 0.0, 0.8, 0.0, 0.0, 0.0, 0.0]}]}" >/dev/null 2>&1 &
+  local ppid=$!
+  sleep 2
+  ros2 topic echo --once /ci_dex3_left unitree_hg/msg/HandCmd >/tmp/handcmd.yaml 2>/dev/null || true
+  kill "$bpid" "$ppid" 2>/dev/null || true
+  wait "$bpid" "$ppid" 2>/dev/null || true
+  if python3 - <<'PY'
+import sys, yaml
+try:
+    d = list(yaml.safe_load_all(open("/tmp/handcmd.yaml")))[0]
+    mc = d["motor_cmd"]
+    # thumb_2 -> motor 2 = 0.8; mode packs id 2 + enable (0x10 | 2 = 18); 7 motors.
+    ok = len(mc) == 7 and abs(mc[2]["q"] - 0.8) < 1e-3 and mc[2]["mode"] == 18
+    sys.exit(0 if ok else 1)
+except Exception as exc:
+    print(exc)
+    sys.exit(1)
+PY
+  then
+    pass "g1 hand bridge: thumb_2->motor[2].q=0.8, mode=0x12, 7 motors"
+  else
+    fail "g1 hand bridge: HandCmd mapping wrong or absent"
+    tail -5 /tmp/hand.log || true
+  fi
+  sleep 2
+}
+
 # Assert the G1 base teleop turns a Twist into the AGV Move request (api_id 1001).
 assert_g1_base_teleop() {
   ros2 run fm_control g1_base_teleop \
@@ -192,6 +229,7 @@ assert_mock_controllers so101 so101_arm_controller
 assert_mock_controllers g1_d g1_right_arm_controller
 assert_g1_base_diff_drive
 assert_g1_arm_bridge
+assert_g1_hand_bridge
 assert_g1_base_teleop
 
 echo "==> ci-smoke: ${fails} failure(s)"

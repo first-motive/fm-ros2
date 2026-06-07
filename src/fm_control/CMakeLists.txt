@@ -35,7 +35,16 @@ target_include_directories(g1_base_teleop PUBLIC
 target_compile_features(g1_base_teleop PUBLIC cxx_std_17)
 ament_target_dependencies(g1_base_teleop rclcpp geometry_msgs unitree_api)
 
-install(TARGETS control_node g1_arm_sdk_bridge g1_base_teleop DESTINATION lib/${PROJECT_NAME})
+# G1-D Dex3 hand bridge (the `real` backend; replaces ros2_control for the hands).
+add_executable(g1_hand_sdk_bridge src/g1_hand_sdk_bridge.cpp)
+target_include_directories(g1_hand_sdk_bridge PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(g1_hand_sdk_bridge PUBLIC cxx_std_17)
+ament_target_dependencies(g1_hand_sdk_bridge rclcpp trajectory_msgs unitree_hg)
+
+install(TARGETS control_node g1_arm_sdk_bridge g1_base_teleop g1_hand_sdk_bridge
+  DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
 
 # Backend-selectable ros2_control xacro consumed by the sim/teleop launches.
@@ -55,6 +64,11 @@ if(BUILD_TESTING)
   target_include_directories(test_g1_base_teleop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
   ament_target_dependencies(test_g1_base_teleop unitree_api)
+
+  ament_add_gtest(test_g1_hand_sdk_bridge test/test_g1_hand_sdk_bridge.cpp)
+  target_include_directories(test_g1_hand_sdk_bridge PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  ament_target_dependencies(test_g1_hand_sdk_bridge unitree_hg)
 endif()
 
 ament_package()
