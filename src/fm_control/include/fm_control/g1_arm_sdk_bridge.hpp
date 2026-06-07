@@ -1,3 +1,17 @@
+// Copyright 2026 First Motive
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 // Pure logic for the G1-D Servo -> arm_sdk bridge, split from the node so it can be
 // unit-tested without spinning ROS. The node (src/g1_arm_sdk_bridge.cpp) owns the
 // subscription, timer, and parameters; everything here is free functions over plain

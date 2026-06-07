@@ -1,3 +1,17 @@
+// Copyright 2026 First Motive
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 // First Motive G1-D Servo -> arm_sdk bridge.
 //
 // The G1 has no upstream ros2_control hardware interface, so the `real` backend does
@@ -59,12 +73,12 @@ public:
     cmd_pub_ = create_publisher<unitree_hg::msg::LowCmd>(output_topic_, 10);
     traj_sub_ = create_subscription<trajectory_msgs::msg::JointTrajectory>(
       input_topic_, 10,
-      [this](const trajectory_msgs::msg::JointTrajectory & msg) { on_trajectory(msg); });
+      [this](const trajectory_msgs::msg::JointTrajectory & msg) {on_trajectory(msg);});
 
     const auto period = std::chrono::duration<double>(1.0 / rate_hz_);
     timer_ = create_wall_timer(
       std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-      [this]() { on_timer(); });
+      [this]() {on_timer();});
 
     RCLCPP_INFO(
       get_logger(), "g1_arm_sdk_bridge: %s -> %s at %.0f Hz (UNTESTED on hardware)",

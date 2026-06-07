@@ -1,9 +1,23 @@
+// Copyright 2026 First Motive
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 // Unit tests for the G1-D arm_sdk bridge command logic (no ROS graph needed).
+#include <gtest/gtest.h>
+
 #include <array>
 #include <string>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "fm_control/g1_arm_sdk_bridge.hpp"
 
@@ -26,7 +40,7 @@ std::array<double, kRightArm.size()> zero_targets()
 TEST(G1ArmSdkBridge, MapsJointsByNameToMotorIndices)
 {
   auto cmd = make_low_cmd(
-    {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7}, /*weight=*/1.0, /*kp=*/60.0, /*kd=*/1.5);
+    {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7}, /*weight=*/ 1.0, /*kp=*/ 60.0, /*kd=*/ 1.5);
   // shoulder_pitch -> 22 ... wrist_yaw -> 28, in chain order.
   EXPECT_FLOAT_EQ(cmd.motor_cmd[22].q, 0.1F);
   EXPECT_FLOAT_EQ(cmd.motor_cmd[25].q, 0.4F);  // right_elbow_joint
@@ -43,7 +57,7 @@ TEST(G1ArmSdkBridge, AppliesGainsAndEnableMode)
 
 TEST(G1ArmSdkBridge, WeightRidesMotor29AndUntouchedMotorsStayZero)
 {
-  auto cmd = make_low_cmd(zero_targets(), /*weight=*/0.42, 60.0, 1.5);
+  auto cmd = make_low_cmd(zero_targets(), /*weight=*/ 0.42, 60.0, 1.5);
   EXPECT_FLOAT_EQ(cmd.motor_cmd[kWeightMotorIndex].q, 0.42F);
   // A non-arm motor (left leg) is never commanded.
   EXPECT_FLOAT_EQ(cmd.motor_cmd[0].q, 0.0F);

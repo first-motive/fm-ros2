@@ -30,13 +30,17 @@ jobs:
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'
 
+      # Test the First Motive packages only — the vendored externals (openarm_*,
+      # unitree_*) carry their own test suites, which are not ours to keep green.
       # colcon test alone exits 0 even on failures; run it, then let colcon test-result
       # surface the failing output and set the non-zero exit.
       - name: colcon test
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc 'source /opt/ros/humble/setup.bash && source install/setup.bash &&
-                      colcon test && colcon test-result --verbose'
+                      fm_pkgs=$(colcon list --names-only | grep "^fm_") &&
+                      colcon test --packages-select $fm_pkgs &&
+                      colcon test-result --verbose'
 
       # Headless robot asserts: per-robot mock controllers, the G1 arm_sdk bridge, the
       # G1 base AGV command. The mujoco-render, Linux/GPU, and real-hardware items of
