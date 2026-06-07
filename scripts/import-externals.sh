@@ -20,17 +20,21 @@ vcs import src/external < external.repos
 # build — except real ament packages whose code or xacro we consume directly:
 #   openarm_description  — xacro needs $(find openarm_description) + package://
 #   openarm_ros2         — bringup + bimanual MoveIt config (launch/config only)
+#   unitree_ros2         — the unitree_hg/go/api DDS message packages; unitree_hg
+#                          carries LowCmd, which the G1 arm_sdk bridge publishes
 # Everything else is file-vendored, reference-only, or Linux-only, so it gets a
 # COLCON_IGNORE marker:
 #   lerobot, so_arm, openarm_mujoco   file-vendored (URDF/MJCF/assets, not built)
 #   ros2_so_arm                       reference for the SO101 MoveIt config values
+#   unitree_sdk2, unitree_mujoco      reference for the arm_sdk loop + DDS sim
 #   feetech_ros2_driver, openarm_can  Linux + real-hardware backends only
-#   unitree_*                         G1 description + DDS SDK (see G1 steps)
-BUILD_DIRS=(openarm_description openarm_ros2)
+#   unitree_ros                       G1 description (flat URDF + meshes, file-vendored)
+BUILD_DIRS=(openarm_description openarm_ros2 unitree_ros2)
 # Sub-packages inside a built repo that must stay OUT of the build. openarm_hardware
 # is C++ SocketCAN (Linux-only, needs openarm_can) and joins the build only on the
-# real backend — drop a nested marker so the rest of openarm_ros2 still builds.
-NESTED_IGNORE=(openarm_ros2/openarm_hardware)
+# real backend; unitree_ros2/example/src is the C++ DDS demo set, which needs the full
+# CycloneDDS SDK — drop nested markers so the rest of each repo still builds.
+NESTED_IGNORE=(openarm_ros2/openarm_hardware unitree_ros2/example/src)
 # Drop any blanket top-level ignore from an earlier import — markers are per-dir now.
 rm -f src/external/COLCON_IGNORE
 echo "==> Marking externals COLCON_IGNORE (keeping ${BUILD_DIRS[*]} in the build) ..."

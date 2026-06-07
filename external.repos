@@ -57,9 +57,31 @@ repositories:
     url: https://github.com/unitreerobotics/unitree_ros.git
     version: ae2b2a7e9ba1b5814b5cb78b3c5800829c5591dd
   unitree_ros2:
+    # Unitree DDS message packages. cyclonedds_ws/src/unitree/{unitree_hg, unitree_go,
+    # unitree_api} are plain rosidl packages — unitree_hg carries LowCmd/MotorCmd, the
+    # types the G1 Servo->arm_sdk bridge publishes. These BUILD into the workspace
+    # (import-externals.sh un-ignores unitree_ros2 and nested-ignores example/src, the
+    # C++ DDS demos). The custom CycloneDDS RMW is installed separately, not vendored
+    # here. BSD-3-Clause.
     type: git
     url: https://github.com/unitreerobotics/unitree_ros2.git
     version: 5204e6e098ee53f4bd929bd77eb1d387cd0fa842  # master @ 2026-06-03; fork before patching
+  unitree_sdk2:
+    # Unitree C++ SDK. Reference for the G1 arm_sdk loop: example/g1/high_level/
+    # g1_arm7_sdk_dds_example.cpp (50 Hz LowCmd on rt/arm_sdk, weight ramp on motor
+    # index 29, right-arm joints at motor_cmd[22..28]) and example/g1/g1d/ (g1_agv
+    # base client). Plain C++, no ROS — file-vendored reference, COLCON_IGNORE'd.
+    # BSD-3-Clause.
+    type: git
+    url: https://github.com/unitreerobotics/unitree_sdk2.git
+    version: 63c6f53103e2f28e23b807d7399e92338c9d07d3  # main @ 2026-05-28; fork before patching
+  unitree_mujoco:
+    # Unitree MuJoCo sim. Speaks the same DDS message types (unitree_hg) for DDS-level
+    # bridge testing; note it subscribes rt/lowcmd (full low-level), not rt/arm_sdk.
+    # File-vendored, not built — COLCON_IGNORE'd. BSD-3-Clause.
+    type: git
+    url: https://github.com/unitreerobotics/unitree_mujoco.git
+    version: ae6a8403e272733e9996ef59990880330496177f  # main @ 2026-06-04; fork before patching
   openarm_ros2:
     # OpenArm control stack: the hardware plugin (openarm_hardware), the bringup
     # package, and the bimanual MoveIt config. A real ament workspace — its bringup

@@ -19,7 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-humble-robot-state-publisher \
       ros-humble-joint-state-publisher \
       ros-humble-xacro \
+      ros-humble-rosidl-generator-dds-idl \
     && rm -rf /var/lib/apt/lists/*
+# rosidl-generator-dds-idl: the vendored Unitree unitree_hg/go/api message packages
+# call rosidl_generate_dds_interfaces in CMake but omit the dep from package.xml, so
+# rosdep cannot supply it — carry it here so the G1 arm_sdk message types build.
 
 # ros2_control + simulation + MoveIt stack. One image serves every sim backend;
 # the compose overlay only swaps GPU/devices, never the controllers. All arm64 +
