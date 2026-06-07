@@ -28,9 +28,12 @@ _VALID_INPUTS = ("foxglove", "joy", "spacenav")
 
 
 def _launch_setup(context, *args, **kwargs):
+    robot = LaunchConfiguration("robot").perform(context)
     sim_backend = LaunchConfiguration("sim_backend").perform(context)
     teleop_input = LaunchConfiguration("input").perform(context)
-    variant = LaunchConfiguration("variant").perform(context) or "right_arm"
+    # Forwarded verbatim; servo.launch.py is the single point that resolves an
+    # empty variant to the registry default, so robot/variant stay consistent.
+    variant = LaunchConfiguration("variant").perform(context)
 
     if teleop_input not in _VALID_INPUTS:
         raise RuntimeError(
@@ -47,6 +50,7 @@ def _launch_setup(context, *args, **kwargs):
                 )
             ),
             launch_arguments={
+                "robot": robot,
                 "sim_backend": sim_backend,
                 "variant": variant,
             }.items(),
@@ -74,13 +78,13 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "robot",
                 default_value="openarm",
-                description="Robot to teleop (openarm only for now).",
+                description="Robot to teleop (see fm_bringup.registry).",
             ),
             DeclareLaunchArgument(
                 "variant",
-                default_value="right_arm",
-                description="Preset; must match the running sim. Servo's SRDF + "
-                "description follow it (right_arm or default_bimanual).",
+                default_value="",
+                description="Preset; must match the running sim. Empty uses the "
+                "registry default. Servo's SRDF + description follow it.",
             ),
             DeclareLaunchArgument(
                 "sim_backend",
