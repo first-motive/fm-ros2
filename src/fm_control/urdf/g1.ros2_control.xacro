@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<!--
+First Motive ros2_control for the Unitree G1-D right arm (7 joints).
+
+One <ros2_control> system for the right arm only — waist, legs, left arm, and the
+wheeled base are left unactuated (they hold at zero via robot_state_publisher in
+sim). Only the <hardware> System plugin swaps, selected by `sim_backend`:
+
+  mock    -> mock_components/GenericSystem               (no sim; perfect state echo)
+  mujoco  -> mujoco_ros2_control/MujocoSystemInterface   (CPU)
+  gazebo  -> gz_ros2_control/GazeboSimSystem             (Linux/GPU)
+  isaac   -> topic_based_ros2_control/TopicBasedSystem   (Isaac Sim over ROS topics)
+
+There is deliberately NO `real` ros2_control plugin: no hardware interface exists for
+the G1 upstream. The real arm is driven by the Servo->arm_sdk bridge (a 50 Hz
+unitree_hg/LowCmd loop on rt/arm_sdk), which replaces the controller + hardware at
+runtime — so for sim_backend=real this macro emits no <ros2_control> at all, leaving
+the description geometry-only for robot_state_publisher. See the bridge node.
+
+Joint names match the vendored g1_d URDF right arm exactly:
+right_shoulder_pitch_joint, right_shoulder_roll_joint, right_shoulder_yaw_joint,
+right_elbow_joint, right_wrist_roll_joint, right_wrist_pitch_joint,
+right_wrist_yaw_joint (arm_sdk motor_cmd indices 22..28).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="g1_backend_hardware"
+      params="sim_backend mujoco_model_path
+              isaac_joint_commands_topic isaac_joint_states_topic">
+
+    <xacro:if value="${sim_backend == 'mock'}">
+      <hardware>
+        <plugin>mock_components/GenericSystem</plugin>
+        <param name="fake_sensor_commands">false</param>
+        <param name="state_following_offset">0.0</param>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'mujoco'}">
+      <hardware>
+        <plugin>mujoco_ros2_control/MujocoSystemInterface</plugin>
+        <param name="mujoco_model">${mujoco_model_path}</param>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'gazebo'}">
+      <hardware>
+        <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'isaac'}">
+      <hardware>
+        <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
+        <param name="joint_commands_topic">${isaac_joint_commands_topic}</param>
+        <param name="joint_states_topic">${isaac_joint_states_topic}</param>
+      </hardware>
+    </xacro:if>
+  </xacro:macro>
+
+  <!-- One joint: position/velocity/effort command + state, uniform across the sim
+       backends so the controller set never changes. -->
+  <xacro:macro name="g1_arm_joint" params="joint_name">
+    <joint name="${joint_name}">
+      <command_interface name="position"/>
+      <command_interface name="velocity"/>
+      <command_interface name="effort"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="effort">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+    </joint>
+  </xacro:macro>
+
+  <!-- The 7-joint right-arm system, emitted for sim backends only. -->
+  <xacro:macro name="g1_right_arm_system"
+      params="sim_backend mujoco_model_path:=''
+              isaac_joint_commands_topic:=/isaac_joint_commands
+              isaac_joint_states_topic:=/isaac_joint_states">
+
+    <xacro:unless value="${sim_backend == 'real'}">
+      <ros2_control name="g1_right_arm_system" type="system">
+        <xacro:g1_backend_hardware
+            sim_backend="${sim_backend}"
+            mujoco_model_path="${mujoco_model_path}"
+            isaac_joint_commands_topic="${isaac_joint_commands_topic}"
+            isaac_joint_states_topic="${isaac_joint_states_topic}" />
+
+        <xacro:g1_arm_joint joint_name="right_shoulder_pitch_joint"/>
+        <xacro:g1_arm_joint joint_name="right_shoulder_roll_joint"/>
+        <xacro:g1_arm_joint joint_name="right_shoulder_yaw_joint"/>
+        <xacro:g1_arm_joint joint_name="right_elbow_joint"/>
+        <xacro:g1_arm_joint joint_name="right_wrist_roll_joint"/>
+        <xacro:g1_arm_joint joint_name="right_wrist_pitch_joint"/>
+        <xacro:g1_arm_joint joint_name="right_wrist_yaw_joint"/>
+      </ros2_control>
+    </xacro:unless>
+    <!-- real: no ros2_control; the Servo->arm_sdk bridge drives the arm at runtime. -->
+  </xacro:macro>
+
+</robot>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+First Motive G1-D description with a backend-selectable ros2_control System for the
+right arm.
+
+This merges the vendored Unitree G1-D geometry (the flat URDF installed into
+fm_description's share) and injects a <ros2_control> system that actuates the 7
+right-arm joints, selected by `sim_backend`. The wheeled base, waist, legs, and left
+arm are not actuated — in sim they hold at zero through robot_state_publisher. The
+G1-D is a single fixed configuration, so there is no preset arg.
+
+For sim_backend=real no ros2_control is emitted: the Servo->arm_sdk bridge drives the
+arm out-of-band (see g1.ros2_control.xacro). The description stays geometry-only so
+robot_state_publisher still serves TF + visuals.
+
+Args:
+  sim_backend   mock | mujoco | gazebo | isaac | real
+  mujoco_model  MJCF the mujoco backend loads (in-container path). Defaults to the
+                bipedal g1_29dof model: its right-arm joint names match this system,
+                but its legs differ from the wheeled G1-D — mujoco is wired, not yet
+                validated, pending a wheeled-G1 MJCF.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="G1_D">
+
+  <xacro:arg name="sim_backend" default="mock"/>
+  <xacro:arg name="isaac_joint_commands_topic" default="/isaac_joint_commands"/>
+  <xacro:arg name="isaac_joint_states_topic" default="/isaac_joint_states"/>
+  <!-- Bipedal g1_29dof model: its right-arm joint names match this system, but its
+       legs differ from the wheeled G1-D, so mujoco is wired not yet validated
+       (pending a wheeled-G1 MJCF). -->
+  <xacro:arg name="mujoco_model" default="/ws/src/external/unitree_mujoco/unitree_robots/g1/g1_29dof.xml"/>
+  <xacro:property name="mujoco_model_path" value="$(arg mujoco_model)"/>
+  <xacro:arg name="gazebo_controllers_file" default=""/>
+
+  <!-- Geometry: the vendored flat G1-D URDF, installed into fm_description's share.
+       Mesh paths stay relative (meshes/...); the description builder rewrites them to
+       package:// at load. -->
+  <xacro:include filename="$(find fm_description)/g1_d_description/g1_d.urdf"/>
+  <xacro:include filename="$(find fm_control)/urdf/g1.ros2_control.xacro"/>
+
+  <xacro:g1_right_arm_system
+      sim_backend="$(arg sim_backend)"
+      mujoco_model_path="${mujoco_model_path}"
+      isaac_joint_commands_topic="$(arg isaac_joint_commands_topic)"
+      isaac_joint_states_topic="$(arg isaac_joint_states_topic)"/>
+
+  <!-- Gazebo hosts the controller_manager inside the sim via this world plugin,
+       which loads the controllers.yaml. Emitted only for the gazebo backend. -->
+  <xacro:if value="${'$(arg sim_backend)' == 'gazebo'}">
+    <gazebo>
+      <plugin filename="gz_ros2_control-system"
+              name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <parameters>$(arg gazebo_controllers_file)</parameters>
+      </plugin>
+    </gazebo>
+  </xacro:if>
+
+</robot>
