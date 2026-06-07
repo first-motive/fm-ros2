@@ -35,11 +35,17 @@ from ament_index_python.packages import get_package_share_directory
 _OPENARM_MESH_RE = re.compile(r"package://openarm_description/([^\"']+?)\.dae")
 _OPENARM_MESH_SUB = r"package://fm_description/openarm_meshes/\1.stl"
 
-# foxglove_bridge params for the OpenArm: its package:// mesh paths run through a
-# dotted directory (openarm_v2.0), which the default asset_uri_allowlist ([\w-]
-# only) rejects, so nothing renders; [-\w.] admits the dot. send_buffer_limit is
-# raised above the 10 MB default for the large default_bimanual body mesh.
-_OPENARM_FOXGLOVE_PARAMS = {
+# The vendored SO101 URDF references meshes by relative path (assets/...). Rewrite to
+# package:// so robot_state_publisher serves them to Foxglove, matching where
+# fm_description installs them (share/fm_description/so101_description/assets/).
+_SO101_MESH_RE = re.compile(r'filename="assets/')
+_SO101_MESH_SUB = r'filename="package://fm_description/so101_description/assets/'
+
+# foxglove_bridge params shared across robots: the default asset_uri_allowlist ([\w-]
+# only) rejects package:// paths through a dotted directory (e.g. the OpenArm's
+# openarm_v2.0), so nothing renders; [-\w.] admits the dot. send_buffer_limit is
+# raised above the 10 MB default for large body meshes.
+_DEFAULT_FOXGLOVE_PARAMS = {
     "port": 8765,
     "address": "0.0.0.0",
     "send_buffer_limit": 134217728,
@@ -64,7 +70,7 @@ class RobotSpec:
 
     # description
     control_xacro: str  # filename under fm_control/urdf
-    preset_arg: str  # xacro arg the variant maps to (e.g. "robot_preset")
+    preset_arg: Optional[str]  # xacro arg the variant maps to, or None for single-config robots
     mesh_rewrite: Optional[tuple]  # (compiled_regex, repl) applied to the URDF, or None
 
     # controllers
@@ -111,7 +117,10 @@ class RobotSpec:
         xacro_path = os.path.join(
             get_package_share_directory("fm_control"), "urdf", self.control_xacro
         )
-        mappings = {self.preset_arg: variant, "sim_backend": sim_backend}
+        mappings = {"sim_backend": sim_backend}
+        # Single-config robots (preset_arg=None) take no preset; the variant is nominal.
+        if self.preset_arg:
+            mappings[self.preset_arg] = variant
         if sim_backend == "gazebo" and controllers_file:
             mappings["gazebo_controllers_file"] = controllers_file
         xml = xacro.process_file(xacro_path, mappings=mappings).toxml()
@@ -160,12 +169,38 @@ _ROBOTS = {
             },
         },
         standalone_cm_backends=frozenset({"mock", "real"}),
-        foxglove_params=_OPENARM_FOXGLOVE_PARAMS,
+        foxglove_params=_DEFAULT_FOXGLOVE_PARAMS,
         moveit_pkg="openarm_bimanual_moveit_config",
         moveit_cfg=os.path.join("config", "openarm_v2.0"),
         servo_config="servo.yaml",
         bringup_srdf={"right_arm": "right_arm.srdf"},
         moveit_srdf="openarm_bimanual.srdf",
+    ),
+    "so101": RobotSpec(
+        key="so101",
+        label="LeRobot SO101",
+        default_variant="so101",
+        control_xacro="so101.sim.urdf.xacro",
+        preset_arg=None,  # single fixed configuration; the variant is nominal
+        mesh_rewrite=(_SO101_MESH_RE, _SO101_MESH_SUB),
+        config_dir="so101",
+        controllers={
+            "so101": {
+                "active": ["so101_arm_controller", "so101_gripper_controller"],
+                "inactive": [],
+            },
+        },
+        # real is the genuine feetech ros2_control plugin, so it needs a standalone
+        # controller_manager just like mock (unlike the G1, whose real path is a bridge).
+        standalone_cm_backends=frozenset({"mock", "real"}),
+        foxglove_params=_DEFAULT_FOXGLOVE_PARAMS,
+        # SO101 MoveIt config is authored in-repo (Humble, bare joint names), so the
+        # MoveIt files live under fm_bringup/config/so101 rather than a vendored package.
+        moveit_pkg="fm_bringup",
+        moveit_cfg=os.path.join("config", "so101"),
+        servo_config="servo.yaml",
+        bringup_srdf={"so101": "so101.srdf"},
+        moveit_srdf="so101.srdf",
     ),
 }
 

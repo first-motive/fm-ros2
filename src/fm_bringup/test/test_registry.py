@@ -49,3 +49,31 @@ def test_srdf_selection():
     assert "right_arm" in spec.bringup_srdf
     assert "default_bimanual" not in spec.bringup_srdf
     assert spec.moveit_srdf == "openarm_bimanual.srdf"
+
+
+def test_get_so101():
+    spec = registry.get("so101")
+    assert spec.key == "so101"
+    assert spec.default_variant == "so101"
+    # Single-config robot: no preset arg, so the description build passes no preset.
+    assert spec.preset_arg is None
+
+
+def test_so101_controller_set():
+    spec = registry.get("so101")
+    assert set(spec.controllers) == {"so101"}
+    assert spec.controllers["so101"]["active"] == [
+        "so101_arm_controller",
+        "so101_gripper_controller",
+    ]
+
+
+def test_so101_moveit_config_in_repo():
+    spec = registry.get("so101")
+    # SO101 MoveIt config is authored in fm_bringup, not a vendored package.
+    assert spec.moveit_pkg == "fm_bringup"
+    assert spec.semantic("so101")  # resolves the in-repo SRDF without error
+
+
+def test_registered_robots():
+    assert {"openarm", "so101"} <= set(registry._ROBOTS)
