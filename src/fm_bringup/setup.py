@@ -41,6 +41,7 @@ setup(
             "bringup = fm_bringup.bringup:main",
             "joy_to_servo = fm_bringup.joy_to_servo:main",
             "spacenav_to_servo = fm_bringup.spacenav_to_servo:main",
+            "g1_hand_teleop = fm_bringup.g1_hand_teleop:main",
         ],
     },
 )

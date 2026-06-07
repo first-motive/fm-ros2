@@ -192,6 +192,42 @@ PY
   sleep 2
 }
 
+# Assert the G1 hand teleop turns a named preset into a full 7-joint hand trajectory:
+# "close" on the left hand publishes all 7 finger joints with thumb_2 at its flexed limit.
+assert_g1_hand_teleop() {
+  ros2 run fm_bringup g1_hand_teleop >/tmp/hand_teleop.log 2>&1 &
+  local npid=$!
+  sleep 3
+  ros2 topic pub --rate 5 /g1_hand_teleop/left/preset std_msgs/msg/String \
+    "{data: close}" >/dev/null 2>&1 &
+  local ppid=$!
+  sleep 2
+  ros2 topic echo --once /g1_left_hand_controller/joint_trajectory \
+    trajectory_msgs/msg/JointTrajectory >/tmp/hand_traj.yaml 2>/dev/null || true
+  kill "$npid" "$ppid" 2>/dev/null || true
+  wait "$npid" "$ppid" 2>/dev/null || true
+  if python3 - <<'PY'
+import sys, yaml
+try:
+    d = list(yaml.safe_load_all(open("/tmp/hand_traj.yaml")))[0]
+    names = d["joint_names"]
+    pos = d["points"][0]["positions"]
+    # All 7 finger joints named; thumb_2 (index 2) flexed to ~1.745 by the close preset.
+    ok = len(names) == 7 and len(pos) == 7 and abs(pos[2] - 1.74532925) < 1e-3
+    sys.exit(0 if ok else 1)
+except Exception as exc:
+    print(exc)
+    sys.exit(1)
+PY
+  then
+    pass "g1 hand teleop: close preset -> 7-joint trajectory, thumb_2 flexed"
+  else
+    fail "g1 hand teleop: preset did not map to a full hand trajectory"
+    tail -5 /tmp/hand_teleop.log || true
+  fi
+  sleep 2
+}
+
 # Assert the G1 base teleop turns a Twist into the AGV Move request (api_id 1001).
 assert_g1_base_teleop() {
   ros2 run fm_control g1_base_teleop \
@@ -230,6 +266,7 @@ assert_mock_controllers g1_d g1_right_arm_controller
 assert_g1_base_diff_drive
 assert_g1_arm_bridge
 assert_g1_hand_bridge
+assert_g1_hand_teleop
 assert_g1_base_teleop
 
 echo "==> ci-smoke: ${fails} failure(s)"

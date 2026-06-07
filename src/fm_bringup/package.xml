@@ -24,6 +24,8 @@
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>joint_trajectory_controller</exec_depend>
   <exec_depend>forward_command_controller</exec_depend>
+  <!-- G1-D wheeled base. -->
+  <exec_depend>diff_drive_controller</exec_depend>
 
   <!-- Sim backends that host their own controller_manager. -->
   <exec_depend>mujoco_ros2_control</exec_depend>
@@ -35,9 +37,11 @@
   <exec_depend>moveit_servo</exec_depend>
   <exec_depend>openarm_bimanual_moveit_config</exec_depend>
 
-  <!-- Teleop input adapters: gamepad + SpaceMouse -> Servo. -->
+  <!-- Teleop input adapters: gamepad + SpaceMouse -> Servo; panel -> Dex3 hands. -->
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>trajectory_msgs</exec_depend>
   <exec_depend>joy</exec_depend>
   <exec_depend>spacenav</exec_depend>
 
