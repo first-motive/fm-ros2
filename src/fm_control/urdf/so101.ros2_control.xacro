@@ -1,0 +1,135 @@
+<?xml version="1.0"?>
+<!--
+First Motive backend-selectable ros2_control for the LeRobot SO101.
+
+One <ros2_control> system for the 5-DOF arm plus the gripper. The controllers,
+controller_manager, and the command/state interface set stay identical across the
+sim backends — only the <hardware> System plugin swaps, selected by `sim_backend`:
+
+  mock    -> mock_components/GenericSystem               (no sim; perfect state echo)
+  mujoco  -> mujoco_ros2_control/MujocoSystemInterface   (Mac daily driver, CPU)
+  gazebo  -> gz_ros2_control/GazeboSimSystem             (Linux/GPU)
+  isaac   -> topic_based_ros2_control/TopicBasedSystem   (Isaac Sim over ROS topics)
+  real    -> feetech_ros2_driver/FeetechHardwareInterface (USB serial -> STS servos)
+
+Joint names mirror the vendored TheRobotStudio SO101 URDF + MJCF exactly (bare
+names, no suffix): shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll,
+gripper. The real backend differs from the sim backends in two ways: it is a genuine
+serial driver (Linux + hardware only, COLCON_IGNORE'd on the Mac/sim path), and each
+joint carries the Feetech servo `id` the driver addresses (1..6 in chain order, the
+SO-ARM101 factory default). The real path is plumbed but untested — no hardware yet.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Emit the <hardware> block for the selected backend. usb_port is consumed only
+       by the real backend; mujoco_model_path only by mujoco; isaac topics only by
+       isaac. -->
+  <xacro:macro name="so101_backend_hardware"
+      params="sim_backend usb_port mujoco_model_path
+              isaac_joint_commands_topic isaac_joint_states_topic">
+
+    <xacro:if value="${sim_backend == 'mock'}">
+      <hardware>
+        <plugin>mock_components/GenericSystem</plugin>
+        <param name="fake_sensor_commands">false</param>
+        <param name="state_following_offset">0.0</param>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'mujoco'}">
+      <hardware>
+        <plugin>mujoco_ros2_control/MujocoSystemInterface</plugin>
+        <!-- MujocoSystemInterface reads the MJCF from this URDF param. The SO101
+             MJCF joint names match this system's joints exactly. -->
+        <param name="mujoco_model">${mujoco_model_path}</param>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'gazebo'}">
+      <hardware>
+        <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'isaac'}">
+      <hardware>
+        <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
+        <param name="joint_commands_topic">${isaac_joint_commands_topic}</param>
+        <param name="joint_states_topic">${isaac_joint_states_topic}</param>
+      </hardware>
+    </xacro:if>
+
+    <xacro:if value="${sim_backend == 'real'}">
+      <hardware>
+        <plugin>feetech_ros2_driver/FeetechHardwareInterface</plugin>
+        <param name="usb_port">${usb_port}</param>
+      </hardware>
+    </xacro:if>
+  </xacro:macro>
+
+  <!-- Sim joint: position/velocity/effort command + state, uniform across the sim
+       backends so the controller set never changes. -->
+  <xacro:macro name="so101_sim_joint" params="joint_name">
+    <joint name="${joint_name}">
+      <command_interface name="position"/>
+      <command_interface name="velocity"/>
+      <command_interface name="effort"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="effort">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+    </joint>
+  </xacro:macro>
+
+  <!-- Real joint: the Feetech STS servos are position-controlled, so a position
+       command + position/velocity state, and the servo `id` the driver addresses. -->
+  <xacro:macro name="so101_real_joint" params="joint_name servo_id">
+    <joint name="${joint_name}">
+      <param name="id">${servo_id}</param>
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- One <ros2_control> system: backend hardware + the 5 arm joints + the gripper.
+       Servo ids 1..6 follow the chain order (shoulder_pan -> gripper). -->
+  <xacro:macro name="so101_arm_system"
+      params="sim_backend usb_port:=/dev/ttyACM0 mujoco_model_path:=''
+              isaac_joint_commands_topic:=/isaac_joint_commands
+              isaac_joint_states_topic:=/isaac_joint_states">
+
+    <ros2_control name="so101_system" type="system">
+      <xacro:so101_backend_hardware
+          sim_backend="${sim_backend}"
+          usb_port="${usb_port}"
+          mujoco_model_path="${mujoco_model_path}"
+          isaac_joint_commands_topic="${isaac_joint_commands_topic}"
+          isaac_joint_states_topic="${isaac_joint_states_topic}" />
+
+      <xacro:if value="${sim_backend == 'real'}">
+        <xacro:so101_real_joint joint_name="shoulder_pan"  servo_id="1"/>
+        <xacro:so101_real_joint joint_name="shoulder_lift" servo_id="2"/>
+        <xacro:so101_real_joint joint_name="elbow_flex"    servo_id="3"/>
+        <xacro:so101_real_joint joint_name="wrist_flex"    servo_id="4"/>
+        <xacro:so101_real_joint joint_name="wrist_roll"    servo_id="5"/>
+        <xacro:so101_real_joint joint_name="gripper"       servo_id="6"/>
+      </xacro:if>
+
+      <xacro:unless value="${sim_backend == 'real'}">
+        <xacro:so101_sim_joint joint_name="shoulder_pan"/>
+        <xacro:so101_sim_joint joint_name="shoulder_lift"/>
+        <xacro:so101_sim_joint joint_name="elbow_flex"/>
+        <xacro:so101_sim_joint joint_name="wrist_flex"/>
+        <xacro:so101_sim_joint joint_name="wrist_roll"/>
+        <xacro:so101_sim_joint joint_name="gripper"/>
+      </xacro:unless>
+    </ros2_control>
+  </xacro:macro>
+
+</robot>

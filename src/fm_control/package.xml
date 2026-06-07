@@ -14,6 +14,8 @@
   <!-- Description + xacro for the backend-selectable ros2_control system. -->
   <exec_depend>xacro</exec_depend>
   <exec_depend>openarm_description</exec_depend>
+  <!-- SO101 geometry: the flat URDF + meshes vendored into fm_description's share. -->
+  <exec_depend>fm_description</exec_depend>
 
   <!-- ros2_control runtime + the System plugins each sim backend selects. -->
   <exec_depend>controller_manager</exec_depend>
