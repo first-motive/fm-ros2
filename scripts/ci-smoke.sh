@@ -68,8 +68,9 @@ assert_mock_controllers() {
   teardown "$pid"
 }
 
-# Assert the G1 arm_sdk bridge turns a JointTrajectory into a LowCmd: the commanded
-# joint lands on its motor index and the engagement weight rides motor 29.
+# Assert the G1 arm_sdk bridge turns both arms' JointTrajectory streams into one LowCmd:
+# each commanded joint lands on its motor index (right 22..28, left 15..21) and the
+# engagement weight rides motor 29.
 assert_g1_arm_bridge() {
   ros2 run fm_control g1_arm_sdk_bridge \
     --ros-args -p output_topic:=/ci_arm_sdk -p weight_ramp_seconds:=0.0 >/tmp/bridge.log 2>&1 &
@@ -78,25 +79,30 @@ assert_g1_arm_bridge() {
   ros2 topic pub --rate 10 /g1_right_arm_controller/joint_trajectory \
     trajectory_msgs/msg/JointTrajectory \
     "{joint_names: [right_elbow_joint], points: [{positions: [0.5]}]}" >/dev/null 2>&1 &
-  local ppid=$!
+  local rpid=$!
+  ros2 topic pub --rate 10 /g1_left_arm_controller/joint_trajectory \
+    trajectory_msgs/msg/JointTrajectory \
+    "{joint_names: [left_elbow_joint], points: [{positions: [-0.3]}]}" >/dev/null 2>&1 &
+  local lpid=$!
   sleep 2
   ros2 topic echo --once /ci_arm_sdk unitree_hg/msg/LowCmd >/tmp/lowcmd.yaml 2>/dev/null || true
-  kill "$bpid" "$ppid" 2>/dev/null || true
-  wait "$bpid" "$ppid" 2>/dev/null || true
+  kill "$bpid" "$rpid" "$lpid" 2>/dev/null || true
+  wait "$bpid" "$rpid" "$lpid" 2>/dev/null || true
   if python3 - <<'PY'
 import sys, yaml
 try:
     d = list(yaml.safe_load_all(open("/tmp/lowcmd.yaml")))[0]
     mc = d["motor_cmd"]
-    # right_elbow_joint -> motor index 25; weight -> motor 29.
-    ok = abs(mc[25]["q"] - 0.5) < 1e-3 and mc[29]["q"] > 0.0 and len(mc) == 35
+    # right_elbow_joint -> motor 25; left_elbow_joint -> motor 18; weight -> motor 29.
+    ok = (abs(mc[25]["q"] - 0.5) < 1e-3 and abs(mc[18]["q"] + 0.3) < 1e-3 and
+          mc[29]["q"] > 0.0 and len(mc) == 35)
     sys.exit(0 if ok else 1)
 except Exception as exc:
     print(exc)
     sys.exit(1)
 PY
   then
-    pass "g1 arm_sdk bridge: elbow->motor[25].q=0.5, weight->motor[29]>0"
+    pass "g1 arm_sdk bridge: R elbow->motor[25]=0.5, L elbow->motor[18]=-0.3, weight->motor[29]>0"
   else
     fail "g1 arm_sdk bridge: LowCmd mapping wrong or absent"
     tail -5 /tmp/bridge.log || true

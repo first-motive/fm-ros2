@@ -22,29 +22,45 @@
 #include "fm_control/g1_arm_sdk_bridge.hpp"
 
 using fm_control::apply_trajectory_point;
-using fm_control::kRightArm;
+using fm_control::kArms;
 using fm_control::kWeightMotorIndex;
 using fm_control::make_low_cmd;
 using fm_control::ramp_weight;
 
 namespace
 {
-std::array<double, kRightArm.size()> zero_targets()
+std::array<double, kArms.size()> zero_targets()
 {
-  std::array<double, kRightArm.size()> t{};
+  std::array<double, kArms.size()> t{};
   t.fill(0.0);
   return t;
 }
 }  // namespace
 
-TEST(G1ArmSdkBridge, MapsJointsByNameToMotorIndices)
+TEST(G1ArmSdkBridge, MapsRightArmJointsByNameToMotorIndices)
 {
-  auto cmd = make_low_cmd(
-    {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7}, /*weight=*/ 1.0, /*kp=*/ 60.0, /*kd=*/ 1.5);
-  // shoulder_pitch -> 22 ... wrist_yaw -> 28, in chain order.
+  // kArms order: right arm in slots 0..6, values land on motors 22..28.
+  auto t = zero_targets();
+  t[0] = 0.1;  // right_shoulder_pitch
+  t[3] = 0.4;  // right_elbow
+  t[6] = 0.7;  // right_wrist_yaw
+  auto cmd = make_low_cmd(t, /*weight=*/ 1.0, /*kp=*/ 60.0, /*kd=*/ 1.5);
   EXPECT_FLOAT_EQ(cmd.motor_cmd[22].q, 0.1F);
   EXPECT_FLOAT_EQ(cmd.motor_cmd[25].q, 0.4F);  // right_elbow_joint
   EXPECT_FLOAT_EQ(cmd.motor_cmd[28].q, 0.7F);  // right_wrist_yaw_joint
+}
+
+TEST(G1ArmSdkBridge, MapsLeftArmJointsByNameToMotorIndices)
+{
+  // kArms order: left arm in slots 7..13, values land on motors 15..21.
+  auto t = zero_targets();
+  t[7] = 0.1;   // left_shoulder_pitch
+  t[10] = 0.4;  // left_elbow
+  t[13] = 0.7;  // left_wrist_yaw
+  auto cmd = make_low_cmd(t, /*weight=*/ 1.0, 60.0, 1.5);
+  EXPECT_FLOAT_EQ(cmd.motor_cmd[15].q, 0.1F);
+  EXPECT_FLOAT_EQ(cmd.motor_cmd[18].q, 0.4F);  // left_elbow_joint
+  EXPECT_FLOAT_EQ(cmd.motor_cmd[21].q, 0.7F);  // left_wrist_yaw_joint
 }
 
 TEST(G1ArmSdkBridge, AppliesGainsAndEnableMode)
@@ -71,17 +87,30 @@ TEST(G1ArmSdkBridge, TrajectoryMatchedByNameNotOrder)
   // Reversed + partial: only elbow + wrist_yaw, out of chain order.
   apply_trajectory_point(
     targets, {"right_wrist_yaw_joint", "right_elbow_joint"}, {-0.3, 0.5});
-  // index 3 = right_elbow_joint, index 6 = right_wrist_yaw_joint in kRightArm order.
+  // index 3 = right_elbow_joint, index 6 = right_wrist_yaw_joint in kArms order.
   EXPECT_DOUBLE_EQ(targets[3], 0.5);
   EXPECT_DOUBLE_EQ(targets[6], -0.3);
   // Untouched joints stay at zero.
   EXPECT_DOUBLE_EQ(targets[0], 0.0);
 }
 
+TEST(G1ArmSdkBridge, OneArmTrajectoryLeavesTheOtherArmUntouched)
+{
+  // A left-arm trajectory updates only the left slice (slots 7..13); the right slice
+  // (slots 0..6) stays zero — the two arms' streams do not interfere.
+  auto targets = zero_targets();
+  apply_trajectory_point(targets, {"left_elbow_joint"}, {0.9});
+  EXPECT_DOUBLE_EQ(targets[10], 0.9);  // left_elbow
+  for (std::size_t i = 0; i < 7; ++i) {
+    EXPECT_DOUBLE_EQ(targets[i], 0.0);  // right arm untouched
+  }
+}
+
 TEST(G1ArmSdkBridge, TrajectoryIgnoresUnknownJoints)
 {
   auto targets = zero_targets();
-  apply_trajectory_point(targets, {"left_elbow_joint", "waist_yaw_joint"}, {1.0, 2.0});
+  // Neither a leg nor a waist joint is in the arm table.
+  apply_trajectory_point(targets, {"waist_yaw_joint", "left_hip_pitch_joint"}, {1.0, 2.0});
   for (double t : targets) {
     EXPECT_DOUBLE_EQ(t, 0.0);
   }
