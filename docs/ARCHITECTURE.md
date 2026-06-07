@@ -54,7 +54,7 @@ flowchart TB
 | Actor / System | Role |
 |----------------|------|
 | Operator | Drives teleop, launches robots, watches the graph |
-| Foxglove Studio | Browser viz + Cartesian/joint jog panel (`foxglove_teleop`) |
+| Foxglove Studio | Browser viz + Cartesian/joint jog panel (`fm_teleop_panel`) |
 | fm_tui | Terminal monitor (live graph) and menu launcher |
 | Dev container | Hosts the entire ROS2 node graph; one per host |
 | Vendored externals | MuJoCo models, LeRobot, OpenArm description/MoveIt/CAN |

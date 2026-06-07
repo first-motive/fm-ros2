@@ -63,7 +63,7 @@ jobs:
       # Type-checks + bundles the TypeScript/React teleop panel (not part of the ROS
       # workspace). Catches panel breakage — a broken ROBOTS entry, a type error.
       - name: Build panel
-        working-directory: foxglove_teleop
+        working-directory: src/fm_teleop/fm_teleop_panel
         run: |
           npm ci
           npm run build

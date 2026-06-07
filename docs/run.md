@@ -139,7 +139,7 @@ TERTIARY   SpaceMouse (spacenav) → Servo                    best 6-DOF ergonom
 AVOID      USB-HID directly into a Mac container             no passthrough on OrbStack/Docker Desktop
 ```
 
-The Foxglove panel (`foxglove_teleop/`) is the scalable spine: a new operator opens a
+The Foxglove panel (`src/fm_teleop/fm_teleop_panel/`) is the scalable spine: a new operator opens a
 URL, no hardware shipped. Physical-HID devices stay on Linux hosts, or reach the Mac
 container over a host-side network bridge — never through container USB passthrough.
 

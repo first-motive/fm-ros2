@@ -72,8 +72,8 @@ fm_bringup/joy_to_servo.py        gamepad Joy → TwistStamped on Servo's delta 
 fm_bringup/spacenav_to_servo.py   SpaceMouse Twist → TwistStamped on Servo's delta topic
 ```
 
-The primary input is the browser-side Foxglove panel (`foxglove_teleop/` at the repo
-root); the adapters cover physical-HID inputs on Linux hosts.
+The primary input is the browser-side Foxglove panel (`src/fm_teleop/fm_teleop_panel/`);
+the adapters cover physical-HID inputs on Linux hosts.
 
 ## Build Type
 
