@@ -6,40 +6,60 @@ on:
   pull_request:
 
 jobs:
-  colcon-build-test:
-    name: colcon build + test (humble)
+  workspace:
+    name: build + test + smoke (humble)
     runs-on: ubuntu-latest
-    # Run directly in the ROS Humble image — same base our Dockerfile extends.
-    container:
-      image: ros:humble-ros-base
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install build tooling
+      # Build the First Motive base image so CI carries the exact same deps the
+      # workspace needs (moveit, ros2_control, the sim backends, rosidl_generator_dds_idl
+      # for the vendored Unitree messages). One source of truth: docker/Dockerfile.base.
+      - name: Build base image
+        run: docker build -t fm-ros2:ci -f docker/Dockerfile.base .
+
+      # src/external is gitignored, so CI must vendor the sources the build consumes
+      # (openarm_description, the unitree_hg messages, ...) at their pinned commits.
+      - name: Import externals
         run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            python3-colcon-common-extensions \
-            python3-pytest \
-            python3-pip
-          rm -rf /var/lib/apt/lists/*
-          # fm_tui runtime dep; colcon build does not install pip requirements.
-          pip3 install textual==0.74.0
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc './scripts/import-externals.sh'
 
       - name: colcon build
-        shell: bash
         run: |
-          source /opt/ros/humble/setup.bash
-          colcon build --symlink-install
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'
 
+      # colcon test alone exits 0 even on failures; run it, then let colcon test-result
+      # surface the failing output and set the non-zero exit.
       - name: colcon test
-        shell: bash
         run: |
-          source /opt/ros/humble/setup.bash
-          source install/setup.bash
-          # colcon test alone exits 0 even on test failures; run it without the
-          # return-code flag so the next step always prints the verbose result,
-          # then let colcon test-result set the non-zero exit. This surfaces the
-          # failing test's output instead of dying before it prints.
-          colcon test
-          colcon test-result --verbose
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc 'source /opt/ros/humble/setup.bash && source install/setup.bash &&
+                      colcon test && colcon test-result --verbose'
+
+      # Headless robot asserts: per-robot mock controllers, the G1 arm_sdk bridge, the
+      # G1 base AGV command. The mujoco-render, Linux/GPU, and real-hardware items of
+      # the test plan stay manual.
+      - name: Smoke (three-robot headless asserts)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc './scripts/ci-smoke.sh'
+
+  panel:
+    name: foxglove teleop panel build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Type-checks + bundles the TypeScript/React teleop panel (not part of the ROS
+      # workspace). Catches panel breakage — a broken ROBOTS entry, a type error.
+      - name: Build panel
+        working-directory: foxglove_teleop
+        run: |
+          npm ci
+          npm run build
