@@ -42,40 +42,48 @@ def _launch_setup(context, *args, **kwargs):
 
     kinematics = _load_yaml(spec.moveit_file("kinematics.yaml"))
     joint_limits = _load_yaml(spec.moveit_file("joint_limits.yaml"))
-    servo_yaml = _load_yaml(spec.servo_params_file())
 
-    servo_node = Node(
-        package="moveit_servo",
-        executable="servo_node_main",
-        output="screen",
-        parameters=[
-            {"moveit_servo": servo_yaml["moveit_servo"]},
-            {"robot_description": robot_description},
-            {"robot_description_semantic": robot_description_semantic},
-            {"robot_description_kinematics": kinematics},
-            {"robot_description_planning": joint_limits},
-        ],
-    )
-
-    # servo_node starts paused; trigger it once it is up.
-    start_servo = TimerAction(
-        period=3.0,
-        actions=[
-            ExecuteProcess(
-                cmd=[
-                    "ros2",
-                    "service",
-                    "call",
-                    "/servo_node/start_servo",
-                    "std_srvs/srv/Trigger",
-                    "{}",
-                ],
+    # One servo_node per arm group (multi-arm robots return more than one); each loads
+    # its own servo.yaml and exposes delta command topics under /<node_name>/.
+    nodes = []
+    for node_name, servo_params in spec.servo_nodes():
+        servo_yaml = _load_yaml(servo_params)
+        nodes.append(
+            Node(
+                package="moveit_servo",
+                executable="servo_node_main",
+                name=node_name,
                 output="screen",
+                parameters=[
+                    {"moveit_servo": servo_yaml["moveit_servo"]},
+                    {"robot_description": robot_description},
+                    {"robot_description_semantic": robot_description_semantic},
+                    {"robot_description_kinematics": kinematics},
+                    {"robot_description_planning": joint_limits},
+                ],
             )
-        ],
-    )
+        )
+        # servo_node starts paused; trigger it once it is up.
+        nodes.append(
+            TimerAction(
+                period=3.0,
+                actions=[
+                    ExecuteProcess(
+                        cmd=[
+                            "ros2",
+                            "service",
+                            "call",
+                            f"/{node_name}/start_servo",
+                            "std_srvs/srv/Trigger",
+                            "{}",
+                        ],
+                        output="screen",
+                    )
+                ],
+            )
+        )
 
-    return [servo_node, start_servo]
+    return nodes
 
 
 def generate_launch_description():

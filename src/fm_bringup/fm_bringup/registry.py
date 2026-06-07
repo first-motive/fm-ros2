@@ -92,6 +92,11 @@ class RobotSpec:
     bringup_srdf: dict  # variant -> SRDF filename under config/<config_dir>
     moveit_srdf: str  # fallback SRDF filename in the MoveIt config package
 
+    # Extra MoveIt Servo instances beyond the primary, as ((node_name, servo.yaml), ...).
+    # Multi-arm robots (the G1-D) run one servo_node per arm group, each with its own
+    # servo.yaml + delta command topics under /<node_name>/. Empty for single-arm robots.
+    extra_servo_configs: tuple = ()
+
     # When the controllers drive only a SUBSET of the model's joints (the G1-D arm is
     # 7 of 34), the unactuated joints never reach /joint_states, so MoveIt's planning
     # scene monitor never completes ("complete state not known") and Servo will not jog.
@@ -111,6 +116,17 @@ class RobotSpec:
 
     def servo_params_file(self):
         return self._config(self.servo_config)
+
+    def servo_nodes(self):
+        """Return ``[(node_name, servo.yaml abs path), ...]`` — primary plus extras.
+
+        Multi-arm robots run one servo_node per arm group, each with its own
+        servo.yaml and delta command topics under ``/<node_name>/``. Single-arm
+        robots return just the primary ``servo_node``.
+        """
+        nodes = [("servo_node", self.servo_params_file())]
+        nodes += [(name, self._config(cfg)) for name, cfg in self.extra_servo_configs]
+        return nodes
 
     def moveit_file(self, name):
         return os.path.join(
@@ -223,7 +239,7 @@ _ROBOTS = {
         config_dir="g1_d",
         controllers={
             "g1_d": {
-                "active": ["g1_right_arm_controller"],
+                "active": ["g1_right_arm_controller", "g1_left_arm_controller"],
                 "inactive": [],
             },
         },
@@ -239,7 +255,10 @@ _ROBOTS = {
         servo_config="servo.yaml",
         bringup_srdf={"g1_d": "g1_d.srdf"},
         moveit_srdf="g1_d.srdf",
-        # Servo drives 7 of the G1-D's 34 joints; fill the rest so the planning scene
+        # Second servo_node for the left arm: its own servo.yaml + delta topics under
+        # /servo_node_left/ (the primary servo_node drives the right arm).
+        extra_servo_configs=(("servo_node_left", "servo_left.yaml"),),
+        # Servo drives 14 of the G1-D's 34 joints; fill the rest so the planning scene
         # completes (see full_state_jsp above).
         full_state_jsp=True,
     ),

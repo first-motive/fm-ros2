@@ -84,7 +84,24 @@ def test_get_g1_d():
 
 def test_g1_d_controller_set():
     spec = registry.get("g1_d")
-    assert spec.controllers["g1_d"]["active"] == ["g1_right_arm_controller"]
+    assert spec.controllers["g1_d"]["active"] == [
+        "g1_right_arm_controller",
+        "g1_left_arm_controller",
+    ]
+
+
+def test_g1_d_servo_nodes_one_per_arm():
+    # Right arm on the primary servo_node, left arm on servo_node_left.
+    spec = registry.get("g1_d")
+    names = [name for name, _ in spec.servo_nodes()]
+    assert names == ["servo_node", "servo_node_left"]
+    assert spec.servo_nodes()[1][1].endswith("config/g1_d/servo_left.yaml")
+
+
+def test_single_arm_robots_have_one_servo_node():
+    # Robots without extra_servo_configs run just the primary servo_node.
+    assert [n for n, _ in registry.get("openarm").servo_nodes()] == ["servo_node"]
+    assert [n for n, _ in registry.get("so101").servo_nodes()] == ["servo_node"]
 
 
 def test_g1_d_real_is_not_a_cm_backend():

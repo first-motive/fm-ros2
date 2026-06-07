@@ -1,10 +1,12 @@
 <?xml version="1.0"?>
 <!--
-First Motive ros2_control for the Unitree G1-D right arm (7 joints).
+First Motive ros2_control for the Unitree G1-D arms (left + right, 7 joints each).
 
-One <ros2_control> system for the right arm only — waist, legs, left arm, and the
-wheeled base are left unactuated (they hold at zero via robot_state_publisher in
-sim). Only the <hardware> System plugin swaps, selected by `sim_backend`:
+One <ros2_control> system holds both arms; two joint_trajectory_controllers each
+claim their 7 joints (g1_right_arm_controller, g1_left_arm_controller). The waist,
+legs, hands, and the wheeled base are left unactuated here (they hold at zero via
+robot_state_publisher in sim). Only the <hardware> System plugin swaps, selected by
+`sim_backend`:
 
   mock    -> mock_components/GenericSystem               (no sim; perfect state echo)
   mujoco  -> mujoco_ros2_control/MujocoSystemInterface   (CPU)
@@ -12,15 +14,13 @@ sim). Only the <hardware> System plugin swaps, selected by `sim_backend`:
   isaac   -> topic_based_ros2_control/TopicBasedSystem   (Isaac Sim over ROS topics)
 
 There is deliberately NO `real` ros2_control plugin: no hardware interface exists for
-the G1 upstream. The real arm is driven by the Servo->arm_sdk bridge (a 50 Hz
+the G1 upstream. The real arms are driven by the Servo->arm_sdk bridge (a 50 Hz
 unitree_hg/LowCmd loop on rt/arm_sdk), which replaces the controller + hardware at
 runtime — so for sim_backend=real this macro emits no <ros2_control> at all, leaving
 the description geometry-only for robot_state_publisher. See the bridge node.
 
-Joint names match the vendored g1_d URDF right arm exactly:
-right_shoulder_pitch_joint, right_shoulder_roll_joint, right_shoulder_yaw_joint,
-right_elbow_joint, right_wrist_roll_joint, right_wrist_pitch_joint,
-right_wrist_yaw_joint (arm_sdk motor_cmd indices 22..28).
+Joint names match the vendored g1_d URDF arms exactly. arm_sdk motor_cmd indices:
+right arm 22..28, left arm 15..21 (unitree_sdk2 JointIndex enum).
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -77,14 +77,14 @@ right_wrist_yaw_joint (arm_sdk motor_cmd indices 22..28).
     </joint>
   </xacro:macro>
 
-  <!-- The 7-joint right-arm system, emitted for sim backends only. -->
-  <xacro:macro name="g1_right_arm_system"
+  <!-- The 14-joint dual-arm system, emitted for sim backends only. -->
+  <xacro:macro name="g1_arm_system"
       params="sim_backend mujoco_model_path:=''
               isaac_joint_commands_topic:=/isaac_joint_commands
               isaac_joint_states_topic:=/isaac_joint_states">
 
     <xacro:unless value="${sim_backend == 'real'}">
-      <ros2_control name="g1_right_arm_system" type="system">
+      <ros2_control name="g1_arm_system" type="system">
         <xacro:g1_backend_hardware
             sim_backend="${sim_backend}"
             mujoco_model_path="${mujoco_model_path}"
@@ -98,9 +98,17 @@ right_wrist_yaw_joint (arm_sdk motor_cmd indices 22..28).
         <xacro:g1_arm_joint joint_name="right_wrist_roll_joint"/>
         <xacro:g1_arm_joint joint_name="right_wrist_pitch_joint"/>
         <xacro:g1_arm_joint joint_name="right_wrist_yaw_joint"/>
+
+        <xacro:g1_arm_joint joint_name="left_shoulder_pitch_joint"/>
+        <xacro:g1_arm_joint joint_name="left_shoulder_roll_joint"/>
+        <xacro:g1_arm_joint joint_name="left_shoulder_yaw_joint"/>
+        <xacro:g1_arm_joint joint_name="left_elbow_joint"/>
+        <xacro:g1_arm_joint joint_name="left_wrist_roll_joint"/>
+        <xacro:g1_arm_joint joint_name="left_wrist_pitch_joint"/>
+        <xacro:g1_arm_joint joint_name="left_wrist_yaw_joint"/>
       </ros2_control>
     </xacro:unless>
-    <!-- real: no ros2_control; the Servo->arm_sdk bridge drives the arm at runtime. -->
+    <!-- real: no ros2_control; the Servo->arm_sdk bridge drives the arms at runtime. -->
   </xacro:macro>
 
 </robot>

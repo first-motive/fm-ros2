@@ -1,9 +1,10 @@
-# G1-D controllers: joint_state_broadcaster + a 7-joint right-arm JTC.
+# G1-D controllers: joint_state_broadcaster + a 7-joint JTC per arm.
 #
 # Sim backends only (mock/mujoco/gazebo/isaac) — the real backend is the
 # Servo->arm_sdk bridge, which replaces ros2_control. For mujoco/gazebo/isaac the sim
 # process hosts the controller_manager and reads these params; for mock a standalone
-# ros2_control_node does. Joint names match the vendored g1_d URDF right arm.
+# ros2_control_node does. Both arms' JTCs claim joints from the one g1_arm_system in
+# the description. Joint names match the vendored g1_d URDF arms.
 controller_manager:
   ros__parameters:
     update_rate: 100  # Hz
@@ -11,8 +12,11 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    # Primary MoveIt Servo target: streams trajectory_msgs/JointTrajectory.
+    # Primary MoveIt Servo targets: each streams trajectory_msgs/JointTrajectory.
     g1_right_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    g1_left_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
 g1_right_arm_controller:
@@ -25,6 +29,23 @@ g1_right_arm_controller:
       - right_wrist_roll_joint
       - right_wrist_pitch_joint
       - right_wrist_yaw_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    allow_nonzero_velocity_at_trajectory_end: true
+
+g1_left_arm_controller:
+  ros__parameters:
+    joints:
+      - left_shoulder_pitch_joint
+      - left_shoulder_roll_joint
+      - left_shoulder_yaw_joint
+      - left_elbow_joint
+      - left_wrist_roll_joint
+      - left_wrist_pitch_joint
+      - left_wrist_yaw_joint
     command_interfaces:
       - position
     state_interfaces:
