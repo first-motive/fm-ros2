@@ -20,8 +20,12 @@ vcs import src/external < external.repos
 # build — except real ament packages whose code or xacro we consume directly:
 #   openarm_description  — xacro needs $(find openarm_description) + package://
 #   openarm_ros2         — bringup + bimanual MoveIt config (launch/config only)
-# Everything else (lerobot, so_arm, unitree_*, openarm_can, openarm_mujoco) is
-# file-vendored or Linux-only, so it gets a COLCON_IGNORE marker.
+# Everything else is file-vendored, reference-only, or Linux-only, so it gets a
+# COLCON_IGNORE marker:
+#   lerobot, so_arm, openarm_mujoco   file-vendored (URDF/MJCF/assets, not built)
+#   ros2_so_arm                       reference for the SO101 MoveIt config values
+#   feetech_ros2_driver, openarm_can  Linux + real-hardware backends only
+#   unitree_*                         G1 description + DDS SDK (see G1 steps)
 BUILD_DIRS=(openarm_description openarm_ros2)
 # Sub-packages inside a built repo that must stay OUT of the build. openarm_hardware
 # is C++ SocketCAN (Linux-only, needs openarm_can) and joins the build only on the

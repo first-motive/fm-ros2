@@ -23,12 +23,32 @@ repositories:
     url: https://github.com/enactic/openarm_description.git
     version: 846a82d8baf64efdbb7f55c7f64b9b004939061b  # HEAD @ 2026-06-03; fork before patching
   so_arm:
-    # SO-ARM100 (LeRobot SO101): plain files, NOT a ROS package. Only
-    # Simulation/SO101 is consumed — a flat URDF + assets/ vendored into
-    # fm_description's share like the G1. Apache-2.0.
+    # SO-ARM100 (LeRobot SO101): plain files, NOT a ROS package. The SO101 flat
+    # URDF + assets/ are vendored into fm_description's share (like the G1), and
+    # the official SO101 MJCF (Simulation/SO101/so101_new_calib.xml + scene.xml)
+    # drives the mujoco backend. Joint names are bare (shoulder_pan, ...); this is
+    # the single SO101 description used across all backends + Servo. Apache-2.0.
     type: git
     url: https://github.com/TheRobotStudio/SO-ARM100.git
     version: fda892cba81032c46c40976a48c9ceadbf40a9ca  # HEAD @ 2026-06-03; fork before patching
+  feetech_ros2_driver:
+    # SO101 real backend: a genuine ros2_control SystemInterface for Feetech STS
+    # servos (plugin feetech_ros2_driver/FeetechHardwareInterface). Builds on Humble.
+    # Linux + physical-hardware only, so COLCON_IGNORE'd on the Mac/sim path (the
+    # same posture as openarm_hardware) and built only for the real backend on
+    # Linux. BSD-3-Clause.
+    type: git
+    url: https://github.com/ros-physical-ai/feetech_ros2_driver.git
+    version: 2034e76f7f26c0bd2972ef52642a4e9e9356e7d4  # main @ 2026-06-06; fork before patching
+  ros2_so_arm:
+    # SO-ARM100/101 MoveIt config monorepo (so_arm100_moveit_config + descriptions).
+    # Reference only — it targets Jazzy+ and uses _joint-suffixed names against its
+    # own description, while we drive the bare-named TheRobotStudio URDF + MJCF. We
+    # read its kinematics/joint_limits/OMPL values when authoring the Humble SO101
+    # MoveIt config in fm_bringup, so it is COLCON_IGNORE'd, not built. BSD-3-Clause.
+    type: git
+    url: https://github.com/ros-physical-ai/ros2_so_arm.git
+    version: 12fbcb8cf30da7c3d679db384c43765ea311eb18  # main @ 2026-06-06; fork before patching
   unitree_ros:
     # G1 (and all Unitree) robot descriptions: flat URDF + STL meshes under
     # robots/g1_description/. Distinct from unitree_ros2 (the DDS SDK below).
