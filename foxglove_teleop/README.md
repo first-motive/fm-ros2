@@ -13,18 +13,39 @@ wheeled base, and both Dex3 hands. Adding a robot is one entry in the `ROBOTS` m
 ## What It Publishes
 
 ```
-geometry_msgs/TwistStamped -> <servo>/delta_twist_cmds   Cartesian arm jog (held = sustained)
+geometry_msgs/TwistStamped -> <servo>/delta_twist_cmds   Cartesian arm jog (joysticks)
 control_msgs/JointJog      -> <servo>/delta_joint_cmds   per-joint arm jog
-geometry_msgs/Twist        -> /cmd_vel                   wheeled base (vx + vyaw)
+geometry_msgs/Twist        -> /cmd_vel                   wheeled base (vx + vyaw [+ vy])
 std_msgs/String            -> /g1_hand_teleop/<side>/preset   hand preset (open/close/pinch)
 std_msgs/Float64MultiArray -> /g1_hand_teleop/<side>/sliders  hand per-joint targets
 ```
 
 Arm `<servo>` is `/servo_node` for the right arm and `/servo_node_left` for the G1-D left
 arm. Arm + base commands are unitless ([-1, 1]); MoveIt Servo and the diff-drive
-controller scale them. Jog buttons re-publish on a 50 ms timer while held so motion is
-continuous and stops on release. Hand presets fire once; hand sliders publish the full
-7-joint vector on change.
+controller scale them. The panel re-publishes on a 50 ms timer while a control is active so
+motion is continuous and stops on release. Hand presets fire once; hand sliders publish the
+full 7-joint vector on change.
+
+## Controls
+
+The panel is a touch-first dashboard, built for two-thumb use on a tablet. Every active
+control contributes to a shared command map; on each timer tick the panel merges all
+contributions per topic, so two sticks dragged at once publish together on the same message.
+
+```
+arm Cartesian   translate pad  lin x (fwd ↑) · lin y (lateral ↔)
+                Z thumb        lin z (up/down)
+                rotate pad     ang y (pitch ↕) · ang z (yaw ↔)
+                roll thumb     ang x (roll)
+                → all four merge into one TwistStamped per arm
+base            drive pad      vx (fwd ↑) · vyaw (turn ↔)
+                vy thumb       lateral strafe (holonomic bases only)
+```
+
+A header carries a global **STOP** (clears every active control at once), a **speed scalar**
+(0–1, multiplies every published magnitude), and each stick shows its live normalized value.
+The per-joint arm bank and the hands (presets + finger sliders) are collapsed by default.
+Joystick deadzone and the speed scalar persist in the panel settings.
 
 ## Build + Install
 
@@ -45,8 +66,8 @@ npm run local-install   # builds and installs into the local Foxglove Studio
 2. In Foxglove Studio (connected to `ws://localhost:8765`), add the **First Motive Teleop**
    panel and confirm it can publish (the connection must allow advertising).
 3. In the panel settings, pick the robot you launched so the joint set and command frame
-   match its Servo config.
-4. Hold the Cartesian or per-joint buttons to jog the arm.
+   match its Servo config. Tune the speed scalar and joystick deadzone there if needed.
+4. Drag the Cartesian sticks to jog the arm; expand **Per-joint** for single-joint jogging.
 
 Each robot's command frame must match `robot_link_command_frame` in its Servo config
 (e.g. `openarm_right_base_link` for the OpenArm).
