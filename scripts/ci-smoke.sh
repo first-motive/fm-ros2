@@ -30,6 +30,10 @@ fail() {
   fails=$((fails + 1))
 }
 
+# CycloneDDS can interleave notices ("A message was lost!!!", QoS fallback warnings)
+# onto stdout, which corrupt a captured YAML document or numeric value. Drop them.
+strip_dds_noise() { grep -vE 'message was lost|but not all, publishers'; }
+
 # Kill a backgrounded launch and the control/state nodes it spawned, then wait
 # (bounded) until the control node has actually exited — a fixed sleep races the next
 # robot's controller_manager on a slow CI box, leaving a duplicate /controller_manager.
@@ -85,7 +89,7 @@ assert_g1_arm_bridge() {
     "{joint_names: [left_elbow_joint], points: [{positions: [-0.3]}]}" >/dev/null 2>&1 &
   local lpid=$!
   sleep 2
-  ros2 topic echo --once /ci_arm_sdk unitree_hg/msg/LowCmd >/tmp/lowcmd.yaml 2>/dev/null || true
+  ros2 topic echo --once /ci_arm_sdk unitree_hg/msg/LowCmd 2>/dev/null | strip_dds_noise >/tmp/lowcmd.yaml || true
   kill "$bpid" "$rpid" "$lpid" 2>/dev/null || true
   wait "$bpid" "$rpid" "$lpid" 2>/dev/null || true
   if python3 - <<'PY'
@@ -128,12 +132,13 @@ assert_g1_base_diff_drive() {
     "{linear: {x: 0.3}, angular: {z: 0.5}}" >/dev/null 2>&1 &
   local ppid=$!
   sleep 3
-  # --field dodges the tab-laden covariance arrays that break a full YAML parse.
+  # --field dodges the tab-laden covariance arrays that break a full YAML parse; the
+  # numeric grep drops any DDS notice line that lands on stdout before the value.
   local vx vyaw
   vx=$(ros2 topic echo --once --field twist.twist.linear.x \
-    /g1_base_controller/odom 2>/dev/null | head -1)
+    /g1_base_controller/odom 2>/dev/null | grep -E '^-?[0-9]' | head -1)
   vyaw=$(ros2 topic echo --once --field twist.twist.angular.z \
-    /g1_base_controller/odom 2>/dev/null | head -1)
+    /g1_base_controller/odom 2>/dev/null | grep -E '^-?[0-9]' | head -1)
   kill "$ppid" 2>/dev/null || true
   # open_loop odometry integrates the commanded vx + vyaw.
   if $up && python3 - "$vx" "$vyaw" <<'PY'
@@ -168,7 +173,7 @@ assert_g1_hand_bridge() {
     "{joint_names: [left_hand_thumb_0_joint, left_hand_thumb_1_joint, left_hand_thumb_2_joint, left_hand_middle_0_joint, left_hand_middle_1_joint, left_hand_index_0_joint, left_hand_index_1_joint], points: [{positions: [0.0, 0.0, 0.8, 0.0, 0.0, 0.0, 0.0]}]}" >/dev/null 2>&1 &
   local ppid=$!
   sleep 2
-  ros2 topic echo --once /ci_dex3_left unitree_hg/msg/HandCmd >/tmp/handcmd.yaml 2>/dev/null || true
+  ros2 topic echo --once /ci_dex3_left unitree_hg/msg/HandCmd 2>/dev/null | strip_dds_noise >/tmp/handcmd.yaml || true
   kill "$bpid" "$ppid" 2>/dev/null || true
   wait "$bpid" "$ppid" 2>/dev/null || true
   if python3 - <<'PY'
@@ -203,7 +208,7 @@ assert_g1_hand_teleop() {
   local ppid=$!
   sleep 2
   ros2 topic echo --once /g1_left_hand_controller/joint_trajectory \
-    trajectory_msgs/msg/JointTrajectory >/tmp/hand_traj.yaml 2>/dev/null || true
+    trajectory_msgs/msg/JointTrajectory 2>/dev/null | strip_dds_noise >/tmp/hand_traj.yaml || true
   kill "$npid" "$ppid" 2>/dev/null || true
   wait "$npid" "$ppid" 2>/dev/null || true
   if python3 - <<'PY'
@@ -238,7 +243,7 @@ assert_g1_base_teleop() {
     "{linear: {x: 0.3}, angular: {z: 0.2}}" >/dev/null 2>&1 &
   local ppid=$!
   sleep 2
-  ros2 topic echo --once /ci_agv unitree_api/msg/Request >/tmp/agv.yaml 2>/dev/null || true
+  ros2 topic echo --once /ci_agv unitree_api/msg/Request 2>/dev/null | strip_dds_noise >/tmp/agv.yaml || true
   kill "$bpid" "$ppid" 2>/dev/null || true
   wait "$bpid" "$ppid" 2>/dev/null || true
   if python3 - <<'PY'
