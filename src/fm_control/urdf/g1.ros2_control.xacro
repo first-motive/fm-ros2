@@ -1,13 +1,14 @@
 <?xml version="1.0"?>
 <!--
-First Motive ros2_control for the Unitree G1-D arms + wheeled base.
+First Motive ros2_control for the Unitree G1-D arms + Dex3 hands + wheeled base.
 
-One <ros2_control> system holds both arms (7 joints each) and the two drive wheels.
-Two joint_trajectory_controllers each claim an arm's 7 joints (g1_right_arm_controller,
-g1_left_arm_controller); a diff_drive_controller claims the two wheels' velocity
-interface (g1_base_controller). The waist, legs, and hands are left unactuated here
-(they hold at zero via robot_state_publisher in sim). Only the <hardware> System plugin
-swaps, selected by `sim_backend`:
+One <ros2_control> system holds both arms (7 joints each), both Dex3 hands (7 finger
+joints each), and the two drive wheels. A joint_trajectory_controller claims each arm
+(g1_right_arm_controller, g1_left_arm_controller) and each hand (g1_right_hand_controller,
+g1_left_hand_controller); a diff_drive_controller claims the two wheels' velocity
+interface (g1_base_controller). The waist and legs are left unactuated here (they hold
+at zero via robot_state_publisher in sim). Only the <hardware> System plugin swaps,
+selected by `sim_backend`:
 
   mock    -> mock_components/GenericSystem               (no sim; perfect state echo)
   mujoco  -> mujoco_ros2_control/MujocoSystemInterface   (CPU)
@@ -61,9 +62,10 @@ Right_Wheel_Joint) are velocity-controlled in sim only.
     </xacro:if>
   </xacro:macro>
 
-  <!-- One joint: position/velocity/effort command + state, uniform across the sim
-       backends so the controller set never changes. -->
-  <xacro:macro name="g1_arm_joint" params="joint_name">
+  <!-- One position-controlled joint: position/velocity/effort command + state, uniform
+       across the sim backends so the controller set never changes. Used for both arm
+       joints and the Dex3 hand finger joints. -->
+  <xacro:macro name="g1_position_joint" params="joint_name">
     <joint name="${joint_name}">
       <command_interface name="position"/>
       <command_interface name="velocity"/>
@@ -94,8 +96,8 @@ Right_Wheel_Joint) are velocity-controlled in sim only.
     </joint>
   </xacro:macro>
 
-  <!-- The dual-arm + wheeled-base system (14 arm joints + 2 wheels), emitted for sim
-       backends only. -->
+  <!-- The full G1-D control system (14 arm joints + 14 hand joints + 2 wheels), emitted
+       for sim backends only. -->
   <xacro:macro name="g1_system"
       params="sim_backend mujoco_model_path:=''
               isaac_joint_commands_topic:=/isaac_joint_commands
@@ -109,24 +111,43 @@ Right_Wheel_Joint) are velocity-controlled in sim only.
             isaac_joint_commands_topic="${isaac_joint_commands_topic}"
             isaac_joint_states_topic="${isaac_joint_states_topic}" />
 
-        <xacro:g1_arm_joint joint_name="right_shoulder_pitch_joint"/>
-        <xacro:g1_arm_joint joint_name="right_shoulder_roll_joint"/>
-        <xacro:g1_arm_joint joint_name="right_shoulder_yaw_joint"/>
-        <xacro:g1_arm_joint joint_name="right_elbow_joint"/>
-        <xacro:g1_arm_joint joint_name="right_wrist_roll_joint"/>
-        <xacro:g1_arm_joint joint_name="right_wrist_pitch_joint"/>
-        <xacro:g1_arm_joint joint_name="right_wrist_yaw_joint"/>
+        <xacro:g1_position_joint joint_name="right_shoulder_pitch_joint"/>
+        <xacro:g1_position_joint joint_name="right_shoulder_roll_joint"/>
+        <xacro:g1_position_joint joint_name="right_shoulder_yaw_joint"/>
+        <xacro:g1_position_joint joint_name="right_elbow_joint"/>
+        <xacro:g1_position_joint joint_name="right_wrist_roll_joint"/>
+        <xacro:g1_position_joint joint_name="right_wrist_pitch_joint"/>
+        <xacro:g1_position_joint joint_name="right_wrist_yaw_joint"/>
 
-        <xacro:g1_arm_joint joint_name="left_shoulder_pitch_joint"/>
-        <xacro:g1_arm_joint joint_name="left_shoulder_roll_joint"/>
-        <xacro:g1_arm_joint joint_name="left_shoulder_yaw_joint"/>
-        <xacro:g1_arm_joint joint_name="left_elbow_joint"/>
-        <xacro:g1_arm_joint joint_name="left_wrist_roll_joint"/>
-        <xacro:g1_arm_joint joint_name="left_wrist_pitch_joint"/>
-        <xacro:g1_arm_joint joint_name="left_wrist_yaw_joint"/>
+        <xacro:g1_position_joint joint_name="left_shoulder_pitch_joint"/>
+        <xacro:g1_position_joint joint_name="left_shoulder_roll_joint"/>
+        <xacro:g1_position_joint joint_name="left_shoulder_yaw_joint"/>
+        <xacro:g1_position_joint joint_name="left_elbow_joint"/>
+        <xacro:g1_position_joint joint_name="left_wrist_roll_joint"/>
+        <xacro:g1_position_joint joint_name="left_wrist_pitch_joint"/>
+        <xacro:g1_position_joint joint_name="left_wrist_yaw_joint"/>
 
         <xacro:g1_wheel_joint joint_name="Left_Wheel_Joint"/>
         <xacro:g1_wheel_joint joint_name="Right_Wheel_Joint"/>
+
+        <!-- Dex3 hands: 7 finger joints each, position-controlled by a per-hand JTC.
+             Order matches the Dex3 motor index order (thumb 0..2, middle 0..1,
+             index 0..1) used by the hardware bridge. -->
+        <xacro:g1_position_joint joint_name="left_hand_thumb_0_joint"/>
+        <xacro:g1_position_joint joint_name="left_hand_thumb_1_joint"/>
+        <xacro:g1_position_joint joint_name="left_hand_thumb_2_joint"/>
+        <xacro:g1_position_joint joint_name="left_hand_middle_0_joint"/>
+        <xacro:g1_position_joint joint_name="left_hand_middle_1_joint"/>
+        <xacro:g1_position_joint joint_name="left_hand_index_0_joint"/>
+        <xacro:g1_position_joint joint_name="left_hand_index_1_joint"/>
+
+        <xacro:g1_position_joint joint_name="right_hand_thumb_0_joint"/>
+        <xacro:g1_position_joint joint_name="right_hand_thumb_1_joint"/>
+        <xacro:g1_position_joint joint_name="right_hand_thumb_2_joint"/>
+        <xacro:g1_position_joint joint_name="right_hand_middle_0_joint"/>
+        <xacro:g1_position_joint joint_name="right_hand_middle_1_joint"/>
+        <xacro:g1_position_joint joint_name="right_hand_index_0_joint"/>
+        <xacro:g1_position_joint joint_name="right_hand_index_1_joint"/>
       </ros2_control>
     </xacro:unless>
     <!-- real: no ros2_control; the Servo->arm_sdk bridge drives the arms and

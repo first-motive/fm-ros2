@@ -1,5 +1,5 @@
-# G1-D controllers: joint_state_broadcaster + a 7-joint JTC per arm + a diff-drive
-# base controller.
+# G1-D controllers: joint_state_broadcaster + a 7-joint JTC per arm + a 7-joint JTC per
+# hand + a diff-drive base controller.
 #
 # Sim backends only (mock/mujoco/gazebo/isaac) — the real backend is the
 # Servo->arm_sdk bridge (arms) + g1_base_teleop (base), which replace ros2_control. For
@@ -23,6 +23,13 @@ controller_manager:
     # Wheeled base: maps Twist (vx + vyaw) to the two drive wheels.
     g1_base_controller:
       type: diff_drive_controller/DiffDriveController
+
+    # Dex3 hands: 7 finger joints each, streamed as trajectory_msgs/JointTrajectory.
+    g1_right_hand_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    g1_left_hand_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
 
 g1_right_arm_controller:
   ros__parameters:
@@ -76,3 +83,40 @@ g1_base_controller:
     open_loop: true
     use_stamped_vel: false
     publish_rate: 50.0
+
+# Dex3 right hand: 7 finger joints in Dex3 motor-index order (thumb 0..2, middle 0..1,
+# index 0..1). The hand teleop node + hardware bridge use this same order.
+g1_right_hand_controller:
+  ros__parameters:
+    joints:
+      - right_hand_thumb_0_joint
+      - right_hand_thumb_1_joint
+      - right_hand_thumb_2_joint
+      - right_hand_middle_0_joint
+      - right_hand_middle_1_joint
+      - right_hand_index_0_joint
+      - right_hand_index_1_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    allow_nonzero_velocity_at_trajectory_end: true
+
+# Dex3 left hand: same 7 finger joints in Dex3 motor-index order.
+g1_left_hand_controller:
+  ros__parameters:
+    joints:
+      - left_hand_thumb_0_joint
+      - left_hand_thumb_1_joint
+      - left_hand_thumb_2_joint
+      - left_hand_middle_0_joint
+      - left_hand_middle_1_joint
+      - left_hand_index_0_joint
+      - left_hand_index_1_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    allow_nonzero_velocity_at_trajectory_end: true

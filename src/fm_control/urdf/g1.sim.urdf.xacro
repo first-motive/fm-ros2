@@ -5,10 +5,10 @@ arms.
 
 This merges the vendored Unitree G1-D geometry (the flat URDF installed into
 fm_description's share) and injects a <ros2_control> system that actuates the 14
-arm joints (7 per arm) plus the two drive wheels, selected by `sim_backend`. The
-waist, legs, and hands are not actuated here — in sim they hold at zero through
-robot_state_publisher. The G1-D is a single fixed configuration, so there is no
-preset arg.
+arm joints (7 per arm), the 14 Dex3 hand joints (7 per hand), and the two drive
+wheels, selected by `sim_backend`. The waist and legs are not actuated here — in sim
+they hold at zero through robot_state_publisher. The G1-D is a single fixed
+configuration, so there is no preset arg.
 
 For sim_backend=real no ros2_control is emitted: the Servo->arm_sdk bridge drives the
 arm out-of-band (see g1.ros2_control.xacro). The description stays geometry-only so

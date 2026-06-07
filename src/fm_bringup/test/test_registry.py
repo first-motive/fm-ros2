@@ -88,6 +88,8 @@ def test_g1_d_controller_set():
         "g1_right_arm_controller",
         "g1_left_arm_controller",
         "g1_base_controller",
+        "g1_right_hand_controller",
+        "g1_left_hand_controller",
     ]
 
 

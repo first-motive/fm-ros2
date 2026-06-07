@@ -248,6 +248,8 @@ _ROBOTS = {
                     "g1_right_arm_controller",
                     "g1_left_arm_controller",
                     "g1_base_controller",
+                    "g1_right_hand_controller",
+                    "g1_left_hand_controller",
                 ],
                 "inactive": [],
             },
