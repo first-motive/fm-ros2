@@ -5,6 +5,7 @@
   "publisher": "first-motive",
   "version": "0.0.1",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/Ubundi/fm-ros2/tree/main/foxglove_teleop",
   "main": "./dist/extension.js",
   "keywords": ["foxglove", "ros2", "moveit", "servo", "teleop"],
   "scripts": {
