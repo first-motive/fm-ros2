@@ -1,8 +1,12 @@
-# First Motive OpenArm Teleop Panel
+# First Motive Teleop Panel
 
-A Foxglove Studio panel that jogs the OpenArm through MoveIt Servo. It is the primary,
-fleet-scalable teleop input: a new operator opens a Foxglove URL — no per-operator
-hardware to ship.
+A Foxglove Studio panel that jogs a registered robot through MoveIt Servo. It is the
+primary, fleet-scalable teleop input: a new operator opens a Foxglove URL — no
+per-operator hardware to ship.
+
+The joint set, command frame, and whether Cartesian jogging is offered are read from a
+per-robot config selected in the panel settings (mirrors `fm_bringup`'s robot
+registry). Adding a robot is one entry in the `ROBOTS` map in `src/panel.tsx`.
 
 ## What It Publishes
 
@@ -31,8 +35,11 @@ npm run local-install   # builds and installs into the local Foxglove Studio
 ## Use
 
 1. Start the sim and Servo: `./scripts/teleop.sh --robot openarm` (default Foxglove input).
-2. In Foxglove Studio (connected to `ws://localhost:8765`), add the **OpenArm Teleop**
+2. In Foxglove Studio (connected to `ws://localhost:8765`), add the **First Motive Teleop**
    panel and confirm it can publish (the connection must allow advertising).
-3. Hold the Cartesian or per-joint buttons to jog the arm.
+3. In the panel settings, pick the robot you launched so the joint set and command frame
+   match its Servo config.
+4. Hold the Cartesian or per-joint buttons to jog the arm.
 
-The command frame is `openarm_right_base_link`, matching the Servo config.
+Each robot's command frame must match `robot_link_command_frame` in its Servo config
+(e.g. `openarm_right_base_link` for the OpenArm).

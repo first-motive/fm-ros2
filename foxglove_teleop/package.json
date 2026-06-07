@@ -1,7 +1,7 @@
 {
-  "name": "fm-openarm-teleop",
-  "displayName": "First Motive OpenArm Teleop",
-  "description": "Jog the OpenArm through MoveIt Servo: publishes TwistStamped and JointJog from the browser.",
+  "name": "fm-teleop",
+  "displayName": "First Motive Teleop",
+  "description": "Jog a registered robot through MoveIt Servo: publishes TwistStamped and JointJog from the browser, with the joint set and frame chosen per robot in the panel settings.",
   "publisher": "first-motive",
   "version": "0.0.1",
   "license": "Apache-2.0",
@@ -14,6 +14,8 @@
   },
   "devDependencies": {
     "@foxglove/extension": "^2.0.0",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
     "create-foxglove-extension": "^1.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
