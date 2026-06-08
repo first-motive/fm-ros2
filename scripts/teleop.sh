@@ -11,6 +11,13 @@
 #   foxglove   custom Foxglove panel -> TwistStamped/JointJog (browser, no HW) [default]
 #   joy        gamepad (Linux /dev/input, or Mac host-side HID->Joy bridge)
 #   spacenav   SpaceMouse 6-DOF (USB, Linux only)
+#   vision     camera tracks the operator's wrist -> arm twist (MediaPipe). Override the
+#              camera_source launch arg: camera_source:=<index|url>. On macOS/OrbStack
+#              a USB webcam cannot pass through, so use a phone MJPEG stream URL, e.g.
+#              camera_source:=http://<phone-ip>:8080/video. One-time setup inside the
+#              container: pip install mediapipe opencv-python, then run
+#              src/fm_teleop/fm_teleop_vision/scripts/download_model.sh. Engage from the
+#              Foxglove panel's "Vision (hold)" button (a deadman).
 #
 # In the Foxglove panel, pick the robot in the panel settings so the joint set +
 # command frame match. Per-robot Cartesian reach:
@@ -70,7 +77,7 @@ if [[ "$ok" != true ]]; then
   exit 1
 fi
 
-VALID_INPUTS=(foxglove joy spacenav)
+VALID_INPUTS=(foxglove joy spacenav vision)
 ok=false
 for i in "${VALID_INPUTS[@]}"; do
   [[ "$INPUT" == "$i" ]] && ok=true && break

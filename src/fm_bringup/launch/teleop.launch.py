@@ -38,6 +38,7 @@ def _launch_setup(context, *args, **kwargs):
     sim_backend = LaunchConfiguration("sim_backend").perform(context)
     teleop_input = LaunchConfiguration("input").perform(context)
     camera_source = LaunchConfiguration("camera_source").perform(context)
+    model_path = LaunchConfiguration("model_path").perform(context)
     # Forwarded verbatim; servo.launch.py is the single point that resolves an
     # empty variant to the registry default, so robot/variant stay consistent.
     variant = LaunchConfiguration("variant").perform(context)
@@ -75,12 +76,18 @@ def _launch_setup(context, *args, **kwargs):
             Node(package="fm_teleop_device", executable="spacenav_to_servo", output="screen"),
         ]
     elif teleop_input == "vision":
+        # Vision is the one input that needs launch-time config (camera + model), so it
+        # gets a params dict where joy/spacenav rely on node defaults. An empty
+        # model_path is omitted, not passed as "", so the node keeps its own default.
+        vision_params = {"camera_source": camera_source}
+        if model_path:
+            vision_params["model_path"] = model_path
         nodes += [
             Node(
                 package="fm_teleop_vision",
                 executable="vision_source",
                 output="screen",
-                parameters=[{"camera_source": camera_source}],
+                parameters=[vision_params],
             ),
         ]
     # foxglove: the browser panel is the publisher; no ROS-side input node.
@@ -123,6 +130,14 @@ def generate_launch_description():
                 default_value="0",
                 description="vision input only: webcam index or stream URL "
                 "(e.g. http://<phone-ip>:8080/video).",
+            ),
+            DeclareLaunchArgument(
+                "model_path",
+                default_value="/ws/src/fm_teleop/fm_teleop_vision/models/"
+                "pose_landmarker_heavy.task",
+                description="vision input only: MediaPipe pose model path. Default is "
+                "the bind-mounted package models/ dir (download_model.sh writes there). "
+                "Empty falls back to the node's own default.",
             ),
             OpaqueFunction(function=_launch_setup),
         ]
