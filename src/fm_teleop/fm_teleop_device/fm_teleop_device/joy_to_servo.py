@@ -18,11 +18,13 @@ HID->Joy bridge that republishes /joy over the OrbStack network instead.
 
 from geometry_msgs.msg import TwistStamped
 import rclpy
-from rclpy.node import Node
 from sensor_msgs.msg import Joy
 
+from fm_teleop_core import retarget
+from fm_teleop_core.source import TeleopSource
 
-class JoyToServo(Node):
+
+class JoyToServo(TeleopSource):
     """Translate Joy messages into Servo Cartesian twist commands."""
 
     def __init__(self):
@@ -42,8 +44,8 @@ class JoyToServo(Node):
         self.declare_parameter("deadzone", 0.1)
 
         self._frame = self.get_parameter("command_frame").value
-        self._twist_pub = self.create_publisher(
-            TwistStamped, self.get_parameter("twist_topic").value, 10
+        self._pub = self.contract_publisher(
+            "arm_twist", topic=self.get_parameter("twist_topic").value
         )
         self.create_subscription(Joy, "/joy", self._on_joy, 10)
 
@@ -51,8 +53,7 @@ class JoyToServo(Node):
         """Read an axis with deadzone, guarding against short Joy arrays."""
         if index < 0 or index >= len(joy.axes):
             return 0.0
-        value = joy.axes[index]
-        return 0.0 if abs(value) < self.get_parameter("deadzone").value else value
+        return retarget.deadzone(joy.axes[index], self.get_parameter("deadzone").value)
 
     def _button(self, joy, index):
         return joy.buttons[index] if 0 <= index < len(joy.buttons) else 0
@@ -60,8 +61,7 @@ class JoyToServo(Node):
     def _on_joy(self, joy):
         params = self.get_parameter
         twist = TwistStamped()
-        twist.header.stamp = self.get_clock().now().to_msg()
-        twist.header.frame_id = self._frame
+        twist.header = self.stamped_header(self._frame)
         twist.twist.linear.x = self._axis(joy, params("axis_linear_x").value)
         twist.twist.linear.y = self._axis(joy, params("axis_linear_y").value)
         # Triggers rest at +1 and fall to -1 when pressed; map to [0, 1] up/down.
@@ -74,7 +74,7 @@ class JoyToServo(Node):
             self._button(joy, params("button_angular_pos").value)
             - self._button(joy, params("button_angular_neg").value)
         )
-        self._twist_pub.publish(twist)
+        self._pub.publish(twist)
 
 
 def main(args=None):

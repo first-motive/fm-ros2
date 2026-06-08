@@ -62,12 +62,12 @@ def _launch_setup(context, *args, **kwargs):
     if teleop_input == "joy":
         nodes += [
             Node(package="joy", executable="joy_node", output="screen"),
-            Node(package="fm_bringup", executable="joy_to_servo", output="screen"),
+            Node(package="fm_teleop_device", executable="joy_to_servo", output="screen"),
         ]
     elif teleop_input == "spacenav":
         nodes += [
             Node(package="spacenav", executable="spacenav_node", output="screen"),
-            Node(package="fm_bringup", executable="spacenav_to_servo", output="screen"),
+            Node(package="fm_teleop_device", executable="spacenav_to_servo", output="screen"),
         ]
     # foxglove: the browser panel is the publisher; no ROS-side input node.
 

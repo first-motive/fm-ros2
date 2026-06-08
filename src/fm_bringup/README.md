@@ -65,15 +65,15 @@ Per-robot Servo reach: OpenArm + G1-D are 7-DOF (full 6-DOF Cartesian); SO101 is
 axis). The controller set is identical across sim backends; only the `<ros2_control>`
 System plugin in the description swaps. Joint names match each description's geometry.
 
-## Teleop Input Adapters
+## Teleop Input
 
-```
-fm_bringup/joy_to_servo.py        gamepad Joy → TwistStamped on Servo's delta topic
-fm_bringup/spacenav_to_servo.py   SpaceMouse Twist → TwistStamped on Servo's delta topic
-```
+The teleop source nodes live in `fm_teleop_device` (gamepad, SpaceMouse, G1-D hand);
+`teleop.launch.py` here orchestrates them — it spawns the selected source alongside its
+driver node (`joy_node` / `spacenav_node`) and MoveIt Servo.
 
 The primary input is the browser-side Foxglove panel (`src/fm_teleop/fm_teleop_panel/`);
-the adapters cover physical-HID inputs on Linux hosts.
+the device sources cover physical-HID inputs on Linux hosts. See `src/fm_teleop/` for the
+source layer and the command contract.
 
 ## Build Type
 

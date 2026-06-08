@@ -200,7 +200,7 @@ PY
 # Assert the G1 hand teleop turns a named preset into a full 7-joint hand trajectory:
 # "close" on the left hand publishes all 7 finger joints with thumb_2 at its flexed limit.
 assert_g1_hand_teleop() {
-  ros2 run fm_bringup g1_hand_teleop >/tmp/hand_teleop.log 2>&1 &
+  ros2 run fm_teleop_device g1_hand_teleop >/tmp/hand_teleop.log 2>&1 &
   local npid=$!
   sleep 3
   ros2 topic pub --rate 5 /g1_hand_teleop/left/preset std_msgs/msg/String \

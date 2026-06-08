@@ -8,10 +8,11 @@ OrbStack/Docker passthrough on the Mac.
 
 from geometry_msgs.msg import Twist, TwistStamped
 import rclpy
-from rclpy.node import Node
+
+from fm_teleop_core.source import TeleopSource
 
 
-class SpacenavToServo(Node):
+class SpacenavToServo(TeleopSource):
     """Stamp /spacenav/twist into Servo's delta_twist_cmds."""
 
     def __init__(self):
@@ -21,8 +22,8 @@ class SpacenavToServo(Node):
         self.declare_parameter("spacenav_topic", "/spacenav/twist")
 
         self._frame = self.get_parameter("command_frame").value
-        self._pub = self.create_publisher(
-            TwistStamped, self.get_parameter("twist_topic").value, 10
+        self._pub = self.contract_publisher(
+            "arm_twist", topic=self.get_parameter("twist_topic").value
         )
         self.create_subscription(
             Twist, self.get_parameter("spacenav_topic").value, self._on_twist, 10
@@ -30,8 +31,7 @@ class SpacenavToServo(Node):
 
     def _on_twist(self, msg):
         stamped = TwistStamped()
-        stamped.header.stamp = self.get_clock().now().to_msg()
-        stamped.header.frame_id = self._frame
+        stamped.header = self.stamped_header(self._frame)
         stamped.twist = msg
         self._pub.publish(stamped)
 

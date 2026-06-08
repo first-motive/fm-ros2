@@ -2,7 +2,7 @@
 
 import pytest
 
-from fm_bringup import hand_presets
+from fm_teleop_device import hand_presets
 
 
 def test_joints_seven_per_hand_in_dex3_order():

@@ -19,15 +19,19 @@ trajectories feed the Dex3 bridge (g1_hand_sdk_bridge).
 
 from builtin_interfaces.msg import Duration
 import rclpy
-from rclpy.node import Node
-from std_msgs.msg import Float64MultiArray, String
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
-from fm_bringup import hand_presets
+from fm_teleop_core import contract
+from fm_teleop_core.source import TeleopSource
+from fm_teleop_device import hand_presets
 
 
-class G1HandTeleop(Node):
-    """Map hand presets + sliders onto the two Dex3 hand controllers."""
+class G1HandTeleop(TeleopSource):
+    """Map hand presets + sliders onto the two Dex3 hand controllers.
+
+    Consumes the contract's hand_preset (String) and hand_sliders
+    (Float64MultiArray) channels and emits the JointTrajectory the controllers want.
+    """
 
     def __init__(self):
         super().__init__("g1_hand_teleop")
@@ -50,13 +54,15 @@ class G1HandTeleop(Node):
             ),
         }
 
+        preset_type = contract.HAND_PRESET.msg_type
+        sliders_type = contract.HAND_SLIDERS.msg_type
         for side in hand_presets.SIDES:
             self.create_subscription(
-                String, f"~/{side}/preset",
+                preset_type, f"~/{side}/preset",
                 lambda msg, s=side: self._on_preset(s, msg), 10
             )
             self.create_subscription(
-                Float64MultiArray, f"~/{side}/sliders",
+                sliders_type, f"~/{side}/sliders",
                 lambda msg, s=side: self._on_sliders(s, msg), 10
             )
 
