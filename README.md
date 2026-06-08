@@ -42,6 +42,13 @@ fm-ros2/
 │   ├── fm_description/      URDF / xacro / meshes        (ament_cmake)
 │   ├── fm_control/          ros2_control, HW interfaces  (C++)
 │   ├── fm_orchestration/    task brain, action arbiter   (Python)
+│   ├── fm_teleop/           teleop source layer - split-ready group
+│   │   ├── fm_teleop_core   TeleopSource base + contract
+│   │   ├── fm_teleop_device gamepad · SpaceMouse · hand
+│   │   ├── fm_teleop_leader leader-arm follow (skeleton)
+│   │   ├── fm_teleop_vr     VR controllers (skeleton)
+│   │   ├── fm_teleop_vision hand-tracking (skeleton)
+│   │   └── fm_teleop_panel  browser Foxglove panel (npm)
 │   └── fm_vlta/             data engine - split-ready group
 │       ├── fm_vlta_record   episodes -> LeRobot
 │       ├── fm_vlta_dataset  manage / replay / HF hub

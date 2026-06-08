@@ -143,6 +143,10 @@ The Foxglove panel (`src/fm_teleop/fm_teleop_panel/`) is the scalable spine: a n
 URL, no hardware shipped. Physical-HID devices stay on Linux hosts, or reach the Mac
 container over a host-side network bridge — never through container USB passthrough.
 
+Every input is a source in the `fm_teleop` layer, collapsing to one shared command
+contract. See [src/fm_teleop/README.md](../src/fm_teleop/README.md) for the convergence
+model, the source-status table, and the add-a-source guide.
+
 ## Direct Scripts
 
 Each capability has a scriptable path that bypasses the menu, all converging on the
