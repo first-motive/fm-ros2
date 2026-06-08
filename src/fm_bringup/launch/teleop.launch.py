@@ -13,6 +13,10 @@ to stream to.
     joy        joy_node (Linux /dev/input, or a Mac host-side HID->Joy bridge)
                + joy_to_servo.
     spacenav   spacenav_node (USB, Linux only) + spacenav_to_servo.
+    vision     vision_source: a camera tracks the operator's wrist and jogs the arm.
+               Engage from the panel's "Vision (hold)" button. Needs the MediaPipe
+               model (fm_teleop_vision/scripts/download_model.sh) and a camera — pass
+               camera_source:=<index|url> (default 0, the host webcam).
 """
 
 import os
@@ -26,13 +30,14 @@ from launch_ros.actions import Node
 
 from fm_bringup import registry
 
-_VALID_INPUTS = ("foxglove", "joy", "spacenav")
+_VALID_INPUTS = ("foxglove", "joy", "spacenav", "vision")
 
 
 def _launch_setup(context, *args, **kwargs):
     robot = LaunchConfiguration("robot").perform(context)
     sim_backend = LaunchConfiguration("sim_backend").perform(context)
     teleop_input = LaunchConfiguration("input").perform(context)
+    camera_source = LaunchConfiguration("camera_source").perform(context)
     # Forwarded verbatim; servo.launch.py is the single point that resolves an
     # empty variant to the registry default, so robot/variant stay consistent.
     variant = LaunchConfiguration("variant").perform(context)
@@ -69,6 +74,15 @@ def _launch_setup(context, *args, **kwargs):
             Node(package="spacenav", executable="spacenav_node", output="screen"),
             Node(package="fm_teleop_device", executable="spacenav_to_servo", output="screen"),
         ]
+    elif teleop_input == "vision":
+        nodes += [
+            Node(
+                package="fm_teleop_vision",
+                executable="vision_source",
+                output="screen",
+                parameters=[{"camera_source": camera_source}],
+            ),
+        ]
     # foxglove: the browser panel is the publisher; no ROS-side input node.
 
     # Robot-specific teleop adapters (e.g. the G1-D hand teleop, which maps the panel's
@@ -102,7 +116,13 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "input",
                 default_value="foxglove",
-                description="foxglove | joy | spacenav.",
+                description="foxglove | joy | spacenav | vision.",
+            ),
+            DeclareLaunchArgument(
+                "camera_source",
+                default_value="0",
+                description="vision input only: webcam index or stream URL "
+                "(e.g. http://<phone-ip>:8080/video).",
             ),
             OpaqueFunction(function=_launch_setup),
         ]
