@@ -76,10 +76,17 @@ def _launch_setup(context, *args, **kwargs):
             Node(package="fm_teleop_device", executable="spacenav_to_servo", output="screen"),
         ]
     elif teleop_input == "vision":
-        # Vision is the one input that needs launch-time config (camera + model), so it
-        # gets a params dict where joy/spacenav rely on node defaults. An empty
-        # model_path is omitted, not passed as "", so the node keeps its own default.
-        vision_params = {"camera_source": camera_source}
+        # Vision is the one input that needs launch-time config (camera, model, and the
+        # jog-tuning knobs), so it gets a params dict where joy/spacenav rely on node
+        # defaults. An empty model_path is omitted, not passed as "", so the node keeps
+        # its own default. scale/deadzone/rate_hz are tuned per session: raise scale for
+        # a stronger jog, lower rate_hz to cut CPU load when the sim is heavy.
+        vision_params = {
+            "camera_source": camera_source,
+            "scale": float(LaunchConfiguration("scale").perform(context)),
+            "deadzone": float(LaunchConfiguration("deadzone").perform(context)),
+            "rate_hz": float(LaunchConfiguration("rate_hz").perform(context)),
+        }
         if model_path:
             vision_params["model_path"] = model_path
         nodes += [
@@ -138,6 +145,24 @@ def generate_launch_description():
                 description="vision input only: MediaPipe pose model path. Default is "
                 "the bind-mounted package models/ dir (download_model.sh writes there). "
                 "Empty falls back to the node's own default.",
+            ),
+            DeclareLaunchArgument(
+                "scale",
+                default_value="4.0",
+                description="vision input only: wrist displacement (m) -> jog velocity. "
+                "Raise for a stronger, more visible jog.",
+            ),
+            DeclareLaunchArgument(
+                "deadzone",
+                default_value="0.03",
+                description="vision input only: per-axis displacement (m) below which the "
+                "jog is zero.",
+            ),
+            DeclareLaunchArgument(
+                "rate_hz",
+                default_value="30.0",
+                description="vision input only: capture + command rate. Lower (e.g. 15) "
+                "to cut CPU load when the sim is heavy.",
             ),
             OpaqueFunction(function=_launch_setup),
         ]
