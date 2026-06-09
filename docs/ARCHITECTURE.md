@@ -212,6 +212,105 @@ openarm.sim.urdf.xacro          (top level)
 Because the swap happens at the `<hardware>` boundary, switching from MuJoCo to
 real hardware is a launch argument, not a code change.
 
+## Launch Dependency Graph
+
+The sections above show *package* dependencies. This section shows the *launch*
+graph: which launch file includes which, what nodes each spawns, and what config
+each loads at runtime. The root is `./run.sh`, and `fm_bringup.registry` resolves
+everything robot-specific so the launch files themselves stay thin.
+
+`run.sh` is the front door (see [run.md](run.md) for its container/build steps).
+It ends by execing `ros2 run fm_tui fm_tui_launcher`. The launcher walks
+action → robot → variant (→ backend), then shells out the matching `ros2 launch`
+via `subprocess`. Three actions are wired; autonomous is a stub.
+
+```mermaid
+flowchart TD
+    run["./run.sh<br/>container up · colcon build"]
+    run --> tui["fm_tui launcher<br/>subprocess: ros2 launch"]
+    reg[("fm_bringup.registry<br/>openarm · so101 · g1_d")]
+
+    tui -->|Robot Description| view["fm_description/<br/>view_robot.launch.py"]
+    tui -->|Simulation| sim["fm_bringup/<br/>sim.launch.py"]
+    tui -->|Teleop| teleop["fm_bringup/<br/>teleop.launch.py"]
+    tui -.->|Autonomous| stub(["stubbed — no launch"])
+
+    %% sim subtree
+    sim ==>|always| ctrl["fm_bringup/<br/>controllers.launch.py"]
+    sim -.sim_backend=mujoco.-> muj["sim_backends/<br/>mujoco.launch.py"]
+    sim -.sim_backend=gazebo.-> gz["sim_backends/<br/>gazebo.launch.py"]
+    sim -.sim_backend=isaac.-> isaac["sim_backends/<br/>isaac.launch.py"]
+
+    %% teleop subtree
+    teleop ==>|always| servo["fm_bringup/<br/>servo.launch.py"]
+
+    %% node spawns
+    view --> vn["robot_state_publisher<br/>joint_state_publisher? · rviz2?<br/>foxglove_bridge?"]
+    sim --> sn["robot_state_publisher<br/>foxglove_bridge? · joint_state_publisher?<br/>ros2_control_node? (standalone backends)"]
+    ctrl --> cn["controller_manager/spawner<br/>jsb + active + inactive controllers"]
+    servo --> svn["moveit_servo/servo_node_main<br/>(one per arm group)<br/>+ start_servo trigger"]
+    teleop --> tn["input adapter:<br/>joy / spacenav / vision_source<br/>+ registry teleop_nodes"]
+    muj --> mn["mujoco_ros2_control/<br/>ros2_control_node"]
+    gz --> gn["ros_gz_sim/create · ros_gz_bridge<br/>+ gz_sim.launch.py — external"]
+    isaac --> in2["controller_manager/ros2_control_node<br/>TopicBasedSystem"]
+
+    reg -.drives.-> view
+    reg -.drives.-> sim
+    reg -.drives.-> teleop
+    reg -.drives.-> servo
+
+    classDef ext fill:#444,stroke:#888,color:#ddd;
+    classDef reg fill:#2d3,stroke:#1a1,color:#000;
+    class reg reg;
+```
+
+Edge meaning: solid bold (`==>`) is an unconditional include; dotted (`-.->`)
+is conditional, labelled with the gating argument or predicate; plain (`-->`) is
+a node spawn. `gz_sim.launch.py` is the only include that crosses into an external
+package; everything else is first-party.
+
+### Include + Spawn Table
+
+| Launch file | Package | Includes | Spawns (— = conditional) |
+|-------------|---------|----------|--------------------------|
+| `view_robot.launch.py` | fm_description | — | robot_state_publisher; joint_state_publisher—; rviz2—; foxglove_bridge— |
+| `sim.launch.py` | fm_bringup | `controllers.launch.py` (always); one `sim_backends/*` by `sim_backend` | robot_state_publisher; foxglove_bridge—; joint_state_publisher—; ros2_control_node— |
+| `controllers.launch.py` | fm_bringup | — | controller_manager/spawner; ros2_control_node— (`use_standalone_cm`) |
+| `teleop.launch.py` | fm_bringup | `servo.launch.py` (always) | input adapter by `input`; registry `teleop_nodes` |
+| `servo.launch.py` | fm_bringup | — | moveit_servo/servo_node_main (per arm) + start_servo trigger |
+| `sim_backends/mujoco.launch.py` | fm_bringup | — | mujoco_ros2_control/ros2_control_node (`xvfb-run`) |
+| `sim_backends/gazebo.launch.py` | fm_bringup | `gz_sim.launch.py` (external) | ros_gz_sim/create; ros_gz_bridge/parameter_bridge |
+| `sim_backends/isaac.launch.py` | fm_bringup | — | controller_manager/ros2_control_node (TopicBasedSystem) |
+
+### Config Files Loaded
+
+| Launch file | Config | Package | Selected by |
+|-------------|--------|---------|-------------|
+| `sim.launch.py` | `config/<robot>/<variant>/controllers.yaml` | fm_bringup | `spec.controllers_file(variant)` |
+| `servo.launch.py` | `config/<robot>/servo.yaml` (per arm) | fm_bringup | `spec.servo_nodes()` |
+| `servo.launch.py` | `kinematics.yaml`, `joint_limits.yaml` | external `*_moveit_config` | `spec.moveit_file()` |
+| `mujoco` / `isaac` backend | `robot_description` (xacro), `controllers_file` | fm_bringup | passed down from `sim.launch.py` |
+
+`robot_description` is not a YAML file — it is built inline by
+`spec.build_description(variant, sim_backend, controllers_file)`, which expands the
+xacro, rewrites mesh paths, and injects the backend's `<hardware>` plugin (see
+[Hardware Abstraction Layer](#hardware-abstraction-layer)).
+
+### Standalone Roots
+
+Two launch files run outside the TUI path:
+
+- `fm_bringup/bringup.launch.py` — runtime stack: `foxglove_bridge`,
+  `fm_control/control_node`, `fm_orchestration/orchestrator`. No includes.
+- `fm_orchestration/sim.launch.py` — headless control loop: a single
+  `fm_orchestration/sim_loop` node, parameterised by `config/sim.yaml`. Note this
+  is a *different* file from `fm_bringup/sim.launch.py` (the TUI's full sim stack);
+  they share a name but neither includes the other.
+
+The direct scripts (`scripts/sim.sh`, `scripts/teleop.sh`,
+`scripts/view-robot.sh`) bypass the launcher and call the same `fm_bringup` /
+`fm_description` launch files shown above.
+
 ## Robot Registry
 
 `fm_description` carries a registry that abstracts over three robots. Each entry
