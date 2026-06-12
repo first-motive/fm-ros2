@@ -13,6 +13,8 @@
   <exec_depend>launch_ros</exec_depend>
   <!-- registry.py processes the backend-selectable xacro into robot_description. -->
   <exec_depend>xacro</exec_depend>
+  <!-- registry.py looks up each robot's MJCF here to inject the mujoco_model param. -->
+  <exec_depend>fm_sim_models</exec_depend>
   <!-- Fills unactuated joints for subset-controlled robots (the G1-D arm). -->
   <exec_depend>joint_state_publisher</exec_depend>
   <exec_depend>foxglove_bridge</exec_depend>

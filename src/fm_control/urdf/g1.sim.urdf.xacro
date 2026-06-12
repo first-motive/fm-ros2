@@ -16,20 +16,20 @@ robot_state_publisher still serves TF + visuals.
 
 Args:
   sim_backend   mock | mujoco | gazebo | isaac | real
-  mujoco_model  MJCF the mujoco backend loads (in-container path). Defaults to the
-                bipedal g1_29dof model: its right-arm joint names match this system,
-                but its legs differ from the wheeled G1-D — mujoco is wired, not yet
-                validated, pending a wheeled-G1 MJCF.
+  mujoco_model  MJCF the mujoco backend loads; injected by the fm_bringup registry
+                from fm_sim_models when sim_backend=mujoco (empty default otherwise).
+                The registered g1_29dof model is wired, not yet validated — its legs
+                differ from the wheeled G1-D (pending a wheeled-G1 MJCF).
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="G1_D">
 
   <xacro:arg name="sim_backend" default="mock"/>
   <xacro:arg name="isaac_joint_commands_topic" default="/isaac_joint_commands"/>
   <xacro:arg name="isaac_joint_states_topic" default="/isaac_joint_states"/>
-  <!-- Bipedal g1_29dof model: its right-arm joint names match this system, but its
-       legs differ from the wheeled G1-D, so mujoco is wired not yet validated
-       (pending a wheeled-G1 MJCF). -->
-  <xacro:arg name="mujoco_model" default="/ws/src/external/unitree_mujoco/unitree_robots/g1/g1_29dof.xml"/>
+  <!-- MJCF path owned by fm_sim_models, injected by the fm_bringup registry when
+       sim_backend=mujoco; default stays empty. The registered g1_29dof model is
+       wired but not yet validated (its legs differ from the wheeled G1-D). -->
+  <xacro:arg name="mujoco_model" default=""/>
   <xacro:property name="mujoco_model_path" value="$(arg mujoco_model)"/>
   <xacro:arg name="gazebo_controllers_file" default=""/>
 

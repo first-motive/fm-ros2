@@ -27,6 +27,8 @@ from typing import Optional
 import xacro
 from ament_index_python.packages import get_package_share_directory
 
+from fm_sim_models.models import mjcf_path
+
 # --- OpenArm specifics -------------------------------------------------------
 
 # Visual meshes ship as z-up .stl under fm_description (converted at build); the
@@ -158,6 +160,10 @@ class RobotSpec:
         # Single-config robots (preset_arg=None) take no preset; the variant is nominal.
         if self.preset_arg:
             mappings[self.preset_arg] = variant
+        # The mujoco backend reads its MJCF from the description's mujoco_model param;
+        # the path is owned by fm_sim_models, not hardcoded in the xacro.
+        if sim_backend == "mujoco":
+            mappings["mujoco_model"] = mjcf_path(self.key)
         if sim_backend == "gazebo" and controllers_file:
             mappings["gazebo_controllers_file"] = controllers_file
         xml = xacro.process_file(xacro_path, mappings=mappings).toxml()

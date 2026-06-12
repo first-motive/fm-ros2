@@ -10,8 +10,8 @@ unlike the OpenArm, the variant is purely nominal.
 Args:
   sim_backend   mock | mujoco | gazebo | isaac | real  (selects the System plugin)
   usb_port      serial device for the real (feetech) backend; ignored by sim backends
-  mujoco_model  MJCF the mujoco backend loads (in-container path; src/external is
-                gitignored, mounted at /ws)
+  mujoco_model  MJCF the mujoco backend loads; injected by the fm_bringup registry
+                from fm_sim_models when sim_backend=mujoco (empty default otherwise)
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="so101">
 
@@ -19,9 +19,9 @@ Args:
   <xacro:arg name="usb_port" default="/dev/ttyACM0"/>
   <xacro:arg name="isaac_joint_commands_topic" default="/isaac_joint_commands"/>
   <xacro:arg name="isaac_joint_states_topic" default="/isaac_joint_states"/>
-  <!-- MujocoSystemInterface reads the MJCF from a URDF <param>. Defaults to the
-       vendored official SO101 model; its joint names match this system exactly. -->
-  <xacro:arg name="mujoco_model" default="/ws/src/external/so_arm/Simulation/SO101/so101_new_calib.xml"/>
+  <!-- MujocoSystemInterface reads the MJCF from a URDF <param>. The path is owned by
+       fm_sim_models and injected by the fm_bringup registry; the default stays empty. -->
+  <xacro:arg name="mujoco_model" default=""/>
   <xacro:property name="mujoco_model_path" value="$(arg mujoco_model)"/>
   <!-- Controllers file the Gazebo gz_ros2_control plugin loads; gazebo backend only. -->
   <xacro:arg name="gazebo_controllers_file" default=""/>
