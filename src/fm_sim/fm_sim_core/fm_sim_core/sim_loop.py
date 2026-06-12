@@ -3,7 +3,7 @@
 Runs native arm64 on M5 (CPU, no GPU). Steps a MuJoCo model via
 ``MujocoStepper`` and publishes sensor_msgs/JointState so the rest of the graph
 (and Foxglove) sees sim joints. This node handles ROS comms only — the physics
-lives in ``fm_orchestration.sim``. Falls back to a built-in 1-DOF model when no
+lives in ``fm_sim_core.stepper``. Falls back to a built-in 1-DOF model when no
 model_path is given.
 
 Params (see config/sim.yaml):
@@ -15,7 +15,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 
-from fm_orchestration.sim import MujocoStepper
+from fm_sim_core.stepper import MujocoStepper
 
 
 class SimLoop(Node):

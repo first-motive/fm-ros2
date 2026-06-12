@@ -13,7 +13,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-PKG = "fm_orchestration"
+PKG = "fm_sim_core"
 DEFAULT_PARAMS = os.path.join(get_package_share_directory(PKG), "config", "sim.yaml")
 
 

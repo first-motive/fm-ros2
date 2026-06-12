@@ -4,7 +4,7 @@ No rclpy, no native mujoco wheel — the stepper takes an injected module, so th
 core physics-to-JointSample mapping is verified anywhere pytest runs.
 """
 
-from fm_orchestration.sim import JointSample, MujocoStepper
+from fm_sim_core.stepper import JointSample, MujocoStepper
 
 
 class _FakeModel:
