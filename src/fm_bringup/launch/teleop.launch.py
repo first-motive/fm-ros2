@@ -21,6 +21,8 @@ to stream to.
 
 import os
 
+import yaml
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
@@ -89,6 +91,21 @@ def _launch_setup(context, *args, **kwargs):
         }
         if model_path:
             vision_params["model_path"] = model_path
+        # The published twist must be stamped in the robot's Servo command frame, which
+        # differs per robot (openarm_right_base_link, base_link, torso_link). Read it from
+        # the same servo.yaml Servo itself loads, so the two never drift.
+        servo_yaml = registry.get(robot).servo_params_file()
+        try:
+            with open(servo_yaml) as servo_file:
+                servo_cfg = yaml.safe_load(servo_file)
+            vision_params["command_frame"] = servo_cfg["moveit_servo"][
+                "robot_link_command_frame"
+            ]
+        except (OSError, KeyError, TypeError) as exc:
+            raise RuntimeError(
+                f"Could not read robot_link_command_frame from {servo_yaml} for robot "
+                f"'{robot}': {exc}. The vision twist must be stamped in that frame."
+            ) from exc
         nodes += [
             Node(
                 package="fm_teleop_vision",
