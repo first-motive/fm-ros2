@@ -79,7 +79,8 @@ flowchart TD
             serve[fm_vlta_serve]
         end
 
-        orch[fm_orchestration<br/>task brain · sim loop]
+        orch[fm_orchestration<br/>task brain]
+        sim[fm_sim<br/>sim loop · backends · MJCF registry]
         control[fm_control<br/>ros2_control xacro]
         desc[fm_description<br/>URDF · meshes · registry]
     end
@@ -94,11 +95,12 @@ flowchart TD
 
     bringup --> control
     bringup --> orch
+    bringup --> sim
     bringup --> oa_moveit
     control --> oa_desc
     control --> oa_hw
     desc --> oa_desc
-    orch --> oa_mjcf
+    sim --> oa_mjcf
     serve --> orch
     record --> lerobot
     dataset --> lerobot
@@ -112,7 +114,8 @@ flowchart TD
 | `fm_bringup` | ament_python | Launch files (sim/servo/teleop), controller configs, teleop input adapters |
 | `fm_control` | ament_cmake | Backend-selectable `ros2_control` description (mock/mujoco/gazebo/isaac/real) |
 | `fm_description` | ament_cmake | URDF/xacro, mesh handling, multi-robot registry (G1-D, SO101, OpenArm) |
-| `fm_orchestration` | ament_python | Task brain (stub) + headless MuJoCo sim loop |
+| `fm_orchestration` | ament_python | Task brain (stub) |
+| `fm_sim` | ament_cmake (meta) | Simulation: headless MuJoCo dev loop (`fm_sim_core`), backend hosts (`fm_sim_backends`), MJCF model registry (`fm_sim_models`) |
 | `fm_vlta` | ament_cmake (meta) | Data engine: record → dataset → train → serve |
 | `fm_tui` | ament_python | Terminal monitor + menu launcher (Textual) |
 
@@ -237,9 +240,9 @@ flowchart TD
 
     %% sim subtree
     sim ==>|always| ctrl["fm_bringup/<br/>controllers.launch.py"]
-    sim -.sim_backend=mujoco.-> muj["sim_backends/<br/>mujoco.launch.py"]
-    sim -.sim_backend=gazebo.-> gz["sim_backends/<br/>gazebo.launch.py"]
-    sim -.sim_backend=isaac.-> isaac["sim_backends/<br/>isaac.launch.py"]
+    sim -.sim_backend=mujoco.-> muj["fm_sim_backends/<br/>mujoco.launch.py"]
+    sim -.sim_backend=gazebo.-> gz["fm_sim_backends/<br/>gazebo.launch.py"]
+    sim -.sim_backend=isaac.-> isaac["fm_sim_backends/<br/>isaac.launch.py"]
 
     %% teleop subtree
     teleop ==>|always| servo["fm_bringup/<br/>servo.launch.py"]
@@ -274,13 +277,13 @@ package; everything else is first-party.
 | Launch file | Package | Includes | Spawns (— = conditional) |
 |-------------|---------|----------|--------------------------|
 | `view_robot.launch.py` | fm_description | — | robot_state_publisher; joint_state_publisher—; rviz2—; foxglove_bridge— |
-| `sim.launch.py` | fm_bringup | `controllers.launch.py` (always); one `sim_backends/*` by `sim_backend` | robot_state_publisher; foxglove_bridge—; joint_state_publisher—; ros2_control_node— |
+| `sim.launch.py` | fm_bringup | `controllers.launch.py` (always); one `fm_sim_backends/*` by `sim_backend` | robot_state_publisher; foxglove_bridge—; joint_state_publisher—; ros2_control_node— |
 | `controllers.launch.py` | fm_bringup | — | controller_manager/spawner; ros2_control_node— (`use_standalone_cm`) |
 | `teleop.launch.py` | fm_bringup | `servo.launch.py` (always) | input adapter by `input`; registry `teleop_nodes` |
 | `servo.launch.py` | fm_bringup | — | moveit_servo/servo_node_main (per arm) + start_servo trigger |
-| `sim_backends/mujoco.launch.py` | fm_bringup | — | mujoco_ros2_control/ros2_control_node (`xvfb-run`) |
-| `sim_backends/gazebo.launch.py` | fm_bringup | `gz_sim.launch.py` (external) | ros_gz_sim/create; ros_gz_bridge/parameter_bridge |
-| `sim_backends/isaac.launch.py` | fm_bringup | — | controller_manager/ros2_control_node (TopicBasedSystem) |
+| `mujoco.launch.py` | fm_sim_backends | — | mujoco_ros2_control/ros2_control_node (`xvfb-run`) |
+| `gazebo.launch.py` | fm_sim_backends | `gz_sim.launch.py` (external) | ros_gz_sim/create; ros_gz_bridge/parameter_bridge |
+| `isaac.launch.py` | fm_sim_backends | — | controller_manager/ros2_control_node (TopicBasedSystem) |
 
 ### Config Files Loaded
 
@@ -294,7 +297,9 @@ package; everything else is first-party.
 `robot_description` is not a YAML file — it is built inline by
 `spec.build_description(variant, sim_backend, controllers_file)`, which expands the
 xacro, rewrites mesh paths, and injects the backend's `<hardware>` plugin (see
-[Hardware Abstraction Layer](#hardware-abstraction-layer)).
+[Hardware Abstraction Layer](#hardware-abstraction-layer)). For the `mujoco`
+backend it also injects the robot's MJCF path, looked up from `fm_sim_models` (the
+path is no longer hardcoded in the xacro).
 
 ### Standalone Roots
 
@@ -302,8 +307,8 @@ Two launch files run outside the TUI path:
 
 - `fm_bringup/bringup.launch.py` — runtime stack: `foxglove_bridge`,
   `fm_control/control_node`, `fm_orchestration/orchestrator`. No includes.
-- `fm_orchestration/sim.launch.py` — headless control loop: a single
-  `fm_orchestration/sim_loop` node, parameterised by `config/sim.yaml`. Note this
+- `fm_sim_core/sim.launch.py` — headless control loop: a single
+  `fm_sim_core/sim_loop` node, parameterised by `config/sim.yaml`. Note this
   is a *different* file from `fm_bringup/sim.launch.py` (the TUI's full sim stack);
   they share a name but neither includes the other.
 

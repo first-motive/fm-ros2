@@ -28,7 +28,7 @@ cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; }
 trap cleanup EXIT
 
 echo "==> launch sim_loop + foxglove bridge"
-ros2 run fm_orchestration sim_loop &
+ros2 run fm_sim_core sim_loop &
 PIDS+=($!)
 ros2 run foxglove_bridge foxglove_bridge --ros-args -p port:=8765 -p address:=0.0.0.0 &
 PIDS+=($!)

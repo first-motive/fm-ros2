@@ -25,11 +25,11 @@ launch/
   servo.launch.py               MoveIt Servo for the robot's arm group
   teleop.launch.py              Servo + selected input (foxglove | joy | spacenav)
   controllers.launch.py         reusable controller spawners (+ optional standalone CM)
-  sim_backends/
-    mujoco.launch.py            MuJoCo hosts the controller_manager (Mac daily driver)
-    gazebo.launch.py            gz-sim + spawn (Linux/GPU)
-    isaac.launch.py             standalone CM + Isaac topic bridge (Linux/NVIDIA)
 ```
+
+The per-backend launch hosts (mujoco / gazebo / isaac) live in
+[`fm_sim_backends`](../fm_sim/fm_sim_backends); `sim.launch.py` includes one of them
+by name based on `sim_backend`.
 
 `sim.launch.py` builds the description from the robot's backend-selectable xacro,
 starts `robot_state_publisher` + `foxglove_bridge`, brings up the controller_manager

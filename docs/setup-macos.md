@@ -75,7 +75,7 @@ Run the headless MuJoCo sim:
 
 ```bash
 # inside the container shell
-ros2 run fm_orchestration sim_loop
+ros2 run fm_sim_core sim_loop
 ```
 
 ## Limits of the macOS path

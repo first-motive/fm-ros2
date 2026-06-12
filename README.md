@@ -49,6 +49,10 @@ fm-ros2/
 │   │   ├── fm_teleop_vr     VR controllers (skeleton)
 │   │   ├── fm_teleop_vision hand-tracking (skeleton)
 │   │   └── fm_teleop_panel  browser Foxglove panel (npm)
+│   ├── fm_sim/              simulation layer - split-ready group
+│   │   ├── fm_sim_core      headless MuJoCo dev loop (sim_loop)
+│   │   ├── fm_sim_backends  mujoco · gazebo · isaac launch hosts
+│   │   └── fm_sim_models    robot -> MJCF registry
 │   └── fm_vlta/             data engine - split-ready group
 │       ├── fm_vlta_record   episodes -> LeRobot
 │       ├── fm_vlta_dataset  manage / replay / HF hub
