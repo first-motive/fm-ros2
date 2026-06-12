@@ -13,10 +13,6 @@ setup(
         ("share/" + package_name, ["package.xml"]),
         ("share/" + package_name + "/launch", glob("launch/*.launch.py")),
         (
-            "share/" + package_name + "/launch/sim_backends",
-            glob("launch/sim_backends/*.launch.py"),
-        ),
-        (
             "share/" + package_name + "/config/openarm",
             glob("config/openarm/*.yaml") + glob("config/openarm/*.srdf"),
         ),

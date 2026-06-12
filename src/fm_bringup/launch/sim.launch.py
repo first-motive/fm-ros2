@@ -83,9 +83,10 @@ def _launch_setup(context, *args, **kwargs):
             )
         )
 
-    # Backend that hosts the controller_manager.
+    # Backend that hosts the controller_manager. Backend launch files live in
+    # fm_sim_backends (one per engine: mujoco / gazebo / isaac).
     backends_dir = os.path.join(
-        get_package_share_directory("fm_bringup"), "launch", "sim_backends"
+        get_package_share_directory("fm_sim_backends"), "launch"
     )
     if sim_backend in spec.standalone_cm_backends:
         nodes.append(

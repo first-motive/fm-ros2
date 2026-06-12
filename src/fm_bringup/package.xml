@@ -27,7 +27,9 @@
   <!-- G1-D wheeled base. -->
   <exec_depend>diff_drive_controller</exec_depend>
 
-  <!-- Sim backends that host their own controller_manager. -->
+  <!-- Sim backends that host their own controller_manager. The per-engine launch
+       files live in fm_sim_backends; sim.launch.py includes them by name. -->
+  <exec_depend>fm_sim_backends</exec_depend>
   <exec_depend>mujoco_ros2_control</exec_depend>
   <exec_depend>gz_ros2_control</exec_depend>
   <exec_depend>ros_gz_sim</exec_depend>
