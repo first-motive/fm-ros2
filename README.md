@@ -1,7 +1,7 @@
 # fm-ros2
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/Ubundi/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/Ubundi/fm-ros2/actions/workflows/ci.yml)
+[![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
 First Motive's canonical ROS2 (Humble) workspace. One monorepo the whole team runs
 from work laptops: build, Docker, and external vendoring live in one place. The
@@ -160,5 +160,5 @@ older PyPI lerobot venv to this editable source install.
 
 ## License & Ownership
 
-Maintained by First Motive, a Ubundi subsidiary, under the `Ubundi` GitHub org.
+Maintained by First Motive, a Ubundi subsidiary, under the `first-motive` GitHub org.
 Released under the MIT License — see [LICENSE](LICENSE).
