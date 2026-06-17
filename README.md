@@ -37,6 +37,7 @@ External:   vcs import < external.repos  (LeRobot, OpenArm, Unitree - fork when 
 
 ```
 fm-ros2/
+├── fm_ros2/                 workspace metapackage (depends on all fm_*)
 ├── fm_bringup/              launch + configs            (Python)
 ├── fm_description/          URDF / xacro / meshes        (ament_cmake)
 ├── fm_control/              ros2_control, HW interfaces  (C++)

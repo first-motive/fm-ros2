@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>fm_ros2</name>
+  <version>0.0.0</version>
+  <description>First Motive ROS2 workspace metapackage: depends on every fm_* package so the whole stack builds and installs as one unit</description>
+  <maintainer email="nish@ubundi.co.za">First Motive</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Standalone packages. -->
+  <exec_depend>fm_bringup</exec_depend>
+  <exec_depend>fm_control</exec_depend>
+  <exec_depend>fm_description</exec_depend>
+  <exec_depend>fm_sensors</exec_depend>
+  <exec_depend>fm_tui</exec_depend>
+
+  <!-- Group metapackages — each pulls its own sub-packages transitively. -->
+  <exec_depend>fm_sim</exec_depend>
+  <exec_depend>fm_teleop</exec_depend>
+  <exec_depend>fm_data</exec_depend>
+  <exec_depend>fm_policy</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

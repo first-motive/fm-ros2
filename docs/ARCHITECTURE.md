@@ -120,6 +120,7 @@ flowchart TD
 | `fm_data` | ament_cmake (meta) | Data engine: record → dataset (episode capture + curation) |
 | `fm_policy` | ament_cmake (meta) | Policy layer: train → serve (model-agnostic learning + inference) |
 | `fm_tui` | ament_python | Terminal monitor + menu launcher (Textual) |
+| `fm_ros2` | ament_cmake (meta) | Workspace metapackage: exec-depends on every `fm_*` package |
 
 The dependency direction is the design contract: **`fm_description` is the
 foundation**, `fm_control` adds the control layer on top of it, and `fm_bringup`
