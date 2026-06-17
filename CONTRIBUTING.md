@@ -94,3 +94,43 @@ Body:
 
 For solo, low-risk work where a PR adds no value, merge the branch straight into
 `main` and delete it. For anything reviewed or shared, open a PR.
+
+## Repo Conventions
+
+### Naming
+
+- **Repo** — kebab-case: `fm-ros2`. GitHub repos and the org (`first-motive`) read
+  as kebab-case.
+- **Packages** — snake_case: `fm_bringup`, `fm_data_record`. ROS2 requires
+  snake_case package names; the inner Python module, the `resource/` marker, and
+  the `package.xml` `<name>` all match it exactly.
+
+### Layout (nav2 convention)
+
+Packages live at the repo root — no `src/` wrapper. The repo is meant to be cloned
+into a colcon workspace's `src/` (e.g. `~/ws/src/fm-ros2/`), where `colcon build`
+recurses and finds every package.
+
+```
+fm-ros2/                 (cloned into <ws>/src/)
+├── fm_ros2/             workspace metapackage (depends on all fm_*)
+├── fm_bringup/          standalone package
+├── fm_sim/              split-ready group
+│   ├── fm_sim_core/
+│   └── ...
+└── external/            vendored third-party sources (gitignored)
+```
+
+Split-ready clusters (`fm_sim`, `fm_teleop`, `fm_data`, `fm_policy`) are grouped
+under a directory with a small `ament_cmake` metapackage that exec-depends on its
+members. The root `fm_ros2` metapackage depends on every top-level `fm_*` package,
+so the whole stack builds and installs as one unit.
+
+### Future Polyrepo Split
+
+Directory boundaries are the future repo boundaries. When a split-ready group grows
+enough to live on its own, it extracts to its own repo with `git filter-repo`
+(history preserved), and an `fm.repos` vcs manifest pulls the repos back into one
+workspace via `vcs import` — the same mechanism `external.repos` already uses to
+vendor third-party sources. Until then, the monorepo mirrors the polyrepo.
+
