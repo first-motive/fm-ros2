@@ -115,6 +115,7 @@ flowchart TD
 | `fm_bringup` | ament_python | Launch files (sim/servo/teleop), controller configs, teleop input adapters |
 | `fm_control` | ament_cmake | Backend-selectable `ros2_control` description (mock/mujoco/gazebo/isaac/real) |
 | `fm_description` | ament_cmake | URDF/xacro, mesh handling, multi-robot registry (G1-D, SO101, OpenArm) |
+| `fm_sensors` | ament_python | Multi-sensor capture layer (placeholder stub) |
 | `fm_sim` | ament_cmake (meta) | Simulation: headless MuJoCo dev loop (`fm_sim_core`), backend hosts (`fm_sim_backends`), MJCF model registry (`fm_sim_models`) |
 | `fm_data` | ament_cmake (meta) | Data engine: record → dataset (episode capture + curation) |
 | `fm_policy` | ament_cmake (meta) | Policy layer: train → serve (model-agnostic learning + inference) |

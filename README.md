@@ -40,6 +40,7 @@ fm-ros2/
 ├── fm_bringup/              launch + configs            (Python)
 ├── fm_description/          URDF / xacro / meshes        (ament_cmake)
 ├── fm_control/              ros2_control, HW interfaces  (C++)
+├── fm_sensors/              multi-sensor capture layer   (placeholder stub)
 ├── fm_teleop/               teleop source layer - split-ready group
 │   ├── fm_teleop_core       TeleopSource base + contract
 │   ├── fm_teleop_device     gamepad · SpaceMouse · hand
