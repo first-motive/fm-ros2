@@ -1,11 +1,6 @@
 # Planning notes (local only)
 plans/
 
-# ROS2 / colcon build artifacts
-build/
-install/
-log/
-
 # MuJoCo runtime log (written to cwd on each sim run)
 MUJOCO_LOG.TXT
 
