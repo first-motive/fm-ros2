@@ -24,7 +24,7 @@ the backend-selectable hardware abstraction, deployment, and the data engine —
 live in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Quick summary:
 
 ```
-Data flow:  fm_policy_serve -> fm_orchestration -> fm_control (ros2_control) -> hardware
+Data flow:  fm_policy_serve -> fm_control (ros2_control) -> hardware   (autonomy arbiter deferred: fm_fsm)
             fm_description -> robot state / URDF
             fm_bringup     -> launches the graph
 
@@ -40,7 +40,6 @@ fm-ros2/
 ├── fm_bringup/              launch + configs            (Python)
 ├── fm_description/          URDF / xacro / meshes        (ament_cmake)
 ├── fm_control/              ros2_control, HW interfaces  (C++)
-├── fm_orchestration/        task brain, action arbiter   (Python)
 ├── fm_teleop/               teleop source layer - split-ready group
 │   ├── fm_teleop_core       TeleopSource base + contract
 │   ├── fm_teleop_device     gamepad · SpaceMouse · hand

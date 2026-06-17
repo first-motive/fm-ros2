@@ -10,8 +10,9 @@ The design follows a few systems-engineering principles, made explicit in
 - **One interface, swappable implementations** — the same robot description and
   controller stack drive a mock, three simulators, or real hardware, selected by
   one argument.
-- **Layered separation** — perception/policy, task brain, motion control, and
-  hardware are distinct packages with one-directional dependencies.
+- **Layered separation** — perception/policy, motion control, and hardware are
+  distinct packages with one-directional dependencies. The autonomy arbiter that
+  ties them together is deferred (`fm_fsm`).
 - **Monorepo mirroring a polyrepo** — directory boundaries are the future
   repo boundaries, so growth is a `git filter-repo`, not a rewrite.
 
@@ -62,9 +63,9 @@ flowchart TB
 
 ## Component Architecture
 
-Six First Motive packages sit on top of vendored externals. Dependencies point
-one way: launch orchestration depends on the layers below it; the data engine and
-task brain never depend on launch.
+First Motive packages sit on top of vendored externals. Dependencies point
+one way: launch depends on the layers below it; the data engine and policy layer
+never depend on launch.
 
 ```mermaid
 flowchart TD
@@ -82,7 +83,6 @@ flowchart TD
             serve[fm_policy_serve]
         end
 
-        orch[fm_orchestration<br/>task brain]
         sim[fm_sim<br/>sim loop · backends · MJCF registry]
         control[fm_control<br/>ros2_control xacro]
         desc[fm_description<br/>URDF · meshes · registry]
@@ -97,14 +97,12 @@ flowchart TD
     end
 
     bringup --> control
-    bringup --> orch
     bringup --> sim
     bringup --> oa_moveit
     control --> oa_desc
     control --> oa_hw
     desc --> oa_desc
     sim --> oa_mjcf
-    serve --> orch
     record --> lerobot
     dataset --> lerobot
     train --> lerobot
@@ -117,7 +115,6 @@ flowchart TD
 | `fm_bringup` | ament_python | Launch files (sim/servo/teleop), controller configs, teleop input adapters |
 | `fm_control` | ament_cmake | Backend-selectable `ros2_control` description (mock/mujoco/gazebo/isaac/real) |
 | `fm_description` | ament_cmake | URDF/xacro, mesh handling, multi-robot registry (G1-D, SO101, OpenArm) |
-| `fm_orchestration` | ament_python | Task brain (stub) |
 | `fm_sim` | ament_cmake (meta) | Simulation: headless MuJoCo dev loop (`fm_sim_core`), backend hosts (`fm_sim_backends`), MJCF model registry (`fm_sim_models`) |
 | `fm_data` | ament_cmake (meta) | Data engine: record → dataset (episode capture + curation) |
 | `fm_policy` | ament_cmake (meta) | Policy layer: train → serve (model-agnostic learning + inference) |
@@ -125,9 +122,9 @@ flowchart TD
 
 The dependency direction is the design contract: **`fm_description` is the
 foundation**, `fm_control` adds the control layer on top of it, and `fm_bringup`
-orchestrates everything. The data engine (`fm_data`), policy layer (`fm_policy`),
-and task brain (`fm_orchestration`) plug in at the top without the lower layers
-knowing they exist.
+orchestrates everything. The data engine (`fm_data`) and policy layer
+(`fm_policy`) plug in at the top without the lower layers knowing they exist. The
+autonomy arbiter that consumes policy output is deferred (`fm_fsm`).
 
 ## Runtime Data Flow
 
@@ -310,7 +307,7 @@ path is no longer hardcoded in the xacro).
 Two launch files run outside the TUI path:
 
 - `fm_bringup/bringup.launch.py` — runtime stack: `foxglove_bridge`,
-  `fm_control/control_node`, `fm_orchestration/orchestrator`. No includes.
+  `fm_control/control_node`. No includes.
 - `fm_sim_core/sim.launch.py` — headless control loop: a single
   `fm_sim_core/sim_loop` node, parameterised by `config/sim.yaml`. Note this
   is a *different* file from `fm_bringup/sim.launch.py` (the TUI's full sim stack);
@@ -392,7 +389,7 @@ since they need Linux SocketCAN.
 
 The learning loop spans two metapackages. `fm_data` is the data engine: record
 teleop episodes, manage datasets. `fm_policy` is the policy layer: train policies,
-serve inference back into the task brain — model-agnostic. Each group is split-ready,
+serve inference to the autonomy arbiter — model-agnostic. Each group is split-ready,
 so it can move to its own repo (or the cloud) independently. The runtime wiring is
 still being built out — the structure is in place.
 
@@ -402,13 +399,14 @@ flowchart LR
     record --> dataset[fm_data_dataset<br/>manage · replay · HF hub]
     dataset --> train[fm_policy_train<br/>policy training · cloud-ready]
     train --> serve[fm_policy_serve<br/>inference]
-    serve --> orch[fm_orchestration<br/>task brain]
-    orch --> control[fm_control<br/>→ robot]
+    serve -.-> arbiter[fm_fsm<br/>autonomy arbiter · deferred]
+    arbiter -.-> control[fm_control<br/>→ robot]
 ```
 
 This closes the autonomy loop: teleop generates data, data trains policies, and
-policies feed `fm_orchestration`, which commands the same `fm_control` stack the
-operator drives manually. Manual and autonomous control share one motion path.
+policies feed the autonomy arbiter (deferred: `fm_fsm`), which commands the same
+`fm_control` stack the operator drives manually. Manual and autonomous control
+share one motion path.
 
 ## Design Principles
 

@@ -64,7 +64,7 @@ docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
   run --rm fm_ros2 ./scripts/smoke.sh
 ```
 
-Launch the graph (foxglove bridge + control + orchestration):
+Launch the graph (foxglove bridge + control):
 
 ```bash
 # inside the container shell
