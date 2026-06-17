@@ -24,7 +24,7 @@ the backend-selectable hardware abstraction, deployment, and the data engine —
 live in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Quick summary:
 
 ```
-Data flow:  fm_vlta_serve -> fm_orchestration -> fm_control (ros2_control) -> hardware
+Data flow:  fm_policy_serve -> fm_orchestration -> fm_control (ros2_control) -> hardware
             fm_description -> robot state / URDF
             fm_bringup     -> launches the graph
 
@@ -52,11 +52,12 @@ fm-ros2/
 │   ├── fm_sim_core          headless MuJoCo dev loop (sim_loop)
 │   ├── fm_sim_backends      mujoco · gazebo · isaac launch hosts
 │   └── fm_sim_models        robot -> MJCF registry
-├── fm_vlta/                 data engine - split-ready group
-│   ├── fm_vlta_record       episodes -> LeRobot
-│   ├── fm_vlta_dataset      manage / replay / HF hub
-│   ├── fm_vlta_train        training (may move to cloud)
-│   └── fm_vlta_serve        inference -> orchestration
+├── fm_data/                 data engine - split-ready group
+│   ├── fm_data_record       episodes -> LeRobot
+│   └── fm_data_dataset      manage / replay / HF hub
+├── fm_policy/               policy layer - split-ready group
+│   ├── fm_policy_train      training (may move to cloud)
+│   └── fm_policy_serve      inference serving
 ├── docker/                  base image + compose overlays
 ├── .devcontainer/           VS Code dev container
 ├── .github/workflows/       CI: colcon build + test

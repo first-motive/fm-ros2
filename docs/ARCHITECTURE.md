@@ -72,11 +72,14 @@ flowchart TD
         bringup[fm_bringup<br/>launch · teleop adapters]
         tui[fm_tui<br/>monitor · launcher]
 
-        subgraph vlta [fm_vlta · data engine]
-            record[fm_vlta_record]
-            dataset[fm_vlta_dataset]
-            train[fm_vlta_train]
-            serve[fm_vlta_serve]
+        subgraph data [fm_data · data engine]
+            record[fm_data_record]
+            dataset[fm_data_dataset]
+        end
+
+        subgraph policy [fm_policy · policy layer]
+            train[fm_policy_train]
+            serve[fm_policy_serve]
         end
 
         orch[fm_orchestration<br/>task brain]
@@ -116,14 +119,15 @@ flowchart TD
 | `fm_description` | ament_cmake | URDF/xacro, mesh handling, multi-robot registry (G1-D, SO101, OpenArm) |
 | `fm_orchestration` | ament_python | Task brain (stub) |
 | `fm_sim` | ament_cmake (meta) | Simulation: headless MuJoCo dev loop (`fm_sim_core`), backend hosts (`fm_sim_backends`), MJCF model registry (`fm_sim_models`) |
-| `fm_vlta` | ament_cmake (meta) | Data engine: record → dataset → train → serve |
+| `fm_data` | ament_cmake (meta) | Data engine: record → dataset (episode capture + curation) |
+| `fm_policy` | ament_cmake (meta) | Policy layer: train → serve (model-agnostic learning + inference) |
 | `fm_tui` | ament_python | Terminal monitor + menu launcher (Textual) |
 
 The dependency direction is the design contract: **`fm_description` is the
 foundation**, `fm_control` adds the control layer on top of it, and `fm_bringup`
-orchestrates everything. The data engine (`fm_vlta`) and task brain
-(`fm_orchestration`) plug in at the top without the lower layers knowing they
-exist.
+orchestrates everything. The data engine (`fm_data`), policy layer (`fm_policy`),
+and task brain (`fm_orchestration`) plug in at the top without the lower layers
+knowing they exist.
 
 ## Runtime Data Flow
 
@@ -384,19 +388,20 @@ overlay, brings the container up, and opens the `fm_tui` launcher. The
 `openarm_hardware` and `openarm_can` packages are `COLCON_IGNORE`'d on macOS,
 since they need Linux SocketCAN.
 
-## Data Engine (VLTA)
+## Data Engine + Policy Layer
 
-`fm_vlta` is the learning loop: record teleop episodes, manage datasets, train
-policies, serve inference back into the task brain. It is a metapackage split into
-four sub-packages so each can move to its own repo (or the cloud) independently.
-The runtime wiring is still being built out — the structure is in place.
+The learning loop spans two metapackages. `fm_data` is the data engine: record
+teleop episodes, manage datasets. `fm_policy` is the policy layer: train policies,
+serve inference back into the task brain — model-agnostic. Each group is split-ready,
+so it can move to its own repo (or the cloud) independently. The runtime wiring is
+still being built out — the structure is in place.
 
 ```mermaid
 flowchart LR
-    livegraph[Live ROS graph<br/>/joint_states · cmds] --> record[fm_vlta_record<br/>→ LeRobot episodes]
-    record --> dataset[fm_vlta_dataset<br/>manage · replay · HF hub]
-    dataset --> train[fm_vlta_train<br/>policy training · cloud-ready]
-    train --> serve[fm_vlta_serve<br/>inference]
+    livegraph[Live ROS graph<br/>/joint_states · cmds] --> record[fm_data_record<br/>→ LeRobot episodes]
+    record --> dataset[fm_data_dataset<br/>manage · replay · HF hub]
+    dataset --> train[fm_policy_train<br/>policy training · cloud-ready]
+    train --> serve[fm_policy_serve<br/>inference]
     serve --> orch[fm_orchestration<br/>task brain]
     orch --> control[fm_control<br/>→ robot]
 ```
@@ -416,7 +421,7 @@ The rationale behind the boundaries above.
 | **Layered, one-way deps** | `description → control → bringup`; data engine plugs in on top | Lower layers stay testable and reusable; no cycles |
 | **Description as foundation** | `fm_description` registry abstracts robot + variant + meshes | New robot is a registry entry, not a fork |
 | **Monorepo mirrors polyrepo** | Directory layout = future repo split | Growth is `git filter-repo`, not a rename |
-| **Shared motion path** | Manual teleop and `fm_vlta_serve` both reach `fm_control` | Autonomy reuses the validated manual stack |
+| **Shared motion path** | Manual teleop and `fm_policy_serve` both reach `fm_control` | Autonomy reuses the validated manual stack |
 
 For setup and run instructions, see [setup-macos.md](setup-macos.md) and
 [run.md](run.md). Per-package detail lives in each `<package>/README.md`.
