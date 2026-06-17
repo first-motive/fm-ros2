@@ -225,7 +225,7 @@ graph: which launch file includes which, what nodes each spawns, and what config
 each loads at runtime. The root is `./run.sh`, and `fm_bringup.registry` resolves
 everything robot-specific so the launch files themselves stay thin.
 
-`run.sh` is the front door (see [run.md](run.md) for its container/build steps).
+`run.sh` is the front door (see [RUN.md](RUN.md) for its container/build steps).
 It ends by execing `ros2 run fm_tui fm_tui_launcher`. The launcher walks
 action → robot → variant (→ backend), then shells out the matching `ros2 launch`
 via `subprocess`. Three actions are wired; autonomous is a stub.
@@ -423,5 +423,5 @@ The rationale behind the boundaries above.
 | **Monorepo mirrors polyrepo** | Directory layout = future repo split | Growth is `git filter-repo`, not a rename |
 | **Shared motion path** | Manual teleop and `fm_policy_serve` both reach `fm_control` | Autonomy reuses the validated manual stack |
 
-For setup and run instructions, see [setup-macos.md](setup-macos.md) and
-[run.md](run.md). Per-package detail lives in each `<package>/README.md`.
+For setup and run instructions, see [SETUP.md](SETUP.md) and
+[RUN.md](RUN.md). Per-package detail lives in each `<package>/README.md`.

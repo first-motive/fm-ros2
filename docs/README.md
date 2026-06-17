@@ -7,8 +7,8 @@ Guides and references for the fm_ros2 workspace. Start at the root
 
 | Page | What it covers |
 |------|----------------|
-| [run.md](run.md) | `./run.sh` — the front door: detect overlay, build, open the fm_tui launcher |
-| [setup-macos.md](setup-macos.md) | macOS (M5, OrbStack) setup: prerequisites, first run, limits, troubleshooting |
+| [RUN.md](RUN.md) | `./run.sh` — the front door: detect overlay, build, open the fm_tui launcher |
+| [SETUP.md](SETUP.md) | macOS (M5, OrbStack) setup: prerequisites, first run, limits, troubleshooting |
 
 ## Where Else Docs Live
 

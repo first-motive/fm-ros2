@@ -117,7 +117,7 @@ action → robot → variant and dispatches the launch:
 ./run.sh --macos    # force the macOS overlay (OrbStack, sim only)
 ```
 
-Full front-door reference: [docs/run.md](docs/run.md).
+Full front-door reference: [docs/RUN.md](docs/RUN.md).
 
 Robot Description is wired end-to-end (G1-D, SO101, OpenArm); Teleop and
 Autonomous show as stubs until their launch graphs land. Connect Foxglove Studio
@@ -144,7 +144,7 @@ docker compose -f docker/compose.yaml -f docker/compose.linux.yaml \
 Then `./run.sh`. For one robot without the menu, `./scripts/view-robot.sh` is the
 direct path to the same launch file (see [Foxglove](#foxglove)).
 
-Full macOS walkthrough: [docs/setup-macos.md](docs/setup-macos.md). All guides are
+Full macOS walkthrough: [docs/SETUP.md](docs/SETUP.md). All guides are
 indexed in [docs/](docs/README.md). Each package has its own README under
 `<package>/`.
 
