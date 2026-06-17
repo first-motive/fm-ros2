@@ -29,32 +29,7 @@ the same line — not a prose claim that it works on each system.
 | `macos` | `macos-latest` (arm64) | host-native MuJoCo core runs on the M5 path — no Docker, no ROS2 |
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 
-### Linux (`ubuntu-latest`)
-
-The full stack, in the same Linux container the team builds from:
-
-```bash
-docker build -t fm-ros2:ci -f docker/Dockerfile.base .
-docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci bash -lc './scripts/import-externals.sh'
-docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci \
-  bash -lc 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'
-docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci \
-  bash -lc 'source /opt/ros/humble/setup.bash && source install/setup.bash &&
-            colcon test --packages-select $(colcon list --names-only | grep "^fm_") &&
-            colcon test-result --verbose'
-docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci ./scripts/ci-smoke.sh
-```
-
-### macOS (`macos-latest`, arm64)
-
-The M5 daily driver runs the full stack in a Linux container (OrbStack), which
-GitHub's macOS runners cannot host. CI instead exercises the host-native,
-ROS-free core the M5 runs directly on arm64 CPU — the MuJoCo stepper, the MJCF
-registry, and a real native mujoco step:
-
-```bash
-./scripts/ci-smoke-macos.sh
-```
+Reproduce any job locally with the exact CI commands — see [docs/CI.md](docs/CI.md).
 
 ## Architecture
 
@@ -151,30 +126,8 @@ indexed in [docs/](docs/README.md). Each package has its own README under
 ## Foxglove
 
 The dev container runs `foxglove_bridge`; Foxglove Studio on the host connects at
-`ws://localhost:8765`. Plain `docker compose ... up` opens a shell, not the bridge —
-use the helper to serve the port:
-
-```bash
-./scripts/foxglove.sh           # shared stack (default)
-./scripts/foxglove.sh -t        # throwaway container, auto-cleans on exit
-./scripts/foxglove.sh -p 9000   # custom in-container bridge port
-```
-
-| Mode | Command | Container | ROS graph |
-|------|---------|-----------|-----------|
-| shared (default) | `up -d` + `exec` | long-lived | shared with sim / other `exec` sessions |
-| throwaway (`-t`) | `run --rm` | fresh, auto-clean | isolated |
-
-Shared keeps one container, so the bridge sees topics from sim and other `exec`
-sessions with no extra DDS config. Tear it down with
-`docker compose -f docker/compose.yaml -f docker/compose.macos.yaml down`. Throwaway
-runs an isolated bridge that cleans up on exit.
-
-To view a robot URDF in Foxglove, run `./scripts/view-robot.sh` (default G1-D;
-`--robot so101` or `--robot openarm` for the others) — it starts
-robot_state_publisher plus the bridge with meshes. See
-[fm_description/README.md](fm_description/README.md#view-robots) for the
-robot table, variants, and caveats.
+`ws://localhost:8765`. Helper modes (`./scripts/foxglove.sh`), robot viewing, and
+teardown: [docs/FOXGLOVE.md](docs/FOXGLOVE.md).
 
 ## External Dependencies
 
@@ -185,17 +138,8 @@ robot table, variants, and caveats.
 
 Pins in `external.repos` are placeholders (LeRobot, OpenArm, Unitree) — replace
 with real tags and fork before patching upstream. Vendored sources live under
-`external/` and are gitignored. The setup scripts call this step; run it
-standalone to refresh. If `vcs` is not on the host, run it inside the container.
-
-### LeRobot Env
-
-`setup-lerobot.sh` creates `~/.venvs/lerobot` and installs lerobot editable from
-the vendored `external/lerobot`, so it runs **after** `import-externals.sh`.
-The env is host-native — same story as the MuJoCo env on the M5 (CPU sim and
-dataset work, no container). The script is idempotent: it skips when the venv
-already exists. Pass `--force` to wipe and reinstall, which also migrates an
-older PyPI lerobot venv to this editable source install.
+`external/` and are gitignored. Vendoring details and the LeRobot env (`--force`,
+idempotency): [docs/EXTERNALS.md](docs/EXTERNALS.md).
 
 ## License & Ownership
 
