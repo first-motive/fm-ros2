@@ -16,7 +16,7 @@
 #              a USB webcam cannot pass through, so use a phone MJPEG stream URL, e.g.
 #              camera_source:=http://<phone-ip>:8080/video. One-time setup inside the
 #              container: pip install mediapipe opencv-python, then run
-#              src/fm_teleop/fm_teleop_vision/scripts/download_model.sh. Engage from the
+#              fm_teleop/fm_teleop_vision/scripts/download_model.sh. Engage from the
 #              Foxglove panel's "Vision (hold)" button (a deadman).
 #
 # In the Foxglove panel, pick the robot in the panel settings so the joint set +
@@ -27,7 +27,7 @@
 #
 # Real backends differ by robot: OpenArm + SO101 use a ros2_control hardware plugin
 # (openarm SocketCAN, SO101 feetech serial); the G1-D has no such plugin — its real
-# arm runs through the Servo->arm_sdk bridge (src/fm_control/g1_arm_sdk_bridge), and
+# arm runs through the Servo->arm_sdk bridge (fm_control/g1_arm_sdk_bridge), and
 # the wheeled base is driven separately by a Twist->AGV node. All real paths are
 # plumbed but untested — no physical hardware yet.
 #

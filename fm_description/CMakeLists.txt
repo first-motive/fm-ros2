@@ -11,7 +11,7 @@ install(
 # Vendor the Unitree G1 descriptions into this package's share so their meshes
 # resolve as package://fm_description/<dir>/... — the only mesh scheme Foxglove
 # Studio fetches through foxglove_bridge (file:// is host-scoped and fails over a
-# bridge). Sourced from the vcs-imported unitree_ros working copy (src/external/,
+# bridge). Sourced from the vcs-imported unitree_ros working copy (external/,
 # gitignored), so present only after import-externals.sh. Guarded so a clean
 # checkout (e.g. CI without externals) still builds.
 #   g1_d_description   the wheeled G1-D (AGV base + arms) — the default view
@@ -34,7 +34,7 @@ endforeach()
 # SO101 upstream ships as plain files (flat so101_new_calib.urdf + assets/*.stl),
 # vendored from the vcs-imported SO-ARM100 working copy. vcs names the dir after
 # its external.repos key (so_arm), not the repo, so the source lives at
-# src/external/so_arm/ (gitignored), present only after import-externals.sh. The
+# external/so_arm/ (gitignored), present only after import-externals.sh. The
 # trailing slash on the source installs its contents (URDF + assets/) into
 # so101_description. Guarded so a clean checkout (e.g. CI without externals) still builds.
 set(SO101_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../external/so_arm/Simulation/SO101")
@@ -57,7 +57,7 @@ endif()
 # (RViz honours up_axis, so it is unaffected). assimp bakes each file's up_axis into
 # the geometry on export, so a plain DAE -> STL conversion yields the orientation
 # RViz already presents — no extra rotation. Source is the vcs-imported working copy
-# (src/external/openarm_description, gitignored). Guarded so a clean checkout
+# (external/openarm_description, gitignored). Guarded so a clean checkout
 # (e.g. CI without externals) still builds.
 set(OPENARM_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../external/openarm_description")
 set(OPENARM_MESH_OUT "${CMAKE_CURRENT_BINARY_DIR}/openarm_meshes")

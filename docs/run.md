@@ -41,7 +41,7 @@ host OS exits with an error — pass a flag explicitly.
 Robot descriptions live outside the repo. Vendor them once before the first run:
 
 ```bash
-./scripts/import-externals.sh    # vendor robot sources into src/external/
+./scripts/import-externals.sh    # vendor robot sources into external/
 ```
 
 The launcher's robot list is empty until this runs.
@@ -139,12 +139,12 @@ TERTIARY   SpaceMouse (spacenav) → Servo                    best 6-DOF ergonom
 AVOID      USB-HID directly into a Mac container             no passthrough on OrbStack/Docker Desktop
 ```
 
-The Foxglove panel (`src/fm_teleop/fm_teleop_panel/`) is the scalable spine: a new operator opens a
+The Foxglove panel (`fm_teleop/fm_teleop_panel/`) is the scalable spine: a new operator opens a
 URL, no hardware shipped. Physical-HID devices stay on Linux hosts, or reach the Mac
 container over a host-side network bridge — never through container USB passthrough.
 
 Every input is a source in the `fm_teleop` layer, collapsing to one shared command
-contract. See [src/fm_teleop/README.md](../src/fm_teleop/README.md) for the convergence
+contract. See [fm_teleop/README.md](../fm_teleop/README.md) for the convergence
 model, the source-status table, and the add-a-source guide.
 
 ## Direct Scripts

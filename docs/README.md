@@ -13,5 +13,5 @@ Guides and references for the fm_ros2 workspace. Start at the root
 ## Where Else Docs Live
 
 - Root [README](../README.md) — project overview, layout, Foxglove, external deps
-- `src/<package>/README.md` — per-package node, topic, and parameter reference
+- `<package>/README.md` — per-package node, topic, and parameter reference
 - [CONTRIBUTING](../CONTRIBUTING.md) — contribution workflow

@@ -4,7 +4,7 @@
 # pick one with --robot (default g1_d).
 #
 # Prerequisites (run once, or after changing externals / sources):
-#   ./scripts/import-externals.sh    # clone/import robot sources into src/external/
+#   ./scripts/import-externals.sh    # clone/import robot sources into external/
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
 #     run --rm fm_ros2 colcon build --symlink-install
 #

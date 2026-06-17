@@ -44,7 +44,7 @@ foxglove_bridge       → ws://8765  (Foxglove Studio on the host renders it)
 Vendor the sources and build once, then launch any robot:
 
 ```bash
-./scripts/import-externals.sh    # vendor / import robot sources into src/external/ (once)
+./scripts/import-externals.sh    # vendor / import robot sources into external/ (once)
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
   run --rm fm_ros2 colcon build --symlink-install
 ./scripts/view-robot.sh                                  # g1_d wheeled G1-D (default)

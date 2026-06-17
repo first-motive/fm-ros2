@@ -53,7 +53,7 @@ This is a TypeScript/React Foxglove extension, built outside the ROS workspace w
 the Foxglove toolchain (Node 18+ required):
 
 ```
-cd src/fm_teleop/fm_teleop_panel
+cd fm_teleop/fm_teleop_panel
 npm install
 npm run local-install   # builds and installs into the local Foxglove Studio
 ```

@@ -10,7 +10,7 @@ log/
 MUJOCO_LOG.TXT
 
 # Vendored external sources (pulled via vcs import)
-src/external/
+external/
 
 # Python
 __pycache__/

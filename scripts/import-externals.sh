@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Vendor external dependencies into src/external/ from external.repos.
+# Vendor external dependencies into external/ from external.repos.
 # Pins are placeholders (see external.repos) — failures are loud, never silent.
-# src/external/ is gitignored; this is a local working copy, not committed.
+# external/ is gitignored; this is a local working copy, not committed.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,9 +12,9 @@ if ! command -v vcs >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p src/external
-echo "==> Importing externals into src/external/ ..."
-vcs import src/external < external.repos
+mkdir -p external
+echo "==> Importing externals into external/ ..."
+vcs import external < external.repos
 
 # Selective workspace build: externals are sources to read or file-vendor, NOT to
 # build — except real ament packages whose code or xacro we consume directly:
@@ -36,9 +36,9 @@ BUILD_DIRS=(openarm_description openarm_ros2 unitree_ros2)
 # CycloneDDS SDK — drop nested markers so the rest of each repo still builds.
 NESTED_IGNORE=(openarm_ros2/openarm_hardware unitree_ros2/example/src)
 # Drop any blanket top-level ignore from an earlier import — markers are per-dir now.
-rm -f src/external/COLCON_IGNORE
+rm -f external/COLCON_IGNORE
 echo "==> Marking externals COLCON_IGNORE (keeping ${BUILD_DIRS[*]} in the build) ..."
-for dir in src/external/*/; do
+for dir in external/*/; do
   name="$(basename "$dir")"
   keep=false
   for b in "${BUILD_DIRS[@]}"; do
@@ -53,21 +53,21 @@ done
 
 # Nested ignores: skip individual packages within a built repo.
 for sub in "${NESTED_IGNORE[@]}"; do
-  if [ -d "src/external/${sub}" ]; then
-    touch "src/external/${sub}/COLCON_IGNORE"
+  if [ -d "external/${sub}" ]; then
+    touch "external/${sub}/COLCON_IGNORE"
   fi
 done
 
 # Each built repo must exist post-import or its capability cannot build — fail loud.
 for b in "${BUILD_DIRS[@]}"; do
-  if [ ! -d "src/external/${b}" ]; then
-    echo "ERROR: src/external/${b} missing after import — its packages cannot build." >&2
+  if [ ! -d "external/${b}" ]; then
+    echo "ERROR: external/${b} missing after import — its packages cannot build." >&2
     echo "       Check the ${b} entry in external.repos and re-run." >&2
     exit 1
   fi
 done
 
 echo "==> Current versions:"
-vcs custom src/external --git --args rev-parse --short HEAD 2>/dev/null || vcs status src/external
+vcs custom external --git --args rev-parse --short HEAD 2>/dev/null || vcs status external
 echo "==> Done. ${BUILD_DIRS[*]} join the workspace build; other externals are COLCON_IGNORE'd."
 echo "==> Reminder: pins in external.repos are placeholders — pin real tags."

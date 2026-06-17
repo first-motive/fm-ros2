@@ -16,7 +16,7 @@
 # Every run rebuilds the workspace (colcon) before opening the launcher, so source
 # and console-script changes are always picked up. The build is incremental, so a
 # warm tree is quick. Robot sources must be vendored first, once:
-#   ./scripts/import-externals.sh    # vendor robot sources into src/external/
+#   ./scripts/import-externals.sh    # vendor robot sources into external/
 #
 # scripts/view-robot.sh, scripts/sim.sh, and scripts/teleop.sh coexist as the
 # direct, scriptable paths to the same launches — use them when you want one

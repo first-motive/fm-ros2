@@ -18,7 +18,7 @@ jobs:
       - name: Build base image
         run: docker build -t fm-ros2:ci -f docker/Dockerfile.base .
 
-      # src/external is gitignored, so CI must vendor the sources the build consumes
+      # external is gitignored, so CI must vendor the sources the build consumes
       # (openarm_description, the unitree_hg messages, ...) at their pinned commits.
       - name: Import externals
         run: |
@@ -63,7 +63,7 @@ jobs:
       # Type-checks + bundles the TypeScript/React teleop panel (not part of the ROS
       # workspace). Catches panel breakage — a broken ROBOTS entry, a type error.
       - name: Build panel
-        working-directory: src/fm_teleop/fm_teleop_panel
+        working-directory: fm_teleop/fm_teleop_panel
         run: |
           npm ci
           npm run build

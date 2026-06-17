@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Create the lerobot env: an editable install from the vendored source in
-# src/external/lerobot. fm_ros2 owns its robotics deps, so lerobot is installed
+# external/lerobot. fm_ros2 owns its robotics deps, so lerobot is installed
 # host-native (like the mujoco env on the M5) rather than in the container.
 #
 # Order: run scripts/import-externals.sh first — this needs the vendored source.
@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 VENV="$HOME/.venvs/lerobot"
-SRC="src/external/lerobot"
+SRC="external/lerobot"
 
 FORCE=0
 [[ "${1:-}" == "--force" ]] && FORCE=1

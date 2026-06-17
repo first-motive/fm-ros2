@@ -1,12 +1,12 @@
-# vcs import src/external < external.repos
+# vcs import external < external.repos
 #
-# External dependencies vendored into src/external/. Each `version` is pinned to
+# External dependencies vendored into external/. Each `version` is pinned to
 # an exact commit for reproducible imports — swap to a First Motive fork (and
 # re-pin) when we start patching upstream. Imported sources are gitignored
-# (src/external/). Re-pin with: git ls-remote <url> <branch>.
+# (external/). Re-pin with: git ls-remote <url> <branch>.
 #
-# Keys are bare names (no `external/` prefix) so they land at src/external/<name>,
-# not src/external/external/<name>.
+# Keys are bare names (no `external/` prefix) so they land at external/<name>,
+# not external/external/<name>.
 #
 # Run:  ./scripts/import-externals.sh   (wraps the vcs import above)
 repositories:

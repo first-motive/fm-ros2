@@ -37,27 +37,26 @@ External:   vcs import < external.repos  (LeRobot, OpenArm, Unitree - fork when 
 
 ```
 fm-ros2/
-├── src/
-│   ├── fm_bringup/          launch + configs            (Python)
-│   ├── fm_description/      URDF / xacro / meshes        (ament_cmake)
-│   ├── fm_control/          ros2_control, HW interfaces  (C++)
-│   ├── fm_orchestration/    task brain, action arbiter   (Python)
-│   ├── fm_teleop/           teleop source layer - split-ready group
-│   │   ├── fm_teleop_core   TeleopSource base + contract
-│   │   ├── fm_teleop_device gamepad · SpaceMouse · hand
-│   │   ├── fm_teleop_leader leader-arm follow (skeleton)
-│   │   ├── fm_teleop_vr     VR controllers (skeleton)
-│   │   ├── fm_teleop_vision hand-tracking (skeleton)
-│   │   └── fm_teleop_panel  browser Foxglove panel (npm)
-│   ├── fm_sim/              simulation layer - split-ready group
-│   │   ├── fm_sim_core      headless MuJoCo dev loop (sim_loop)
-│   │   ├── fm_sim_backends  mujoco · gazebo · isaac launch hosts
-│   │   └── fm_sim_models    robot -> MJCF registry
-│   └── fm_vlta/             data engine - split-ready group
-│       ├── fm_vlta_record   episodes -> LeRobot
-│       ├── fm_vlta_dataset  manage / replay / HF hub
-│       ├── fm_vlta_train    training (may move to cloud)
-│       └── fm_vlta_serve    inference -> orchestration
+├── fm_bringup/              launch + configs            (Python)
+├── fm_description/          URDF / xacro / meshes        (ament_cmake)
+├── fm_control/              ros2_control, HW interfaces  (C++)
+├── fm_orchestration/        task brain, action arbiter   (Python)
+├── fm_teleop/               teleop source layer - split-ready group
+│   ├── fm_teleop_core       TeleopSource base + contract
+│   ├── fm_teleop_device     gamepad · SpaceMouse · hand
+│   ├── fm_teleop_leader     leader-arm follow (skeleton)
+│   ├── fm_teleop_vr         VR controllers (skeleton)
+│   ├── fm_teleop_vision     hand-tracking (skeleton)
+│   └── fm_teleop_panel      browser Foxglove panel (npm)
+├── fm_sim/                  simulation layer - split-ready group
+│   ├── fm_sim_core          headless MuJoCo dev loop (sim_loop)
+│   ├── fm_sim_backends      mujoco · gazebo · isaac launch hosts
+│   └── fm_sim_models        robot -> MJCF registry
+├── fm_vlta/                 data engine - split-ready group
+│   ├── fm_vlta_record       episodes -> LeRobot
+│   ├── fm_vlta_dataset      manage / replay / HF hub
+│   ├── fm_vlta_train        training (may move to cloud)
+│   └── fm_vlta_serve        inference -> orchestration
 ├── docker/                  base image + compose overlays
 ├── .devcontainer/           VS Code dev container
 ├── .github/workflows/       CI: colcon build + test
@@ -106,7 +105,7 @@ direct path to the same launch file (see [Foxglove](#foxglove)).
 
 Full macOS walkthrough: [docs/setup-macos.md](docs/setup-macos.md). All guides are
 indexed in [docs/](docs/README.md). Each package has its own README under
-`src/<package>/`.
+`<package>/`.
 
 ## Foxglove
 
@@ -133,25 +132,25 @@ runs an isolated bridge that cleans up on exit.
 To view a robot URDF in Foxglove, run `./scripts/view-robot.sh` (default G1-D;
 `--robot so101` or `--robot openarm` for the others) — it starts
 robot_state_publisher plus the bridge with meshes. See
-[src/fm_description/README.md](src/fm_description/README.md#view-robots) for the
+[fm_description/README.md](fm_description/README.md#view-robots) for the
 robot table, variants, and caveats.
 
 ## External Dependencies
 
 ```bash
-./scripts/import-externals.sh        # vendor sources: vcs import src/external < external.repos
+./scripts/import-externals.sh        # vendor sources: vcs import external < external.repos
 ./scripts/setup-lerobot.sh           # then: editable lerobot env from the vendored source
 ```
 
 Pins in `external.repos` are placeholders (LeRobot, OpenArm, Unitree) — replace
 with real tags and fork before patching upstream. Vendored sources live under
-`src/external/` and are gitignored. The setup scripts call this step; run it
+`external/` and are gitignored. The setup scripts call this step; run it
 standalone to refresh. If `vcs` is not on the host, run it inside the container.
 
 ### LeRobot Env
 
 `setup-lerobot.sh` creates `~/.venvs/lerobot` and installs lerobot editable from
-the vendored `src/external/lerobot`, so it runs **after** `import-externals.sh`.
+the vendored `external/lerobot`, so it runs **after** `import-externals.sh`.
 The env is host-native — same story as the MuJoCo env on the M5 (CPU sim and
 dataset work, no container). The script is idempotent: it skips when the venv
 already exists. Pass `--force` to wipe and reinstall, which also migrates an

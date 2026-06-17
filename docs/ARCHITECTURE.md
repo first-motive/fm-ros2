@@ -419,4 +419,4 @@ The rationale behind the boundaries above.
 | **Shared motion path** | Manual teleop and `fm_vlta_serve` both reach `fm_control` | Autonomy reuses the validated manual stack |
 
 For setup and run instructions, see [setup-macos.md](setup-macos.md) and
-[run.md](run.md). Per-package detail lives in each `src/<package>/README.md`.
+[run.md](run.md). Per-package detail lives in each `<package>/README.md`.

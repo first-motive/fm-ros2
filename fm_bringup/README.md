@@ -71,8 +71,8 @@ The teleop source nodes live in `fm_teleop_device` (gamepad, SpaceMouse, G1-D ha
 `teleop.launch.py` here orchestrates them — it spawns the selected source alongside its
 driver node (`joy_node` / `spacenav_node`) and MoveIt Servo.
 
-The primary input is the browser-side Foxglove panel (`src/fm_teleop/fm_teleop_panel/`);
-the device sources cover physical-HID inputs on Linux hosts. See `src/fm_teleop/` for the
+The primary input is the browser-side Foxglove panel (`fm_teleop/fm_teleop_panel/`);
+the device sources cover physical-HID inputs on Linux hosts. See `fm_teleop/` for the
 source layer and the command contract.
 
 ## Build Type
