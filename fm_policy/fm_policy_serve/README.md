@@ -1,6 +1,8 @@
 # fm_policy_serve
 
 Inference serving. Feeds predictions to the autonomy arbiter.
+**Placeholder stub** — the `server` node only logs that it is up; no inference
+logic, topics, or parameters yet.
 
 ## Role
 
