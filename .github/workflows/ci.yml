@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   push:
@@ -49,6 +49,22 @@ jobs:
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc './scripts/ci-smoke.sh'
+
+  macos:
+    name: native sim core (macos arm64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      # The M5 daily driver runs the full stack in a Linux container (OrbStack),
+      # which GitHub's macOS runners cannot host. This job covers the ROS-free
+      # pieces the M5 runs natively on arm64 CPU — the MuJoCo stepper and the MJCF
+      # registry — plus a real native mujoco wheel step. uv provisions Python +
+      # deps; no Docker, no ROS2. Same script runs locally: ./scripts/ci-smoke-macos.sh
+      - name: Host-native sim core smoke
+        run: ./scripts/ci-smoke-macos.sh
 
   panel:
     name: foxglove teleop panel build
