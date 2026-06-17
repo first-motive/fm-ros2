@@ -16,7 +16,7 @@ meshes/   visual + collision geometry
 launch/   description-only launch helpers
 ```
 
-## Build type
+## Build Type
 
 `ament_cmake`. Installs `urdf/`, `meshes/`, `launch/` to the package share.
 
@@ -92,7 +92,7 @@ Common launch args (every robot):
 An unknown `--robot` key (shell) or `robot:=` value (launch) fails loud, listing
 the valid keys.
 
-### Mesh resolution
+### Mesh Resolution
 
 Every registry entry rewrites its mesh references to `package://fm_description/...`
 before publishing the URDF. Foxglove Studio routes `package://` (and only
@@ -109,7 +109,7 @@ ament_cmake package, so its entry processes the xacro at launch with
 `xacro.process_file` and rewrites visual `.dae` references onto a converted STL
 set — detailed below.
 
-### Foxglove gotcha: meshes tipped 90° about X
+### Foxglove Gotcha: Meshes Tipped 90° About X
 
 If a robot renders with correct link positions but every mesh rotated 90° about X,
 set the Foxglove 3D panel's mesh up-axis to match ROS. Foxglove defaults to Y-up
@@ -124,7 +124,7 @@ To skip this each time, import the ready-made layout `foxglove/g1_view.json`
 (Foxglove Studio → Layouts → import from file). It pre-sets the 3D panel: Z-up
 meshes, follow `AGV_link`, `/robot_description` visible.
 
-### Foxglove gotcha: Joint State Publisher panel flips between poses
+### Foxglove Gotcha: Joint State Publisher Panel Flips Between Poses
 
 If the robot oscillates between two poses when you open Foxglove's **Joint State
 Publisher** panel, the panel and the headless `joint_state_publisher` node are both
@@ -148,7 +148,7 @@ Now the panel publishes `/joint_command`, jsp holds the last value and republish
 single consistent `/joint_states`, and the flip-flop is gone. Override the topic with
 `panel_topic:=<topic>` if you prefer a different name.
 
-### OpenArm: visual mesh up-axis baking
+### OpenArm: Visual Mesh Up-Axis Baking
 
 OpenArm's upstream visual meshes are COLLADA (`.dae`) with **inconsistent declared
 up-axes**: the arm and pinch-gripper meshes are `Y_UP`, the body mesh is `Z_UP`.
@@ -180,7 +180,7 @@ here would double-rotate the meshes and scatter the assembled robot. Collision
 meshes are already STL and are not rendered by default, so they are left pointing at
 `openarm_description`.
 
-### OpenArm: Foxglove asset allowlist and send-buffer limit
+### OpenArm: Foxglove Asset Allowlist and Send-Buffer Limit
 
 OpenArm's mesh URIs run through a dotted directory, e.g.
 `package://openarm_description/assets/robot/openarm_v2.0/meshes/arm/visual/link1.dae`.
@@ -197,7 +197,7 @@ resets the asset channel, so neighbouring meshes fail to load too. The default
 `right_arm` preset stays well under 10 MB, but the raised limit lets every preset
 render.
 
-### Adding a robot
+### Adding a Robot
 
 Each robot is one entry in the `ROBOTS` dict in `launch/view_robot.launch.py`:
 

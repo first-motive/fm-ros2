@@ -8,6 +8,6 @@ Model training. May move to cloud — kept split-ready for that reason.
 ros2 run fm_policy_train trainer
 ```
 
-## Build type
+## Build Type
 
 `ament_python`.

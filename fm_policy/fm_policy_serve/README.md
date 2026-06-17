@@ -14,6 +14,6 @@ fm_policy_serve -> autonomy arbiter (deferred: fm_fsm)
 ros2 run fm_policy_serve server
 ```
 
-## Build type
+## Build Type
 
 `ament_python`.

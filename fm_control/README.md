@@ -60,7 +60,7 @@ each MoveIt SRDF so Servo accepts the pair.
 
 Consumed by `fm_bringup`'s `sim.launch.py`, `servo.launch.py`, and `teleop.launch.py`.
 
-## G1-D real arm: a bridge, not a ros2_control plugin
+## G1-D Real Arm: a Bridge, Not a ros2_control Plugin
 
 No `ros2_control` hardware interface exists for the Unitree G1 upstream, so the G1-D
 `real` arm is **not** a System plugin. Instead `g1.ros2_control.xacro` emits no system

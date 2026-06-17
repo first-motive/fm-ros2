@@ -8,6 +8,6 @@ Manage, replay, and push datasets to the Hugging Face hub.
 ros2 run fm_data_dataset dataset_manager
 ```
 
-## Build type
+## Build Type
 
 `ament_python`.

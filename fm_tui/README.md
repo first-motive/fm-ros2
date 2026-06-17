@@ -76,6 +76,6 @@ No configuration follows — the swap is automatic. The resolver lives in
 `fm_tui/theme.py`; the fallback twins in `fm_tui/widgets.py` mirror the nish-tui
 widget API so the app code never branches on availability.
 
-## Build type
+## Build Type
 
 `ament_python`. Depends on `rclpy` and `rcl_interfaces`; `textual` comes from pip.

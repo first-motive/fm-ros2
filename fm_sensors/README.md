@@ -10,6 +10,6 @@ capture logic yet; the node only logs that it is up.
 ros2 run fm_sensors sensor_node
 ```
 
-## Build type
+## Build Type
 
 `ament_python`.
