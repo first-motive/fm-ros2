@@ -26,9 +26,13 @@ colcon test-result --verbose
 
 ## Layout
 
-Packages live at the repo root (nav2 convention) — clone the repo into a colcon
-workspace's `src/`, where `colcon build` recurses and finds every package. The
-root `fm_ros2` metapackage depends on every top-level `fm_*` package.
+The repo root holds only `fm_*` domain-group folders plus the `fm_ros2` workspace
+metapackage. Each group (`fm_robot`, `fm_app`, `fm_sim`, `fm_teleop`, `fm_learning`)
+is a folder containing its own `ament_cmake` metapackage as a sibling of the leaf
+packages it groups — so the system boundaries are visible at the top level. Clone the
+repo into a colcon workspace's `src/`, where `colcon build` recurses and finds every
+package regardless of nesting depth. The root `fm_ros2` metapackage depends on the
+five group metapackages; each pulls its own sub-packages transitively.
 
 ## Diagrams
 

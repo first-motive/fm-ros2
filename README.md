@@ -83,12 +83,18 @@ with a stacked edge expand in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Sour
 
 ```
 fm-ros2/
-├── fm_ros2/                 workspace metapackage (depends on all fm_*)
-├── fm_bringup/              launch + configs            (Python)
-├── fm_description/          URDF / xacro / meshes        (ament_cmake)
-├── fm_control/              ros2_control, HW interfaces  (C++)
-├── fm_sensors/              multi-sensor capture layer   (placeholder stub)
+├── fm_ros2/                 workspace metapackage (depends on the 5 groups)
+├── fm_robot/                robot layer - description · control · sensors
+│   ├── fm_robot             group metapackage
+│   ├── fm_description/      URDF / xacro / meshes        (ament_cmake)
+│   ├── fm_control/          ros2_control, HW interfaces  (C++)
+│   └── fm_sensors/          multi-sensor capture layer   (placeholder stub)
+├── fm_app/                  application layer - bringup · tui
+│   ├── fm_app               group metapackage
+│   ├── fm_bringup/          launch + configs            (Python)
+│   └── fm_tui/              operator terminal UI         (Python)
 ├── fm_teleop/               teleop source layer - split-ready group
+│   ├── fm_teleop            group metapackage
 │   ├── fm_teleop_core       TeleopSource base + contract
 │   ├── fm_teleop_device     gamepad · SpaceMouse · hand
 │   ├── fm_teleop_leader     leader-arm follow (skeleton)
@@ -96,15 +102,18 @@ fm-ros2/
 │   ├── fm_teleop_vision     wrist-tracking (working)
 │   └── fm_teleop_panel      browser Foxglove panel (npm)
 ├── fm_sim/                  simulation layer - split-ready group
+│   ├── fm_sim               group metapackage
 │   ├── fm_sim_core          headless MuJoCo dev loop (sim_loop)
 │   ├── fm_sim_backends      mujoco · gazebo · isaac launch hosts
 │   └── fm_sim_models        robot -> MJCF registry
-├── fm_data/                 data engine - split-ready group
-│   ├── fm_data_record       episodes -> LeRobot
-│   └── fm_data_dataset      manage / replay / HF hub
-├── fm_policy/               policy layer - split-ready group
-│   ├── fm_policy_train       training (may move to cloud)
-│   └── fm_policy_serve       inference serving
+├── fm_learning/             learning layer - data · policy (3-level nest)
+│   ├── fm_learning          group metapackage
+│   ├── fm_data/             data engine - split-ready group
+│   │   ├── fm_data_record   episodes -> LeRobot
+│   │   └── fm_data_dataset  manage / replay / HF hub
+│   └── fm_policy/           policy layer - split-ready group
+│       ├── fm_policy_train  training (may move to cloud)
+│       └── fm_policy_serve  inference serving
 ├── docker/                  base image + compose overlays
 ├── .devcontainer/           VS Code dev container
 ├── .github/workflows/       CI: Linux build/test + macOS native smoke
