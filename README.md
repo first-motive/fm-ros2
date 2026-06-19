@@ -1,51 +1,81 @@
 # fm-ros2
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
+First Motive's ROS2 workspace.
 
-First Motive's canonical ROS2 (Humble) workspace. One monorepo the whole team runs
-from work laptops: build, Docker, and external vendoring live in one place. The
-directory layout mirrors the planned polyrepo split, so growth is a clean
-`git filter-repo`, not a rename.
+One monorepo for the whole team. The layout mirrors a planned polyrepo split, so
+growth is a `git filter-repo`, not a rewrite.
 
-## Platforms
+## Quick Start
 
-| Platform | Role | GPU / Hardware |
-|----------|------|----------------|
-| Ubuntu / Linux | main system — dev, build, sim, hardware | yes |
-| M5 MacBook Pro (OrbStack) | dev, build, sim, dataset | no |
+See [docs/RUN.md](docs/RUN.md) for details.
 
-The macOS path is dev + build + sim + dataset only — no GPU, no hardware.
+```bash
+./run.sh            # auto-detect overlay, open the launcher
+./run.sh --linux    # Linux overlay (GPU / hardware)
+./run.sh --macos    # macOS overlay (OrbStack, sim only)
+```
 
-## CI
+```
+           +-------------+
+           |  ./run.sh   |
+           +------+------+ 
+                  |      \
+      +-----------+--+     +--------------------+
+      | Robot Description|  | Autonomous (stub) |
+      +-----------+--+     +--------------------+
+                  | \
+          +-------+-------+
+          |   Simulation   |
+          +-------+-------+
+                   |      \
+     +-------------+--+   +--------------+
+     |     Gazebo      |   |    MuJoCo    |
+     +-------------+--+   +-------+------+
+                              \
+                           +--------+
+                           | Isaac  |
+                           |  Sim   |
+                           +--------+
+           
+           +--------+
+           | Teleop |
+           +---+----+
+               |
+               v
+         +-----------+
+         | Simulation|
+         +-----------+
+```
+**First run** (once, or after changing externals):
 
-Every push and pull request runs three jobs ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
-The commands below are exactly what CI runs, so any job reproduces locally with
-the same line — not a prose claim that it works on each system.
+```bash
+# macOS (M5, OrbStack)
+./scripts/setup-macos.sh
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
+  run --rm fm_ros2 colcon build --symlink-install
 
-| Job | Runner | Proves |
-|-----|--------|--------|
-| `workspace` | `ubuntu-latest` | base image → colcon build + test (`fm_*` only) → three-robot headless smoke |
-| `macos` | `macos-latest` (arm64) | host-native MuJoCo core runs on the M5 path — no Docker, no ROS2 |
-| `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
+# Linux (GPU / hardware) — swap the setup script and overlay
+./scripts/setup-linux.sh
+docker compose -f docker/compose.yaml -f docker/compose.linux.yaml \
+  run --rm fm_ros2 colcon build --symlink-install
+```
 
-Reproduce any job locally with the exact CI commands — see [docs/CI.md](docs/CI.md).
+Then `./run.sh`, and connect Foxglove Studio to `ws://localhost:8765`.
+
+[Setup](docs/SETUP.md) · [externals](docs/EXTERNALS.md) · [Foxglove](docs/FOXGLOVE.md)
+· [all guides](docs/README.md). Per-package detail in each `<package>/README.md`.
 
 ## Architecture
 
-Full structural diagrams — system context, component layers, runtime data flow,
-the backend-selectable hardware abstraction, deployment, and the data engine —
-live in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Quick summary:
+`fm_description` feeds `fm_control`; control drives a backend-selectable hardware
+interface; `fm_bringup` launches the graph. Data engine and policy layer plug in on
+top. Full diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-```
-Data flow:  fm_policy_serve -> fm_control (ros2_control) -> hardware   (autonomy arbiter deferred: fm_fsm)
-            fm_description -> robot state / URDF
-            fm_bringup     -> launches the graph
+![system](docs/diagrams/system.svg)
 
-Viz:        container [foxglove_bridge ws://8765]  -->  macOS Foxglove Studio
-Sim:        MuJoCo (native arm64 CPU on M5)  +  rosbag / LeRobot replay
-External:   vcs import < external.repos  (LeRobot, OpenArm, Unitree - fork when patching)
-```
+Entry points invoke `fm_bringup`, which composes the robot stack. Blocks marked
+with a stacked edge expand in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Source:
+[`docs/diagrams/system.d2`](docs/diagrams/system.d2).
 
 ## Layout
 
@@ -61,7 +91,7 @@ fm-ros2/
 │   ├── fm_teleop_device     gamepad · SpaceMouse · hand
 │   ├── fm_teleop_leader     leader-arm follow (skeleton)
 │   ├── fm_teleop_vr         VR controllers (skeleton)
-│   ├── fm_teleop_vision     hand-tracking (skeleton)
+│   ├── fm_teleop_vision     wrist-tracking (working)
 │   └── fm_teleop_panel      browser Foxglove panel (npm)
 ├── fm_sim/                  simulation layer - split-ready group
 │   ├── fm_sim_core          headless MuJoCo dev loop (sim_loop)
@@ -71,8 +101,8 @@ fm-ros2/
 │   ├── fm_data_record       episodes -> LeRobot
 │   └── fm_data_dataset      manage / replay / HF hub
 ├── fm_policy/               policy layer - split-ready group
-│   ├── fm_policy_train      training (may move to cloud)
-│   └── fm_policy_serve      inference serving
+│   ├── fm_policy_train       training (may move to cloud)
+│   └── fm_policy_serve       inference serving
 ├── docker/                  base image + compose overlays
 ├── .devcontainer/           VS Code dev container
 ├── .github/workflows/       CI: Linux build/test + macOS native smoke
@@ -80,68 +110,31 @@ fm-ros2/
 └── external.repos           vcs import pins
 ```
 
-## Quick Start
+## Platforms
 
-The front door is `./run.sh`. It auto-detects the host OS, brings the dev
-container up, and opens the **fm_tui launcher** — an arrow-key menu that walks
-action → robot → variant and dispatches the launch:
+| Platform | Role |
+|----------|------|
+| Linux (GPU) | dev · build · sim · hardware |
+| macOS M5 (OrbStack) | dev · build · sim · dataset |
 
-```bash
-./run.sh            # auto-detect overlay, open the launcher
-./run.sh --linux    # force the Linux overlay (GPU / hardware)
-./run.sh --macos    # force the macOS overlay (OrbStack, sim only)
-```
+macOS runs Humble in a Linux arm64 container — no GPU, no hardware; MuJoCo runs native.
 
-Full front-door reference: [docs/RUN.md](docs/RUN.md).
+## CI
 
-Robot Description is wired end-to-end (G1-D, SO101, OpenArm); Teleop and
-Autonomous show as stubs until their launch graphs land. Connect Foxglove Studio
-to `ws://localhost:8765` to view a robot — see [Foxglove](#foxglove).
+[![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
-First time, or after changing externals / sources, run setup and build once:
+Three jobs per push and PR; each reproduces locally with the exact CI command
+([docs/CI.md](docs/CI.md)).
 
-### macOS (M5, OrbStack)
-
-```bash
-./scripts/setup-macos.sh
-docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm_ros2 colcon build --symlink-install
-```
-
-### Linux (native GPU / hardware)
-
-```bash
-./scripts/setup-linux.sh
-docker compose -f docker/compose.yaml -f docker/compose.linux.yaml \
-  run --rm fm_ros2 colcon build --symlink-install
-```
-
-Then `./run.sh`. For one robot without the menu, `./scripts/view-robot.sh` is the
-direct path to the same launch file (see [Foxglove](#foxglove)).
-
-Full macOS walkthrough: [docs/SETUP.md](docs/SETUP.md). All guides are
-indexed in [docs/](docs/README.md). Each package has its own README under
-`<package>/`.
-
-## Foxglove
-
-The dev container runs `foxglove_bridge`; Foxglove Studio on the host connects at
-`ws://localhost:8765`. Helper modes (`./scripts/foxglove.sh`), robot viewing, and
-teardown: [docs/FOXGLOVE.md](docs/FOXGLOVE.md).
-
-## External Dependencies
-
-```bash
-./scripts/import-externals.sh        # vendor sources: vcs import external < external.repos
-./scripts/setup-lerobot.sh           # then: editable lerobot env from the vendored source
-```
-
-Pins in `external.repos` are placeholders (LeRobot, OpenArm, Unitree) — replace
-with real tags and fork before patching upstream. Vendored sources live under
-`external/` and are gitignored. Vendoring details and the LeRobot env (`--force`,
-idempotency): [docs/EXTERNALS.md](docs/EXTERNALS.md).
+| Job | Runner | Proves |
+|-----|--------|--------|
+| `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → three-robot headless smoke |
+| `macos` | `macos-latest` (arm64) | host-native MuJoCo core — no Docker, no ROS2 |
+| `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 
 ## License & Ownership
 
-Maintained by First Motive, a Ubundi subsidiary, under the `first-motive` GitHub org.
-Released under the MIT License — see [LICENSE](LICENSE).
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+
+Maintained by First Motive, a Ubundi subsidiary, under the `first-motive` org.
+First Motive proprietary — see [LICENSE](LICENSE).
