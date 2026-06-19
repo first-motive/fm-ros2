@@ -1,5 +1,7 @@
 # fm-ros2
 
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-blue.svg)](LICENSE)
+
 First Motive's ROS2 workspace.
 
 One monorepo for the whole team. The layout mirrors a planned polyrepo split, so
@@ -133,8 +135,6 @@ Three jobs per push and PR; each reproduces locally with the exact CI command
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 
 ## License & Ownership
-
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
 Maintained by First Motive, a Ubundi subsidiary, under the `first-motive` org.
 First Motive proprietary — see [LICENSE](LICENSE).
