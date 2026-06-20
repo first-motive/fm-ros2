@@ -52,5 +52,6 @@ jobs:
       - name: colcon test
         run: |
           source /opt/ros/humble/setup.bash
-          colcon test
+          # Test only our packages — the built externals carry their own (upstream) tests.
+          colcon test --packages-select $(colcon list --names-only | grep '^fm_')
           colcon test-result --verbose
