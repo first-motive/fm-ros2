@@ -3,14 +3,17 @@ name: CI
 on:
   push:
     branches: ["**"]
+    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore"]
 
-# Standalone build: clone this repo, pull its .repos siblings + externals, then
-# colcon build + test in a Humble container. Proves the package stands on its own
-# outside the fm-ros2 monorepo.
+# Standalone build (hybrid CI): fm-learning is an ament_cmake metapackage — it
+# builds nothing and only exec-depends on the fm-data + fm-policy repos, so it
+# builds on its own without cloning those (private) siblings. The assembled
+# learning build lives in fm-ros2.
 jobs:
   build-test:
-    name: build + test (humble)
+    name: build (humble)
     runs-on: ubuntu-latest
     container: ros:humble
     defaults:
@@ -20,11 +23,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: src/fm-learning
-
-      - name: Import siblings + externals
-        run: |
-          apt-get update && apt-get install -y python3-vcstool
-          vcs import < src/fm-learning/fm-learning.repos
 
       - name: Install ROS deps
         run: |
@@ -36,9 +34,3 @@ jobs:
         run: |
           source /opt/ros/humble/setup.bash
           colcon build --symlink-install
-
-      - name: colcon test
-        run: |
-          source /opt/ros/humble/setup.bash
-          colcon test
-          colcon test-result --verbose

@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: ["**"]
+    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore"]
 
 # Standalone build (hybrid CI): fm-robot builds its own packages plus the two
 # externals it genuinely consumes — openarm_description (xacro) and the

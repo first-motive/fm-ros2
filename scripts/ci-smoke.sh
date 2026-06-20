@@ -23,6 +23,20 @@ set -u
 READY_TIMEOUT=40    # seconds to wait for a controller to reach "active"
 TEARDOWN_TIMEOUT=15 # seconds to wait for a torn-down control node to exit
 
+# Bounded wait: a plain `wait <pid>` blocks forever when a ros2 launch child
+# ignores SIGTERM, which can hang CI for hours. Poll for exit up to TEARDOWN_TIMEOUT,
+# then SIGKILL — never block indefinitely.
+bwait() {
+  local pid
+  for pid in "$@"; do
+    for _ in $(seq 1 "$TEARDOWN_TIMEOUT"); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 1
+    done
+    kill -9 "$pid" 2>/dev/null || true
+  done
+}
+
 fails=0
 pass() { echo "PASS: $1"; }
 fail() {
@@ -39,7 +53,7 @@ strip_dds_noise() { grep -vE 'message was lost|but not all, publishers'; }
 # robot's controller_manager on a slow CI box, leaving a duplicate /controller_manager.
 teardown() {
   kill "$1" 2>/dev/null || true
-  wait "$1" 2>/dev/null || true
+  bwait "$1" 2>/dev/null || true
   pkill -f ros2_control_node 2>/dev/null || true
   pkill -f robot_state_publisher 2>/dev/null || true
   pkill -f spawner 2>/dev/null || true
@@ -91,7 +105,7 @@ assert_g1_arm_bridge() {
   sleep 2
   ros2 topic echo --once /ci_arm_sdk unitree_hg/msg/LowCmd 2>/dev/null | strip_dds_noise >/tmp/lowcmd.yaml || true
   kill "$bpid" "$rpid" "$lpid" 2>/dev/null || true
-  wait "$bpid" "$rpid" "$lpid" 2>/dev/null || true
+  bwait "$bpid" "$rpid" "$lpid" 2>/dev/null || true
   if python3 - <<'PY'
 import sys, yaml
 try:
@@ -175,7 +189,7 @@ assert_g1_hand_bridge() {
   sleep 2
   ros2 topic echo --once /ci_dex3_left unitree_hg/msg/HandCmd 2>/dev/null | strip_dds_noise >/tmp/handcmd.yaml || true
   kill "$bpid" "$ppid" 2>/dev/null || true
-  wait "$bpid" "$ppid" 2>/dev/null || true
+  bwait "$bpid" "$ppid" 2>/dev/null || true
   if python3 - <<'PY'
 import sys, yaml
 try:
@@ -210,7 +224,7 @@ assert_g1_hand_teleop() {
   ros2 topic echo --once /g1_left_hand_controller/joint_trajectory \
     trajectory_msgs/msg/JointTrajectory 2>/dev/null | strip_dds_noise >/tmp/hand_traj.yaml || true
   kill "$npid" "$ppid" 2>/dev/null || true
-  wait "$npid" "$ppid" 2>/dev/null || true
+  bwait "$npid" "$ppid" 2>/dev/null || true
   if python3 - <<'PY'
 import sys, yaml
 try:
@@ -245,7 +259,7 @@ assert_g1_base_teleop() {
   sleep 2
   ros2 topic echo --once /ci_agv unitree_api/msg/Request 2>/dev/null | strip_dds_noise >/tmp/agv.yaml || true
   kill "$bpid" "$ppid" 2>/dev/null || true
-  wait "$bpid" "$ppid" 2>/dev/null || true
+  bwait "$bpid" "$ppid" 2>/dev/null || true
   if python3 - <<'PY'
 import sys, yaml
 try:

@@ -1,14 +1,19 @@
 name: CI
 
+# Skip CI when only docs / non-code change — the orchestrator build is expensive
+# (base image + full assembled colcon build).
 on:
   push:
     branches: ["**"]
+    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore", "plans/**"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore", "plans/**"]
 
 jobs:
   workspace:
     name: build + test + smoke (humble)
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -72,7 +77,7 @@ jobs:
       - name: Smoke (three-robot headless asserts)
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
-            bash -lc './scripts/ci-smoke.sh'
+            bash -lc 'timeout 900 ./scripts/ci-smoke.sh'
 
   macos:
     name: native sim core (macos arm64)
