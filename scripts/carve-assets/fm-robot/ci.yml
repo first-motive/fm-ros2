@@ -5,9 +5,11 @@ on:
     branches: ["**"]
   pull_request:
 
-# Standalone build: clone this repo, pull its .repos siblings + externals, then
-# colcon build + test in a Humble container. Proves the package stands on its own
-# outside the fm-ros2 monorepo.
+# Standalone build (hybrid CI): fm-robot builds its own packages plus the two
+# externals it genuinely consumes — openarm_description (xacro) and the
+# unitree_ros2 message packages (fm_control depends on unitree_hg + unitree_api).
+# Every other external is file-vendored or reference-only and is COLCON_IGNORE'd.
+# The full multi-repo integration build lives in fm-ros2.
 jobs:
   build-test:
     name: build + test (humble)
@@ -21,16 +23,26 @@ jobs:
         with:
           path: src/fm-robot
 
-      - name: Import siblings + externals
+      - name: Import + mark externals
         run: |
           apt-get update && apt-get install -y python3-vcstool
           vcs import < src/fm-robot/fm-robot.repos
+          # Keep only the ament packages we build; ignore the rest.
+          for d in external/*/; do touch "${d}COLCON_IGNORE"; done
+          rm -f external/openarm_description/COLCON_IGNORE external/unitree_ros2/COLCON_IGNORE
+          # unitree_ros2/example/src is the C++ DDS demo set — not needed here.
+          [ -d external/unitree_ros2/example/src ] && \
+            touch external/unitree_ros2/example/src/COLCON_IGNORE || true
 
       - name: Install ROS deps
         run: |
           source /opt/ros/humble/setup.bash
+          # The Unitree message packages need the DDS IDL generator + CycloneDDS.
+          apt-get install -y \
+            ros-humble-rosidl-generator-dds-idl \
+            ros-humble-cyclonedds ros-humble-rmw-cyclonedds-cpp
           rosdep update
-          rosdep install --from-paths src --ignore-src -y -r || true
+          rosdep install --from-paths src external --ignore-src -y -r
 
       - name: colcon build
         run: |
