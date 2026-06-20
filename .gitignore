@@ -7,6 +7,9 @@ MUJOCO_LOG.TXT
 # Package repos pulled into the workspace (vcs import src < fm-ros2.repos)
 src/
 
+# Private learning-stack overlay manifest — kept out of the public repo
+fm-learning.repos
+
 # Vendored external sources (pulled via vcs import)
 external/
 

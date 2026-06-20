@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Sync the seven First Motive package repos into src/ from fm-ros2.repos.
+# Sync the public First Motive package repos into src/ from fm-ros2.repos, plus
+# the private learning stack from fm-learning.repos when that overlay is present.
 # Imports any missing repo, then pulls every repo to its tracked ref (main).
 # src/ is gitignored; each src/fm-* is its own clone with its own remote —
 # commit and push package changes from inside that repo, not from here.
@@ -26,6 +27,13 @@ mkdir -p src
 # vcs import clones repos missing from src/ and leaves existing clones untouched.
 echo "==> Importing missing package repos into src/ ..."
 "${VCS[@]}" import src < fm-ros2.repos
+
+# Private learning-stack overlay: imported only when the gitignored manifest is
+# present (team members with access). Public clones skip it silently.
+if [[ -f fm-learning.repos ]]; then
+  echo "==> Importing private learning overlay into src/ ..."
+  "${VCS[@]}" import src < fm-learning.repos
+fi
 
 # vcs pull fast-forwards every clone already in src/ to its tracked ref.
 echo "==> Pulling all package repos to latest ..."

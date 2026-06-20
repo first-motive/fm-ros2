@@ -1,9 +1,12 @@
 # vcs import src < fm-ros2.repos   (run from the workspace root)
 #
-# Full-workspace assembly: pulls all seven First Motive package repos into
-# src/, each tracking main. Externals (lerobot, OpenArm, Unitree, ...) are
-# vendored separately into external/ by scripts/import-externals.sh, which
-# reads external.repos and COLCON_IGNOREs the file-only sources.
+# Public-workspace assembly: pulls the four public First Motive package repos
+# into src/, each tracking main. The private learning stack (fm-learning,
+# fm-data, fm-policy) lives in the fm-learning.repos overlay — team members
+# import it on top of this manifest; see that file and docs/ARCHITECTURE.md.
+# Externals (lerobot, OpenArm, Unitree, ...) are vendored separately into
+# external/ by scripts/import-externals.sh, which reads external.repos and
+# COLCON_IGNOREs the file-only sources.
 repositories:
   fm-robot:
     type: git
@@ -16,18 +19,6 @@ repositories:
   fm-teleop:
     type: git
     url: https://github.com/first-motive/fm-teleop.git
-    version: main
-  fm-data:
-    type: git
-    url: https://github.com/first-motive/fm-data.git
-    version: main
-  fm-policy:
-    type: git
-    url: https://github.com/first-motive/fm-policy.git
-    version: main
-  fm-learning:
-    type: git
-    url: https://github.com/first-motive/fm-learning.git
     version: main
   fm-app:
     type: git
