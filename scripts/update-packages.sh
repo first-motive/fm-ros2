@@ -8,8 +8,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-if ! command -v vcs >/dev/null 2>&1; then
-  echo "ERROR: vcstool not found. Run inside the container, or: pip install vcstool" >&2
+# Resolve a vcs runner: prefer an installed `vcs`, else run it ephemerally via
+# uv (no global install, no PATH pollution). Fail loud if neither is available.
+if command -v vcs >/dev/null 2>&1; then
+  VCS=(vcs)
+elif command -v uv >/dev/null 2>&1; then
+  echo "==> vcstool not found; running via uv (ephemeral) ..."
+  # vcstool imports pkg_resources; setuptools>=81 dropped it (see CI pin).
+  VCS=(uv tool run --from vcstool --with "setuptools<81" vcs)
+else
+  echo "ERROR: need vcstool or uv. Install uv: https://docs.astral.sh/uv/" >&2
   exit 1
 fi
 
@@ -17,11 +25,11 @@ mkdir -p src
 
 # vcs import clones repos missing from src/ and leaves existing clones untouched.
 echo "==> Importing missing package repos into src/ ..."
-vcs import src < fm-ros2.repos
+"${VCS[@]}" import src < fm-ros2.repos
 
 # vcs pull fast-forwards every clone already in src/ to its tracked ref.
 echo "==> Pulling all package repos to latest ..."
-vcs pull src
+"${VCS[@]}" pull src
 
 echo "==> Status:"
-vcs status src
+"${VCS[@]}" status src
