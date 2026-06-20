@@ -1,0 +1,16 @@
+# vcs import < fm-robot.repos   (run from the workspace root)
+#
+# Standalone build deps: OpenArm + Unitree descriptions and messages.
+repositories:
+  external/openarm_description:
+    type: git
+    url: https://github.com/enactic/openarm_description.git
+    version: 846a82d8baf64efdbb7f55c7f64b9b004939061b
+  external/unitree_ros:
+    type: git
+    url: https://github.com/unitreerobotics/unitree_ros.git
+    version: ae2b2a7e9ba1b5814b5cb78b3c5800829c5591dd
+  external/unitree_ros2:
+    type: git
+    url: https://github.com/unitreerobotics/unitree_ros2.git
+    version: 5204e6e098ee53f4bd929bd77eb1d387cd0fa842

@@ -1,0 +1,8 @@
+# vcs import < fm-policy.repos   (run from the workspace root)
+#
+# Standalone build dep: lerobot (Python, no package.xml -> colcon skips).
+repositories:
+  external/lerobot:
+    type: git
+    url: https://github.com/huggingface/lerobot.git
+    version: 741c2d0a3939ba54d6cf47f29a7fbbba3766a600
