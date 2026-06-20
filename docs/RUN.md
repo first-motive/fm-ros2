@@ -144,8 +144,8 @@ URL, no hardware shipped. Physical-HID devices stay on Linux hosts, or reach the
 container over a host-side network bridge — never through container USB passthrough.
 
 Every input is a source in the `fm_teleop` layer, collapsing to one shared command
-contract. See [fm_teleop/README.md](../fm_teleop/README.md) for the convergence
-model, the source-status table, and the add-a-source guide.
+contract. See the [fm-teleop repo](https://github.com/first-motive/fm-teleop) for
+the convergence model, the source-status table, and the add-a-source guide.
 
 ## Direct Scripts
 

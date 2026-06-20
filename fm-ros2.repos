@@ -1,0 +1,35 @@
+# vcs import src < fm-ros2.repos   (run from the workspace root)
+#
+# Full-workspace assembly: pulls all seven First Motive package repos into
+# src/, each tracking main. Externals (lerobot, OpenArm, Unitree, ...) are
+# vendored separately into external/ by scripts/import-externals.sh, which
+# reads external.repos and COLCON_IGNOREs the file-only sources.
+repositories:
+  src/fm-robot:
+    type: git
+    url: https://github.com/first-motive/fm-robot.git
+    version: main
+  src/fm-sim:
+    type: git
+    url: https://github.com/first-motive/fm-sim.git
+    version: main
+  src/fm-teleop:
+    type: git
+    url: https://github.com/first-motive/fm-teleop.git
+    version: main
+  src/fm-data:
+    type: git
+    url: https://github.com/first-motive/fm-data.git
+    version: main
+  src/fm-policy:
+    type: git
+    url: https://github.com/first-motive/fm-policy.git
+    version: main
+  src/fm-learning:
+    type: git
+    url: https://github.com/first-motive/fm-learning.git
+    version: main
+  src/fm-app:
+    type: git
+    url: https://github.com/first-motive/fm-app.git
+    version: main

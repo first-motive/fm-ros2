@@ -4,6 +4,9 @@ plans/
 # MuJoCo runtime log (written to cwd on each sim run)
 MUJOCO_LOG.TXT
 
+# Package repos pulled into the workspace (vcs import src < fm-ros2.repos)
+src/
+
 # Vendored external sources (pulled via vcs import)
 external/
 

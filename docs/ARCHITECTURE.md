@@ -13,8 +13,9 @@ The design follows a few systems-engineering principles, made explicit in
 - **Layered separation** — perception/policy, motion control, and hardware are
   distinct packages with one-directional dependencies. The autonomy arbiter that
   ties them together is deferred (`fm_fsm`).
-- **Monorepo mirroring a polyrepo** — directory boundaries are the future
-  repo boundaries, so growth is a `git filter-repo`, not a rewrite.
+- **Polyrepo, one workspace** — each layer is its own repo under the
+  `first-motive` org, carved from the original monorepo with history preserved
+  (see [CARVE-RECIPE.md](CARVE-RECIPE.md)). `fm-ros2` assembles them via `vcs`.
 
 ## System Context
 
@@ -391,9 +392,11 @@ since they need Linux SocketCAN.
 
 The learning loop spans two metapackages. `fm_data` is the data engine: record
 teleop episodes, manage datasets. `fm_policy` is the policy layer: train policies,
-serve inference to the autonomy arbiter — model-agnostic. Each group is split-ready,
-so it can move to its own repo (or the cloud) independently. The runtime wiring is
-still being built out — the structure is in place.
+serve inference to the autonomy arbiter — model-agnostic. Each is its own repo
+([fm-data](https://github.com/first-motive/fm-data),
+[fm-policy](https://github.com/first-motive/fm-policy)), so it moves (or goes to
+the cloud) independently. The runtime wiring is still being built out — the
+structure is in place.
 
 ```mermaid
 flowchart LR
@@ -420,7 +423,7 @@ The rationale behind the boundaries above.
 | **Normalize inputs early** | Every teleop adapter emits `delta_twist_cmds` | Add an input device without touching servo or control |
 | **Layered, one-way deps** | `description → control → bringup`; data engine plugs in on top | Lower layers stay testable and reusable; no cycles |
 | **Description as foundation** | `fm_description` registry abstracts robot + variant + meshes | New robot is a registry entry, not a fork |
-| **Monorepo mirrors polyrepo** | Directory layout = future repo split | Growth is `git filter-repo`, not a rename |
+| **Polyrepo, one workspace** | Each layer is its own repo; `fm-ros2` assembles them via `vcs` | Teams own and ship their layer independently |
 | **Shared motion path** | Manual teleop and `fm_policy_serve` both reach `fm_control` | Autonomy reuses the validated manual stack |
 
 For setup and run instructions, see [SETUP.md](SETUP.md) and

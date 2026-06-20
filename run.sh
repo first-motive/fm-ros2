@@ -15,7 +15,8 @@
 #
 # Every run rebuilds the workspace (colcon) before opening the launcher, so source
 # and console-script changes are always picked up. The build is incremental, so a
-# warm tree is quick. Robot sources must be vendored first, once:
+# warm tree is quick. The package repos and externals are imported first, once:
+#   vcs import src < fm-ros2.repos   # pull the seven package repos into src/
 #   ./scripts/import-externals.sh    # vendor robot sources into external/
 #
 # scripts/view-robot.sh, scripts/sim.sh, and scripts/teleop.sh coexist as the

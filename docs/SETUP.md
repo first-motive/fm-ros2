@@ -25,13 +25,15 @@ macOS host                          OrbStack (linux/arm64)
 ## First run
 
 ```bash
-git clone <repo-url> fm-ros2
+git clone https://github.com/first-motive/fm-ros2.git
 cd fm-ros2
+vcs import src < fm-ros2.repos     # pull the seven package repos into src/
 ./scripts/setup-macos.sh
 ```
 
 `setup-macos.sh` checks OrbStack, imports external deps (placeholder pins), and
-builds the base image (arm64).
+builds the base image (arm64). The package source comes from the seven repos in
+`fm-ros2.repos` — import them into `src/` first, as shown above.
 
 ## Bring the stack up
 

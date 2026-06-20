@@ -6,15 +6,27 @@ system design.
 
 ## Purpose
 
-`fm-ros2` is First Motive's ROS2 (Humble) robot stack — a colcon workspace of
-`fm_*` packages spanning bringup, control, description, sensors, sim, teleop,
-data, and policy.
+`fm-ros2` is the orchestrator for First Motive's ROS2 (Humble) robot stack. The
+packages live in seven per-package repos under the `first-motive` org; this repo
+assembles them into one colcon workspace via `vcs` and holds the shared tooling
+(Docker, dev container, CI, scripts) and full-system docs. It carries no package
+source — only the `fm_ros2` workspace metapackage.
 
 ## Conventions
 
 - Commit and branch rules live in `CONTRIBUTING.md`. Follow them.
 - Commits are subject-line-only: `prefix: phrase`. No body.
 - Repo is kebab-case; ROS2 packages are snake_case (see `CONTRIBUTING.md`).
+- Package source changes belong in the package's own repo, not here. This repo
+  changes only for tooling, the workspace metapackage, the `.repos` manifests,
+  and docs.
+
+## Assembly
+
+```bash
+vcs import src < fm-ros2.repos     # pull the seven package repos into src/
+./scripts/import-externals.sh      # vendor externals into external/
+```
 
 ## Testing
 
@@ -26,13 +38,14 @@ colcon test-result --verbose
 
 ## Layout
 
-The repo root holds only `fm_*` domain-group folders plus the `fm_ros2` workspace
-metapackage. Each group (`fm_robot`, `fm_app`, `fm_sim`, `fm_teleop`, `fm_learning`)
-is a folder containing its own `ament_cmake` metapackage as a sibling of the leaf
-packages it groups — so the system boundaries are visible at the top level. Clone the
-repo into a colcon workspace's `src/`, where `colcon build` recurses and finds every
-package regardless of nesting depth. The root `fm_ros2` metapackage depends on the
-five group metapackages; each pulls its own sub-packages transitively.
+The repo root holds the `fm_ros2` workspace metapackage, the `fm-ros2.repos` and
+`external.repos` vcs manifests, and the shared tooling and docs — no package
+source. `vcs import src < fm-ros2.repos` pulls the seven package repos into
+`src/`, where `colcon build` recurses and finds every package regardless of
+nesting depth. The `fm_ros2` metapackage depends on the five group metapackages
+(`fm_robot`, `fm_app`, `fm_sim`, `fm_teleop`, `fm_learning`), each of which pulls
+its own sub-packages transitively. The carve-out recipe that produced the seven
+repos lives in [docs/CARVE-RECIPE.md](docs/CARVE-RECIPE.md).
 
 ## Diagrams
 
