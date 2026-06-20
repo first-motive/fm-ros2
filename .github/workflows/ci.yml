@@ -24,7 +24,8 @@ jobs:
 
       - name: Import package repos
         run: |
-          sudo apt-get update && sudo apt-get install -y python3-vcstool
+          pipx install vcstool
+          pipx inject vcstool setuptools   # vcstool 0.3.0 needs pkg_resources
           git config --global \
             url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
             "https://github.com/"
