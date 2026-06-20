@@ -12,6 +12,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # fm-ros2 holds no package source — the seven package repos are private, so
+      # mint a short-lived GitHub App token (fm-ros2-ci, Contents:read) and pull
+      # them into src/ before building.
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.FM_CI_APP_ID }}
+          private-key: ${{ secrets.FM_CI_APP_KEY }}
+          owner: first-motive
+
+      - name: Import package repos
+        run: |
+          pipx install vcstool
+          git config --global \
+            url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
+            "https://github.com/"
+          vcs import src < fm-ros2.repos
+
       # Build the First Motive base image so CI carries the exact same deps the
       # workspace needs (moveit, ros2_control, the sim backends, rosidl_generator_dds_idl
       # for the vendored Unitree messages). One source of truth: docker/Dockerfile.base.
@@ -56,6 +74,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The native sim-core smoke runs the fm_sim sources, which live in the fm-sim
+      # repo — check it out into src/fm-sim (where ci-smoke-macos.sh expects it).
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.FM_CI_APP_ID }}
+          private-key: ${{ secrets.FM_CI_APP_KEY }}
+          owner: first-motive
+
+      - uses: actions/checkout@v4
+        with:
+          repository: first-motive/fm-sim
+          token: ${{ steps.app-token.outputs.token }}
+          path: src/fm-sim
+
       - uses: astral-sh/setup-uv@v5
 
       # The M5 daily driver runs the full stack in a Linux container (OrbStack),
@@ -72,6 +105,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The teleop panel lives in the fm-teleop repo — check it out to build it.
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.FM_CI_APP_ID }}
+          private-key: ${{ secrets.FM_CI_APP_KEY }}
+          owner: first-motive
+
+      - uses: actions/checkout@v4
+        with:
+          repository: first-motive/fm-teleop
+          token: ${{ steps.app-token.outputs.token }}
+          path: src/fm-teleop
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -79,7 +126,7 @@ jobs:
       # Type-checks + bundles the TypeScript/React teleop panel (not part of the ROS
       # workspace). Catches panel breakage — a broken ROBOTS entry, a type error.
       - name: Build panel
-        working-directory: fm_teleop/fm_teleop_panel
+        working-directory: src/fm-teleop/fm_teleop_panel
         run: |
           npm ci
           npm run build

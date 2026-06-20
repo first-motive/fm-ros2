@@ -17,13 +17,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 # The ROS-free packages aren't installed here — point Python at their sources.
-export PYTHONPATH="fm_sim/fm_sim_core:fm_sim/fm_sim_models"
+# fm_sim lives in the fm-sim repo, imported under src/fm-sim (override with SIM_SRC).
+SIM_SRC="${SIM_SRC:-src/fm-sim}"
+export PYTHONPATH="$SIM_SRC/fm_sim_core:$SIM_SRC/fm_sim_models"
 
 echo "==> pytest: ROS-free sim core (stepper + MJCF registry)"
 uv run --with pytest --with mujoco pytest -q \
-  fm_sim/fm_sim_core/test/test_sim.py \
-  fm_sim/fm_sim_models/test/test_models.py \
-  fm_sim/fm_sim_models/test/test_import.py
+  "$SIM_SRC/fm_sim_core/test/test_sim.py" \
+  "$SIM_SRC/fm_sim_models/test/test_models.py" \
+  "$SIM_SRC/fm_sim_models/test/test_import.py"
 
 echo "==> native mujoco: step the built-in model on arm64 CPU"
 uv run --with mujoco python - <<'PY'

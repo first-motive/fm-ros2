@@ -5,9 +5,10 @@ on:
     branches: ["**"]
   pull_request:
 
-# Standalone build: clone this repo, pull its .repos siblings + externals, then
-# colcon build + test in a Humble container. Proves the package stands on its own
-# outside the fm-ros2 monorepo.
+# Integration build (hybrid CI): fm-app is the integration repo — fm_bringup
+# composes the robot, sim, and teleop layers, so its build pulls those sibling
+# repos plus the externals they consume. The siblings are private, so mint a
+# short-lived GitHub App token (fm-ros2-ci, Contents:read) to clone them.
 jobs:
   build-test:
     name: build + test (humble)
@@ -21,16 +22,39 @@ jobs:
         with:
           path: src/fm-app
 
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.FM_CI_APP_ID }}
+          private-key: ${{ secrets.FM_CI_APP_KEY }}
+          owner: first-motive
+
       - name: Import siblings + externals
         run: |
+          git config --global \
+            url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
+            "https://github.com/"
           apt-get update && apt-get install -y python3-vcstool
           vcs import < src/fm-app/fm-app.repos
+          # Keep only the ament packages we build; ignore file-vendored externals.
+          for d in external/*/; do touch "${d}COLCON_IGNORE"; done
+          rm -f external/openarm_description/COLCON_IGNORE \
+                external/openarm_ros2/COLCON_IGNORE \
+                external/unitree_ros2/COLCON_IGNORE
+          [ -d external/unitree_ros2/example/src ] && \
+            touch external/unitree_ros2/example/src/COLCON_IGNORE || true
+          [ -d external/openarm_ros2/openarm_hardware ] && \
+            touch external/openarm_ros2/openarm_hardware/COLCON_IGNORE || true
 
       - name: Install ROS deps
         run: |
           source /opt/ros/humble/setup.bash
+          # The Unitree message packages need the DDS IDL generator + CycloneDDS.
+          apt-get install -y \
+            ros-humble-rosidl-generator-dds-idl \
+            ros-humble-cyclonedds ros-humble-rmw-cyclonedds-cpp
           rosdep update
-          rosdep install --from-paths src --ignore-src -y -r || true
+          rosdep install --from-paths src external --ignore-src -y -r
 
       - name: colcon build
         run: |
@@ -40,5 +64,6 @@ jobs:
       - name: colcon test
         run: |
           source /opt/ros/humble/setup.bash
-          colcon test
+          # Test only our packages — the built externals carry their own (upstream) tests.
+          colcon test --packages-select $(colcon list --names-only | grep '^fm_')
           colcon test-result --verbose
