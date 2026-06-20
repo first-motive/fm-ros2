@@ -25,7 +25,8 @@ jobs:
       - name: Import package repos
         run: |
           pipx install vcstool
-          pipx inject vcstool setuptools   # vcstool 0.3.0 needs pkg_resources
+          # vcstool 0.3.0 imports pkg_resources, dropped from setuptools >= 81.
+          pipx inject vcstool "setuptools<81"
           git config --global \
             url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
             "https://github.com/"
