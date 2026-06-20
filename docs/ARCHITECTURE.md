@@ -153,11 +153,15 @@ with its package.
 
 | Repo | Architecture doc | Covers |
 |------|------------------|--------|
-| [fm-robot](https://github.com/first-motive/fm-robot/blob/main/docs/ARCHITECTURE.md) | robot layer | Robot state graph, `ros2_control` controllers, hardware abstraction, robot registry |
 | [fm-app](https://github.com/first-motive/fm-app/blob/main/docs/ARCHITECTURE.md) | application layer | Launcher, bringup composition, launch dependency graph, runtime data flow, visualization |
+| [fm-robot](https://github.com/first-motive/fm-robot/blob/main/docs/ARCHITECTURE.md) | robot layer | Robot state graph, `ros2_control` controllers, hardware abstraction, robot registry |
+| [fm-sim](https://github.com/first-motive/fm-sim/blob/main/docs/ARCHITECTURE.md) | simulation layer | Backend hosts, MJCF registry, headless dev loop |
+| [fm-teleop](https://github.com/first-motive/fm-teleop/blob/main/docs/ARCHITECTURE.md) | teleop layer | The input contract, sources, vision pipeline |
+| [fm-data](https://github.com/first-motive/fm-data/blob/main/docs/ARCHITECTURE.md) | data engine | Record → curate flow (scaffolding) |
+| [fm-policy](https://github.com/first-motive/fm-policy/blob/main/docs/ARCHITECTURE.md) | policy layer | Train → serve flow (scaffolding) |
 
-`fm-sim`, `fm-teleop`, `fm-data`, and `fm-policy` carry their detail in their
-package READMEs; standalone architecture docs land as each layer matures.
+`fm-data` and `fm-policy` are early — their docs describe the intended design and
+mark what is wired today.
 
 ## Hardware Abstraction
 
