@@ -24,13 +24,17 @@ jobs:
 
       - name: Import package repos
         run: |
-          pipx install vcstool
-          # vcstool 0.3.0 imports pkg_resources, dropped from setuptools >= 81.
-          pipx inject vcstool "setuptools<81"
           git config --global \
             url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
             "https://github.com/"
-          vcs import src < fm-ros2.repos
+          # Clone the package repos straight from the manifest URLs — no vcstool,
+          # so CI carries no extra Python deps.
+          mkdir -p src
+          while read -r url; do
+            name="$(basename "$url" .git)"
+            echo "cloning $name"
+            git clone --depth 1 "$url" "src/$name"
+          done < <(grep -oE 'https://github.com/[^ ]+\.git' fm-ros2.repos)
 
       # Build the First Motive base image so CI carries the exact same deps the
       # workspace needs (moveit, ros2_control, the sim backends, rosidl_generator_dds_idl
