@@ -1,8 +1,14 @@
 # Architecture
 
-First Motive's ROS2 (Humble) workspace, designed as a layered robotics platform.
-This document shows the structure: how the packages compose, how data flows at
-runtime, and where the system boundaries sit.
+`fm-ros2` is the **orchestrator** for First Motive's ROS2 (Humble) robot stack.
+It assembles seven per-package repos into one colcon workspace, holds the shared
+tooling (Docker, dev container, CI, scripts), and carries the full-system view.
+It holds no package source.
+
+This document is the top-of-stack map: how the repos compose, how an operator
+enters the system, and where the boundaries sit. Each package repo carries its own
+`docs/ARCHITECTURE.md` with the detail for what it does — see
+[Per-Repo Architecture](#per-repo-architecture).
 
 The design follows a few systems-engineering principles, made explicit in
 [Design Principles](#design-principles):
@@ -11,11 +17,27 @@ The design follows a few systems-engineering principles, made explicit in
   controller stack drive a mock, three simulators, or real hardware, selected by
   one argument.
 - **Layered separation** — perception/policy, motion control, and hardware are
-  distinct packages with one-directional dependencies. The autonomy arbiter that
-  ties them together is deferred (`fm_fsm`).
+  distinct repos with one-directional dependencies.
 - **Polyrepo, one workspace** — each layer is its own repo under the
   `first-motive` org, carved from the original monorepo with history preserved
   (see [CARVE-RECIPE.md](CARVE-RECIPE.md)). `fm-ros2` assembles them via `vcs`.
+
+## System Overview
+
+`./run.sh` is the front door: it detects the host, brings up the container (macOS)
+or runs bare-metal (Linux), builds the workspace, and execs the `fm_tui` launcher.
+
+![run](diagrams/run.svg)
+
+The launcher walks action × robot × backend and dispatches to `fm_bringup`, which
+composes the robot stack. Both `fm_tui` and `fm_bringup` live in
+[`fm-app`](https://github.com/first-motive/fm-app); the dashed blocks below expand
+in that repo's diagrams.
+
+![system](diagrams/system.svg)
+
+Source: [`diagrams/run.d2`](diagrams/run.d2),
+[`diagrams/system.d2`](diagrams/system.d2).
 
 ## System Context
 
@@ -62,295 +84,99 @@ flowchart TB
 | Vendored externals | MuJoCo models, LeRobot, OpenArm description/MoveIt/CAN |
 | OpenArm hardware | Real bimanual arms over CAN-FD (Linux native only) |
 
-## Component Architecture
+## Repo Map
 
-First Motive packages sit on top of vendored externals. Dependencies point
-one way: launch depends on the layers below it; the data engine and policy layer
-never depend on launch.
+Seven package repos assemble into `src/`. Dependencies point one way: the
+application layer depends on the layers below it; the data engine and policy layer
+never depend on the application layer.
 
 ```mermaid
 flowchart TD
-    subgraph fm [First Motive Packages]
+    subgraph app [fm-app · application layer]
         bringup[fm_bringup<br/>launch · teleop adapters]
         tui[fm_tui<br/>monitor · launcher]
-
-        subgraph data [fm_data · data engine]
-            record[fm_data_record]
-            dataset[fm_data_dataset]
-        end
-
-        subgraph policy [fm_policy · policy layer]
-            train[fm_policy_train]
-            serve[fm_policy_serve]
-        end
-
-        sim[fm_sim<br/>sim loop · backends · MJCF registry]
-        control[fm_control<br/>ros2_control xacro]
-        desc[fm_description<br/>URDF · meshes · registry]
     end
 
-    subgraph ext [Vendored Externals]
-        oa_desc[openarm_description]
-        oa_moveit[openarm_bimanual_moveit_config]
-        oa_hw[openarm_hardware · openarm_can]
-        oa_mjcf[openarm_mujoco]
-        lerobot[lerobot]
+    subgraph robot [fm-robot · robot layer]
+        control[fm_control<br/>ros2_control xacro]
+        desc[fm_description<br/>URDF · meshes · registry]
+        sensors[fm_sensors<br/>capture stub]
+    end
+
+    sim[fm-sim<br/>sim loop · backends · MJCF registry]
+    teleop[fm-teleop<br/>servo · input adapters]
+
+    subgraph data [fm-data · data engine]
+        record[fm_data_record]
+        dataset[fm_data_dataset]
+    end
+
+    subgraph policy [fm-policy · policy layer]
+        train[fm_policy_train]
+        serve[fm_policy_serve]
     end
 
     bringup --> control
     bringup --> sim
-    bringup --> oa_moveit
-    control --> oa_desc
-    control --> oa_hw
-    desc --> oa_desc
-    sim --> oa_mjcf
-    record --> lerobot
-    dataset --> lerobot
-    train --> lerobot
-
+    bringup --> teleop
+    control --> desc
     bringup -.launches.-> tui
+    record -.from live graph.-> dataset
+    dataset --> train --> serve
+    serve -.deferred fm_fsm.-> control
 ```
 
-| Package | Build | Responsibility |
-|---------|-------|----------------|
-| `fm_bringup` | ament_python | Launch files (sim/servo/teleop), controller configs, teleop input adapters |
-| `fm_control` | ament_cmake | Backend-selectable `ros2_control` description (mock/mujoco/gazebo/isaac/real) |
-| `fm_description` | ament_cmake | URDF/xacro, mesh handling, multi-robot registry (G1-D, SO101, OpenArm) |
-| `fm_sensors` | ament_python | Multi-sensor capture layer (placeholder stub) |
-| `fm_sim` | ament_cmake (meta) | Simulation: headless MuJoCo dev loop (`fm_sim_core`), backend hosts (`fm_sim_backends`), MJCF model registry (`fm_sim_models`) |
-| `fm_data` | ament_cmake (meta) | Data engine: record → dataset (episode capture + curation) |
-| `fm_policy` | ament_cmake (meta) | Policy layer: train → serve (model-agnostic learning + inference) |
-| `fm_tui` | ament_python | Terminal monitor + menu launcher (Textual) |
-| `fm_ros2` | ament_cmake (meta) | Workspace metapackage: exec-depends on every `fm_*` package |
+| Repo | Packages | Build | Responsibility |
+|------|----------|-------|----------------|
+| [fm-app](https://github.com/first-motive/fm-app) | `fm_bringup`, `fm_tui`, `fm_app` | ament_python / cmake | Launch composition + operator TUI — the entry points |
+| [fm-robot](https://github.com/first-motive/fm-robot) | `fm_description`, `fm_control`, `fm_sensors`, `fm_robot` | ament_cmake / python | URDF + `ros2_control` + hardware abstraction |
+| [fm-sim](https://github.com/first-motive/fm-sim) | `fm_sim_core`, `fm_sim_backends`, `fm_sim_models`, `fm_sim` | ament_cmake | Headless dev loop, backend hosts, MJCF registry |
+| [fm-teleop](https://github.com/first-motive/fm-teleop) | `fm_teleop_*` | ament_python | Servo wiring + pluggable input adapters |
+| [fm-data](https://github.com/first-motive/fm-data) | `fm_data_record`, `fm_data_dataset` | ament_cmake | Data engine: episode capture + curation |
+| [fm-policy](https://github.com/first-motive/fm-policy) | `fm_policy_train`, `fm_policy_serve` | ament_cmake | Policy layer: train → serve, model-agnostic |
+| [fm-learning](https://github.com/first-motive/fm-learning) | `fm_learning` | ament_cmake | Learning assets metapackage |
+
+`fm_ros2` (this repo) is the workspace metapackage: it exec-depends on every group
+metapackage, so `colcon build` recurses and finds every package regardless of
+nesting depth.
 
 The dependency direction is the design contract: **`fm_description` is the
 foundation**, `fm_control` adds the control layer on top of it, and `fm_bringup`
-orchestrates everything. The data engine (`fm_data`) and policy layer
-(`fm_policy`) plug in at the top without the lower layers knowing they exist. The
-autonomy arbiter that consumes policy output is deferred (`fm_fsm`).
+orchestrates everything. The data engine (`fm_data`) and policy layer (`fm_policy`)
+plug in at the top without the lower layers knowing they exist. The autonomy
+arbiter that consumes policy output is deferred (`fm_fsm`).
 
-## Runtime Data Flow
+## Per-Repo Architecture
 
-The core loop is teleop into a simulated or real arm. An operator jog command
-becomes a Cartesian/joint delta, MoveIt Servo turns it into a trajectory, the
-controller streams it to the active backend, and the backend publishes joint
-state back — closing the loop at roughly 100 Hz.
+Each repo documents its own internals. The detail that once lived here moved down
+with its package.
 
-```mermaid
-sequenceDiagram
-    participant Op as Operator input<br/>(Foxglove / joy / spacenav)
-    participant Servo as moveit_servo
-    participant JTC as joint_trajectory_controller
-    participant Back as Backend<br/>(MuJoCo / Gazebo / real)
-    participant RSP as robot_state_publisher
-    participant Viz as foxglove_bridge
+| Repo | Architecture doc | Covers |
+|------|------------------|--------|
+| [fm-robot](https://github.com/first-motive/fm-robot/blob/main/docs/ARCHITECTURE.md) | robot layer | Robot state graph, `ros2_control` controllers, hardware abstraction, robot registry |
+| [fm-app](https://github.com/first-motive/fm-app/blob/main/docs/ARCHITECTURE.md) | application layer | Launcher, bringup composition, launch dependency graph, runtime data flow, visualization |
 
-    Op->>Servo: /servo_node/delta_twist_cmds<br/>(unitless TwistStamped)
-    Servo->>Servo: IK + collision / singularity check
-    Servo->>JTC: /…_arm_controller/joint_trajectory
-    JTC->>Back: position command (hardware interface)
-    Back->>Back: step physics / drive motors
-    Back-->>RSP: /joint_states
-    Back-->>Servo: /joint_states (next IK)
-    RSP-->>Viz: /tf · /robot_description
-    Back-->>Viz: /joint_states
-```
+`fm-sim`, `fm-teleop`, `fm-data`, and `fm-policy` carry their detail in their
+package READMEs; standalone architecture docs land as each layer matures.
 
-Key topics:
+## Hardware Abstraction
 
-| Topic | Type | From → To |
-|-------|------|-----------|
-| `/servo_node/delta_twist_cmds` | `geometry_msgs/TwistStamped` | teleop adapter → servo |
-| `/servo_node/delta_joint_cmds` | `control_msgs/JointJog` | teleop adapter → servo |
-| `/…_arm_controller/joint_trajectory` | `trajectory_msgs/JointTrajectory` | servo → JTC |
-| `/joint_states` | `sensor_msgs/JointState` | backend → RSP, servo, viz, recorder |
-| `/tf`, `/tf_static` | `geometry_msgs/TransformStamped` | RSP → servo, viz |
-| `/robot_description` | URDF (XML) | RSP → servo, viz, gazebo |
-| `/rosout` | `rcl_interfaces/Log` | all nodes → fm_tui monitor |
+The architectural crux of the platform. `fm_control` emits one `ros2_control`
+system whose `<hardware>` plugin is chosen by the `sim_backend` argument —
+`mock` · `mujoco` · `gazebo` · `isaac` · `real`. Everything above the hardware
+interface (controllers, servo, description, teleop) is identical across every
+backend, so switching from MuJoCo to real hardware is a launch argument, not a
+code change.
 
-Teleop input is pluggable — `teleop.launch.py input:=foxglove|joy|spacenav` swaps
-the adapter, but every adapter normalizes to the same `delta_twist_cmds` topic, so
-nothing downstream changes.
-
-## Hardware Abstraction Layer
-
-This is the architectural crux. `fm_control` emits one `ros2_control` system
-whose `<hardware>` plugin is chosen by the `sim_backend` argument. Everything
-above the hardware interface — controllers, servo, description, teleop — is
-identical across all backends.
-
-```mermaid
-flowchart LR
-    arg{{sim_backend}}
-    iface[ros2_control<br/>system interface]
-
-    arg -->|mock| mock[mock_components<br/>GenericSystem]
-    arg -->|mujoco| mj[mujoco_ros2_control<br/>MujocoSystemInterface]
-    arg -->|gazebo| gz[gz_ros2_control<br/>GazeboSimSystem]
-    arg -->|isaac| isaac[topic_based_ros2_control<br/>TopicBasedSystem]
-    arg -->|real| real[openarm_hardware<br/>OpenArmHW · SocketCAN]
-
-    mock --> iface
-    mj --> iface
-    gz --> iface
-    isaac --> iface
-    real --> iface
-
-    iface --> ctrl[controllers · servo · description<br/>identical across backends]
-```
-
-| Backend | Plugin | Host | Use |
-|---------|--------|------|-----|
-| `mock` | `mock_components/GenericSystem` | any CPU | State echo, no physics — fast smoke tests |
-| `mujoco` | `mujoco_ros2_control/MujocoSystemInterface` | CPU (arm64 ok) | **Daily driver**, incl. macOS M5 |
-| `gazebo` | `gz_ros2_control/GazeboSimSystem` | Linux GPU | Higher-fidelity sim |
-| `isaac` | `topic_based_ros2_control/TopicBasedSystem` | Linux GPU + external Isaac | Photoreal sim over ROS topics |
-| `real` | `openarm_hardware/OpenArmHW` | Linux native | CAN-FD to DM motors |
-
-The xacro layering that makes this work:
-
-```
-openarm.sim.urdf.xacro          (top level)
-  ├─ openarm_description geometry + preset YAML   → links, joints, meshes
-  └─ openarm.ros2_control.xacro                   → one <ros2_control> per arm
-       └─ hardware block selected by sim_backend  → plugin above
-```
-
-Because the swap happens at the `<hardware>` boundary, switching from MuJoCo to
-real hardware is a launch argument, not a code change.
-
-## Launch Dependency Graph
-
-The sections above show *package* dependencies. This section shows the *launch*
-graph: which launch file includes which, what nodes each spawns, and what config
-each loads at runtime. The root is `./run.sh`, and `fm_bringup.registry` resolves
-everything robot-specific so the launch files themselves stay thin.
-
-`run.sh` is the front door (see [RUN.md](RUN.md) for its container/build steps).
-It ends by execing `ros2 run fm_tui fm_tui_launcher`. The launcher walks
-action → robot → variant (→ backend), then shells out the matching `ros2 launch`
-via `subprocess`. Three actions are wired; autonomous is a stub.
-
-```mermaid
-flowchart TD
-    run["./run.sh<br/>container up · colcon build"]
-    run --> tui["fm_tui launcher<br/>subprocess: ros2 launch"]
-    reg[("fm_bringup.registry<br/>openarm · so101 · g1_d")]
-
-    tui -->|Robot Description| view["fm_description/<br/>view_robot.launch.py"]
-    tui -->|Simulation| sim["fm_bringup/<br/>sim.launch.py"]
-    tui -->|Teleop| teleop["fm_bringup/<br/>teleop.launch.py"]
-    tui -.->|Autonomous| stub(["stubbed — no launch"])
-
-    %% sim subtree
-    sim ==>|always| ctrl["fm_bringup/<br/>controllers.launch.py"]
-    sim -.sim_backend=mujoco.-> muj["fm_sim_backends/<br/>mujoco.launch.py"]
-    sim -.sim_backend=gazebo.-> gz["fm_sim_backends/<br/>gazebo.launch.py"]
-    sim -.sim_backend=isaac.-> isaac["fm_sim_backends/<br/>isaac.launch.py"]
-
-    %% teleop subtree
-    teleop ==>|always| servo["fm_bringup/<br/>servo.launch.py"]
-
-    %% node spawns
-    view --> vn["robot_state_publisher<br/>joint_state_publisher? · rviz2?<br/>foxglove_bridge?"]
-    sim --> sn["robot_state_publisher<br/>foxglove_bridge? · joint_state_publisher?<br/>ros2_control_node? (standalone backends)"]
-    ctrl --> cn["controller_manager/spawner<br/>jsb + active + inactive controllers"]
-    servo --> svn["moveit_servo/servo_node_main<br/>(one per arm group)<br/>+ start_servo trigger"]
-    teleop --> tn["input adapter:<br/>joy / spacenav / vision_source<br/>+ registry teleop_nodes"]
-    muj --> mn["mujoco_ros2_control/<br/>ros2_control_node"]
-    gz --> gn["ros_gz_sim/create · ros_gz_bridge<br/>+ gz_sim.launch.py — external"]
-    isaac --> in2["controller_manager/ros2_control_node<br/>TopicBasedSystem"]
-
-    reg -.drives.-> view
-    reg -.drives.-> sim
-    reg -.drives.-> teleop
-    reg -.drives.-> servo
-
-    classDef ext fill:#444,stroke:#888,color:#ddd;
-    classDef reg fill:#2d3,stroke:#1a1,color:#000;
-    class reg reg;
-```
-
-Edge meaning: solid bold (`==>`) is an unconditional include; dotted (`-.->`)
-is conditional, labelled with the gating argument or predicate; plain (`-->`) is
-a node spawn. `gz_sim.launch.py` is the only include that crosses into an external
-package; everything else is first-party.
-
-### Include + Spawn Table
-
-| Launch file | Package | Includes | Spawns (— = conditional) |
-|-------------|---------|----------|--------------------------|
-| `view_robot.launch.py` | fm_description | — | robot_state_publisher; joint_state_publisher—; rviz2—; foxglove_bridge— |
-| `sim.launch.py` | fm_bringup | `controllers.launch.py` (always); one `fm_sim_backends/*` by `sim_backend` | robot_state_publisher; foxglove_bridge—; joint_state_publisher—; ros2_control_node— |
-| `controllers.launch.py` | fm_bringup | — | controller_manager/spawner; ros2_control_node— (`use_standalone_cm`) |
-| `teleop.launch.py` | fm_bringup | `servo.launch.py` (always) | input adapter by `input`; registry `teleop_nodes` |
-| `servo.launch.py` | fm_bringup | — | moveit_servo/servo_node_main (per arm) + start_servo trigger |
-| `mujoco.launch.py` | fm_sim_backends | — | mujoco_ros2_control/ros2_control_node (`xvfb-run`) |
-| `gazebo.launch.py` | fm_sim_backends | `gz_sim.launch.py` (external) | ros_gz_sim/create; ros_gz_bridge/parameter_bridge |
-| `isaac.launch.py` | fm_sim_backends | — | controller_manager/ros2_control_node (TopicBasedSystem) |
-
-### Config Files Loaded
-
-| Launch file | Config | Package | Selected by |
-|-------------|--------|---------|-------------|
-| `sim.launch.py` | `config/<robot>/<variant>/controllers.yaml` | fm_bringup | `spec.controllers_file(variant)` |
-| `servo.launch.py` | `config/<robot>/servo.yaml` (per arm) | fm_bringup | `spec.servo_nodes()` |
-| `servo.launch.py` | `kinematics.yaml`, `joint_limits.yaml` | external `*_moveit_config` | `spec.moveit_file()` |
-| `mujoco` / `isaac` backend | `robot_description` (xacro), `controllers_file` | fm_bringup | passed down from `sim.launch.py` |
-
-`robot_description` is not a YAML file — it is built inline by
-`spec.build_description(variant, sim_backend, controllers_file)`, which expands the
-xacro, rewrites mesh paths, and injects the backend's `<hardware>` plugin (see
-[Hardware Abstraction Layer](#hardware-abstraction-layer)). For the `mujoco`
-backend it also injects the robot's MJCF path, looked up from `fm_sim_models` (the
-path is no longer hardcoded in the xacro).
-
-### Standalone Roots
-
-Two launch files run outside the TUI path:
-
-- `fm_bringup/bringup.launch.py` — runtime stack: `foxglove_bridge`,
-  `fm_control/control_node`. No includes.
-- `fm_sim_core/sim.launch.py` — headless control loop: a single
-  `fm_sim_core/sim_loop` node, parameterised by `config/sim.yaml`. Note this
-  is a *different* file from `fm_bringup/sim.launch.py` (the TUI's full sim stack);
-  they share a name but neither includes the other.
-
-The direct scripts (`scripts/sim.sh`, `scripts/teleop.sh`,
-`scripts/view-robot.sh`) bypass the launcher and call the same `fm_bringup` /
-`fm_description` launch files shown above.
-
-## Robot Registry
-
-`fm_description` carries a registry that abstracts over three robots. Each entry
-defines its description source, variants, and mesh strategy. The viewer and
-launchers select by `robot:=` and `variant:=`.
-
-```mermaid
-flowchart TD
-    reg[Robot Registry<br/>fm_description]
-    reg --> g1[g1_d · default<br/>Unitree wheeled G1-D]
-    reg --> so[so101<br/>LeRobot SO-ARM100]
-    reg --> oa[openarm<br/>bimanual]
-
-    g1 --> g1v[variants: g1_d · g1_29dof_rev_1_0]
-    oa --> oav[variants: right_arm · default_bimanual ·<br/>*_with_pinch_gripper]
-
-    g1 -.flat URDF + STL.-> g1mesh[vendored meshes]
-    so -.flat URDF + STL.-> somesh[vendored meshes]
-    oa -.DAE → STL convert.-> oamesh[openarm_meshes/*.stl]
-```
-
-Mesh handling differs by source: G1-D and SO101 ship flat URDF + STL files
-vendored into the package, while OpenArm visual `.dae` meshes are converted to
-`.stl` at build time so the Foxglove bridge can fetch them over the `package://`
-scheme.
+The interface lives in `fm-robot`; the sim plugins live in `fm-sim`. Full detail —
+the xacro layering and the backend table — is in
+[fm-robot's architecture doc](https://github.com/first-motive/fm-robot/blob/main/docs/ARCHITECTURE.md#hardware-abstraction-layer).
 
 ## Deployment
 
-One dev container hosts the full node graph. The host OS only provides Docker,
-the browser, and (on Linux) the GPU and CAN bus. Compose overlays adapt the same
-base image per platform.
+One dev container hosts the full node graph. The host OS only provides Docker, the
+browser, and (on Linux) the GPU and CAN bus. Compose overlays adapt the same base
+image per platform.
 
 ```mermaid
 flowchart TB
@@ -383,20 +209,18 @@ flowchart TB
 | Linux (GPU) | Main system | mock, mujoco, gazebo, isaac, real | Full stack incl. hardware |
 | macOS M5 (OrbStack) | Dev / build / sim / dataset | mock, mujoco | No GPU, no hardware; MuJoCo via native arm64 wheel |
 
-The entry point is `./run.sh`, which detects the host, selects the compose
-overlay, brings the container up, and opens the `fm_tui` launcher. The
-`openarm_hardware` and `openarm_can` packages are `COLCON_IGNORE`'d on macOS,
-since they need Linux SocketCAN.
+The entry point is `./run.sh`, which detects the host, selects the compose overlay,
+brings the container up, and opens the `fm_tui` launcher. The `openarm_hardware`
+and `openarm_can` packages are `COLCON_IGNORE`'d on macOS, since they need Linux
+SocketCAN.
 
 ## Data Engine + Policy Layer
 
-The learning loop spans two metapackages. `fm_data` is the data engine: record
-teleop episodes, manage datasets. `fm_policy` is the policy layer: train policies,
-serve inference to the autonomy arbiter — model-agnostic. Each is its own repo
-([fm-data](https://github.com/first-motive/fm-data),
-[fm-policy](https://github.com/first-motive/fm-policy)), so it moves (or goes to
-the cloud) independently. The runtime wiring is still being built out — the
-structure is in place.
+The learning loop spans two repos. `fm-data` is the data engine: record teleop
+episodes, manage datasets. `fm-policy` is the policy layer: train policies, serve
+inference to the autonomy arbiter — model-agnostic. Each is its own repo, so it
+moves (or goes to the cloud) independently. The runtime wiring is still being built
+out — the structure is in place.
 
 ```mermaid
 flowchart LR
@@ -426,5 +250,6 @@ The rationale behind the boundaries above.
 | **Polyrepo, one workspace** | Each layer is its own repo; `fm-ros2` assembles them via `vcs` | Teams own and ship their layer independently |
 | **Shared motion path** | Manual teleop and `fm_policy_serve` both reach `fm_control` | Autonomy reuses the validated manual stack |
 
-For setup and run instructions, see [SETUP.md](SETUP.md) and
-[RUN.md](RUN.md). Per-package detail lives in each `<package>/README.md`.
+For setup and run instructions, see [SETUP.md](SETUP.md) and [RUN.md](RUN.md).
+Per-package detail lives in each repo's `docs/ARCHITECTURE.md` and
+`<package>/README.md`.

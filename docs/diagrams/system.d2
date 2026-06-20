@@ -1,0 +1,41 @@
+# Level 1 — the ROS2 system. Entry points are peers; the fm_tui launcher walks a
+# registry of action × robot × backend and dispatches to fm_bringup, which
+# composes the robot stack. Launcher and fm_bringup are abstract (dashed) —
+# expanded in launcher.d2 and bringup.d2.
+...@styles
+direction: down
+
+entry: "" {
+  grid-rows: 4
+  class: block
+  r: Entry Points { class: role }
+  a1: run.sh { class: art }
+  a2: scripts { class: art }
+  a3: bare-metal ros2 { class: art }
+}
+robots: "" {
+  grid-rows: 4
+  class: block
+  r: Robots { class: role }
+  a1: g1_d { class: art }
+  a2: so101 { class: art }
+  a3: openarm { class: art }
+}
+launcher: "" {
+  grid-rows: 3
+  class: zoom
+  r: fm_tui Launcher { class: role }
+  p: fm_tui { class: pkg }
+  a: "action × robot × backend" { class: art }
+}
+bringup: "" {
+  grid-rows: 3
+  class: zoom
+  r: fm_bringup { class: role }
+  p: fm_bringup { class: pkg }
+  a: composes the robot stack { class: art }
+}
+
+entry -> launcher: walks
+robots -> launcher: selects
+launcher -> bringup: dispatches

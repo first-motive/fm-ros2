@@ -85,7 +85,10 @@ top. Full diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ![system](docs/diagrams/system.svg)
 
 Entry points invoke `fm_bringup`, which composes the robot stack. Blocks marked
-with a stacked edge expand in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Source:
+with a stacked edge (`fm_tui`, `fm_bringup`) expand in
+[`fm-app`](https://github.com/first-motive/fm-app)'s diagrams; the robot layer
+detail lives in [`fm-robot`](https://github.com/first-motive/fm-robot). The
+orchestrator view is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Source:
 [`docs/diagrams/system.d2`](docs/diagrams/system.d2).
 
 ## Layout

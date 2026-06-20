@@ -1,0 +1,52 @@
+# Level 0 — what run.sh does. Detect host OS, then either start the macOS
+# container or run Linux bare-metal, build the workspace, and hand into the ROS2
+# system. Only macOS containerizes; Linux runs native with GPU + CAN. The ROS2
+# System block is abstract (dashed) — expanded in system.d2.
+...@styles
+direction: down
+
+run: "" {
+  grid-rows: 2
+  class: block
+  r: Run Script { class: role }
+  a: run.sh { class: art }
+}
+os: "" {
+  grid-rows: 2
+  class: block
+  r: Detect OS { class: role }
+  a: "uname -s" { class: art }
+}
+mac: "" {
+  grid-rows: 3
+  class: block
+  r: macOS Container { class: role }
+  a1: compose.macos.yaml { class: art }
+  a2: compose up -d { class: art }
+}
+lin: "" {
+  grid-rows: 3
+  class: block
+  r: Linux Bare Metal { class: role }
+  a1: native ROS2 { class: art }
+  a2: "GPU · CAN" { class: art }
+}
+build: "" {
+  grid-rows: 2
+  class: block
+  r: Build Workspace { class: role }
+  a: colcon build --symlink-install { class: art }
+}
+ros2: "" {
+  grid-rows: 2
+  class: zoom
+  r: ROS2 System { class: role }
+  a: fm_tui + fm_bringup { class: art }
+}
+
+run -> os
+os -> mac: Darwin
+os -> lin: Linux
+mac -> build
+lin -> build
+build -> ros2: ros2 run fm_tui fm_tui_launcher
