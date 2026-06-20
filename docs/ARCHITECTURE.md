@@ -1,9 +1,10 @@
 # Architecture
 
 `fm-ros2` is the **orchestrator** for First Motive's ROS2 (Humble) robot stack.
-It assembles seven per-package repos into one colcon workspace, holds the shared
-tooling (Docker, dev container, CI, scripts), and carries the full-system view.
-It holds no package source.
+It assembles four public per-package repos into one colcon workspace — plus a
+private learning overlay for team members with access — holds the shared tooling
+(Docker, dev container, CI, scripts), and carries the full-system view. It holds
+no package source.
 
 This document is the top-of-stack map: how the repos compose, how an operator
 enters the system, and where the boundaries sit. Each package repo carries its own
@@ -86,9 +87,9 @@ flowchart TB
 
 ## Repo Map
 
-Seven package repos assemble into `src/`. Dependencies point one way: the
-application layer depends on the layers below it; the data engine and policy layer
-never depend on the application layer.
+Four public package repos assemble into `src/`; a private learning overlay plugs
+in on top. Dependencies point one way: the application layer depends on the layers
+below it; the learning overlay never depends on the application layer.
 
 ```mermaid
 flowchart TD
@@ -106,24 +107,14 @@ flowchart TD
     sim[fm-sim<br/>sim loop · backends · MJCF registry]
     teleop[fm-teleop<br/>servo · input adapters]
 
-    subgraph data [fm-data · data engine]
-        record[fm_data_record]
-        dataset[fm_data_dataset]
-    end
-
-    subgraph policy [fm-policy · policy layer]
-        train[fm_policy_train]
-        serve[fm_policy_serve]
-    end
+    learning[learning overlay · private<br/>data engine + policy]
 
     bringup --> control
     bringup --> sim
     bringup --> teleop
     control --> desc
     bringup -.launches.-> tui
-    record -.from live graph.-> dataset
-    dataset --> train --> serve
-    serve -.deferred fm_fsm.-> control
+    learning -.plugs in on top.-> control
 ```
 
 | Repo | Packages | Build | Responsibility |
@@ -132,19 +123,19 @@ flowchart TD
 | [fm-robot](https://github.com/first-motive/fm-robot) | `fm_description`, `fm_control`, `fm_sensors`, `fm_robot` | ament_cmake / python | URDF + `ros2_control` + hardware abstraction |
 | [fm-sim](https://github.com/first-motive/fm-sim) | `fm_sim_core`, `fm_sim_backends`, `fm_sim_models`, `fm_sim` | ament_cmake | Headless dev loop, backend hosts, MJCF registry |
 | [fm-teleop](https://github.com/first-motive/fm-teleop) | `fm_teleop_*` | ament_python | Servo wiring + pluggable input adapters |
-| [fm-data](https://github.com/first-motive/fm-data) | `fm_data_record`, `fm_data_dataset` | ament_cmake | Data engine: episode capture + curation |
-| [fm-policy](https://github.com/first-motive/fm-policy) | `fm_policy_train`, `fm_policy_serve` | ament_cmake | Policy layer: train → serve, model-agnostic |
-| [fm-learning](https://github.com/first-motive/fm-learning) | `fm_learning` | ament_cmake | Learning assets metapackage |
 
-`fm_ros2` (this repo) is the workspace metapackage: it exec-depends on every group
-metapackage, so `colcon build` recurses and finds every package regardless of
-nesting depth.
+The private learning overlay (`fm-data`, `fm-policy`, `fm-learning`) adds the data
+engine and policy layer on top — see
+[Learning Stack](#learning-stack-private-overlay).
+
+`fm_ros2` (this repo) is the workspace metapackage: it exec-depends on every public
+group metapackage, so `colcon build` recurses and finds every package regardless of
+nesting depth. When the learning overlay is imported, colcon builds it too.
 
 The dependency direction is the design contract: **`fm_description` is the
 foundation**, `fm_control` adds the control layer on top of it, and `fm_bringup`
-orchestrates everything. The data engine (`fm_data`) and policy layer (`fm_policy`)
-plug in at the top without the lower layers knowing they exist. The autonomy
-arbiter that consumes policy output is deferred (`fm_fsm`).
+orchestrates everything. The learning overlay plugs in at the top without the lower
+layers knowing it exists.
 
 ## Per-Repo Architecture
 
@@ -157,11 +148,8 @@ with its package.
 | [fm-robot](https://github.com/first-motive/fm-robot/blob/main/docs/ARCHITECTURE.md) | robot layer | Robot state graph, `ros2_control` controllers, hardware abstraction, robot registry |
 | [fm-sim](https://github.com/first-motive/fm-sim/blob/main/docs/ARCHITECTURE.md) | simulation layer | Backend hosts, MJCF registry, headless dev loop |
 | [fm-teleop](https://github.com/first-motive/fm-teleop/blob/main/docs/ARCHITECTURE.md) | teleop layer | The input contract, sources, vision pipeline |
-| [fm-data](https://github.com/first-motive/fm-data/blob/main/docs/ARCHITECTURE.md) | data engine | Record → curate flow (scaffolding) |
-| [fm-policy](https://github.com/first-motive/fm-policy/blob/main/docs/ARCHITECTURE.md) | policy layer | Train → serve flow (scaffolding) |
 
-`fm-data` and `fm-policy` are early — their docs describe the intended design and
-mark what is wired today.
+The private learning overlay documents its internals in its own (private) repos.
 
 ## Hardware Abstraction
 
@@ -218,28 +206,26 @@ brings the container up, and opens the `fm_tui` launcher. The `openarm_hardware`
 and `openarm_can` packages are `COLCON_IGNORE`'d on macOS, since they need Linux
 SocketCAN.
 
-## Data Engine + Policy Layer
+## Learning Stack (private overlay)
 
-The learning loop spans two repos. `fm-data` is the data engine: record teleop
-episodes, manage datasets. `fm-policy` is the policy layer: train policies, serve
-inference to the autonomy arbiter — model-agnostic. Each is its own repo, so it
-moves (or goes to the cloud) independently. The runtime wiring is still being built
-out — the structure is in place.
+The learning loop is a private overlay (`fm-data`, `fm-policy`, `fm-learning`),
+imported on top of the public workspace via `fm-learning.repos` by team members
+with access. It is not part of the public stack. Structurally it follows the
+standard imitation-learning shape:
 
 ```mermaid
 flowchart LR
-    livegraph[Live ROS graph<br/>/joint_states · cmds] --> record[fm_data_record<br/>→ LeRobot episodes]
-    record --> dataset[fm_data_dataset<br/>manage · replay · HF hub]
-    dataset --> train[fm_policy_train<br/>policy training · cloud-ready]
-    train --> serve[fm_policy_serve<br/>inference]
-    serve -.-> arbiter[fm_fsm<br/>autonomy arbiter · deferred]
-    arbiter -.-> control[fm_control<br/>→ robot]
+    livegraph[Live ROS graph] --> record[record]
+    record --> dataset[dataset]
+    dataset --> train[train]
+    train --> serve[serve]
+    serve -.-> control[fm_control<br/>→ robot]
 ```
 
 This closes the autonomy loop: teleop generates data, data trains policies, and
-policies feed the autonomy arbiter (deferred: `fm_fsm`), which commands the same
-`fm_control` stack the operator drives manually. Manual and autonomous control
-share one motion path.
+policy output feeds back into the same `fm_control` stack the operator drives
+manually — manual and autonomous control share one motion path. Internals live in
+the private repos.
 
 ## Design Principles
 
@@ -252,7 +238,7 @@ The rationale behind the boundaries above.
 | **Layered, one-way deps** | `description → control → bringup`; data engine plugs in on top | Lower layers stay testable and reusable; no cycles |
 | **Description as foundation** | `fm_description` registry abstracts robot + variant + meshes | New robot is a registry entry, not a fork |
 | **Polyrepo, one workspace** | Each layer is its own repo; `fm-ros2` assembles them via `vcs` | Teams own and ship their layer independently |
-| **Shared motion path** | Manual teleop and `fm_policy_serve` both reach `fm_control` | Autonomy reuses the validated manual stack |
+| **Shared motion path** | Manual teleop and the learning overlay's policy serving both reach `fm_control` | Autonomy reuses the validated manual stack |
 
 For setup and run instructions, see [SETUP.md](SETUP.md) and [RUN.md](RUN.md).
 Per-package detail lives in each repo's `docs/ARCHITECTURE.md` and

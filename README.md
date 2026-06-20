@@ -1,13 +1,14 @@
 # fm-ros2
 
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 First Motive's ROS2 workspace orchestrator.
 
-The stack lives in seven per-package repos under the `first-motive` org. This
-repo holds no package source — it assembles those repos into one colcon
-workspace via `vcs`, and carries the shared tooling (Docker, dev container, CI,
-scripts) and the full-system docs.
+The public stack lives in four per-package repos under the `first-motive` org. A
+private learning overlay (data engine + policy) plugs in on top for team members
+with access. This repo holds no package source — it assembles those repos into
+one colcon workspace via `vcs`, and carries the shared tooling (Docker, dev
+container, CI, scripts) and the full-system docs.
 
 ## Quick Start
 
@@ -16,7 +17,7 @@ See [docs/RUN.md](docs/RUN.md) for details.
 ```bash
 git clone https://github.com/first-motive/fm-ros2.git
 cd fm-ros2
-vcs import src < fm-ros2.repos     # pull the seven package repos into src/
+vcs import src < fm-ros2.repos     # pull the four public package repos into src/
 ./scripts/import-externals.sh      # vendor externals into external/
 ./run.sh                           # auto-detect overlay, open the launcher
 ```
@@ -79,8 +80,8 @@ Then `./run.sh`, and connect Foxglove Studio to `ws://localhost:8765`.
 ## Architecture
 
 `fm_description` feeds `fm_control`; control drives a backend-selectable hardware
-interface; `fm_bringup` launches the graph. Data engine and policy layer plug in on
-top. Full diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+interface; `fm_bringup` launches the graph. A private learning overlay (data
+engine + policy) plugs in on top. Full diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ![system](docs/diagrams/system.svg)
 
@@ -94,13 +95,13 @@ orchestrator view is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Source:
 ## Layout
 
 This repo holds no package source — only the workspace metapackage, shared
-tooling, and full-system docs. `vcs import src < fm-ros2.repos` pulls the seven
-package repos into `src/`.
+tooling, and full-system docs. `vcs import src < fm-ros2.repos` pulls the four
+public package repos into `src/`.
 
 ```
 fm-ros2/
-├── fm_ros2/                 workspace metapackage (depends on the 5 group metas)
-├── fm-ros2.repos            vcs manifest: the 7 package repos -> src/
+├── fm_ros2/                 workspace metapackage (depends on the 4 public group metas)
+├── fm-ros2.repos            vcs manifest: the 4 public package repos -> src/
 ├── external.repos           vcs pins for vendored externals -> external/
 ├── docker/                  base image + compose overlays
 ├── .devcontainer/           VS Code dev container
@@ -110,7 +111,7 @@ fm-ros2/
 └── run.sh                   front door: build + open the launcher
 ```
 
-The seven package repos (each builds standalone, history preserved from the
+The four public package repos (each builds standalone, history preserved from the
 split — see [docs/CARVE-RECIPE.md](docs/CARVE-RECIPE.md)):
 
 | Repo | Layer | Packages |
@@ -118,10 +119,11 @@ split — see [docs/CARVE-RECIPE.md](docs/CARVE-RECIPE.md)):
 | [fm-robot](https://github.com/first-motive/fm-robot) | robot | `fm_description` · `fm_control` · `fm_sensors` |
 | [fm-sim](https://github.com/first-motive/fm-sim) | simulation | `fm_sim_core` · `fm_sim_backends` · `fm_sim_models` |
 | [fm-teleop](https://github.com/first-motive/fm-teleop) | teleop | `fm_teleop_core` · `device` · `leader` · `vr` · `vision` · `panel` |
-| [fm-data](https://github.com/first-motive/fm-data) | data | `fm_data_record` · `fm_data_dataset` |
-| [fm-policy](https://github.com/first-motive/fm-policy) | policy | `fm_policy_train` · `fm_policy_serve` |
-| [fm-learning](https://github.com/first-motive/fm-learning) | learning | thin metapackage over fm-data + fm-policy |
 | [fm-app](https://github.com/first-motive/fm-app) | application | `fm_bringup` · `fm_tui` |
+
+A private learning overlay (`fm-data`, `fm-policy`, `fm-learning`) plugs in on top
+via `fm-learning.repos` for team members with access — see
+[Learning Stack](docs/ARCHITECTURE.md#learning-stack-private-overlay).
 
 ## Platforms
 
@@ -148,4 +150,4 @@ Three jobs per push and PR; each reproduces locally with the exact CI command
 ## License & Ownership
 
 Maintained by First Motive, a Ubundi subsidiary, under the `first-motive` org.
-First Motive proprietary — see [LICENSE](LICENSE).
+Licensed under Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
