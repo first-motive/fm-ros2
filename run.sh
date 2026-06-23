@@ -112,12 +112,16 @@ step "Build Workspace"
 # working_dir). Incremental, so a warm tree returns fast.
 "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
 
-# Open Foxglove Studio on the host, pre-connected to the bridge. The bridge runs
-# inside the container once a view is selected in the launcher, so Studio shows
-# "waiting" until then and connects when it appears. macOS GUI path only — skipped
-# on Linux/CI/headless and with --no-foxglove. If the app is absent, point at the
-# installer rather than fail; the launcher still runs and the URL above stands.
-open_foxglove() {
+# Open Foxglove Studio on the host once a view is actually launched from the TUI —
+# not while the menu is still open. The bridge runs inside the container and binds
+# 8765 only on launch, but the macOS overlay publishes 8765 to the host at `up -d`,
+# so the host port answers before the bridge is up — a false signal. So poll the
+# port FROM INSIDE the container, where a listener exists only when foxglove_bridge
+# is running, and open Studio (pre-connected) the moment it binds. The watcher is
+# forked before the launcher `exec` so it outlives this shell, and bounded so a
+# quit (or a non-Foxglove view) leaves nothing polling. macOS GUI path only —
+# skipped on Linux/CI/headless and with --no-foxglove; never blocks the launcher.
+open_foxglove_when_ready() {
   [[ "$OPEN_FOXGLOVE" == true ]] || return 0
   [[ "$OVERLAY" == docker/compose.macos.yaml ]] || return 0
   command -v open >/dev/null 2>&1 || return 0
@@ -125,20 +129,27 @@ open_foxglove() {
     item "Foxglove Studio not installed — run ./install.sh or: brew install --cask foxglove"
     return 0
   fi
-  # Branch on `open` (not a bare call) so a non-zero exit never trips set -e and
-  # aborts the launcher — auto-opening the viewer is best-effort, not a gate.
   local url="foxglove://open?ds=foxglove-websocket&ds.url=ws://localhost:8765"
-  if open "$url" 2>/dev/null; then
-    item "Foxglove Studio: opening"
-  else
-    item "Foxglove Studio: open failed — connect manually to ws://localhost:8765"
-  fi
+  (
+    # ~10 min budget (300 × 2s) — enough to navigate the menu and launch, then
+    # give up so a quit without launching never leaves this polling forever.
+    for ((i = 0; i < 300; i++)); do
+      if "${COMPOSE[@]}" exec -T "$SERVICE" \
+           bash -c 'exec 3<>/dev/tcp/127.0.0.1/8765' 2>/dev/null; then
+        open "$url" 2>/dev/null || true
+        exit 0
+      fi
+      sleep 2
+    done
+  ) &
+  disown 2>/dev/null || true
+  item "Foxglove Studio: opens when a view starts (ws://localhost:8765)"
 }
 
 step "Launcher"
 item "Foxglove Studio: ws://localhost:8765"
 item "teardown: ${COMPOSE[*]} down"
-open_foxglove
+open_foxglove_when_ready
 # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
 # The launcher is an ament_python console_script (installed under lib/fm_tui/, not
 # on PATH), so reach it via `ros2 run`, not by name.
