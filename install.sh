@@ -103,6 +103,12 @@ if [[ "$NO_RUN" == true ]]; then
   exit 0
 fi
 
+# Install the macOS robot viewer so run.sh can auto-open it pre-connected to the
+# bridge. Best-effort and macOS-only (the script self-skips on Linux) — a failure
+# never blocks the bootstrap.
+say "ensuring Foxglove Studio (macOS viewer) ..."
+./scripts/install-foxglove.sh
+
 # Hand off to the front door: detect OS, build, open the launcher.
 say "launching run.sh ..."
 exec ./run.sh ${RUN_ARGS[@]+"${RUN_ARGS[@]}"}
