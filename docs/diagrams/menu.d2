@@ -1,0 +1,23 @@
+# Launcher menu — what ./run.sh offers once the container is up. Each action
+# (view the robot, run autonomy, teleop) runs against a simulation backend;
+# autonomy is a stub for now. Backend choice is Gazebo, MuJoCo, or Isaac Sim.
+...@styles
+direction: right
+
+run: "./run.sh" { class: node }
+view: Robot Description { class: node }
+auto: "Autonomous (stub)" { class: node }
+teleop: Teleop { class: node }
+sim: Simulation { class: node }
+gazebo: Gazebo { class: node }
+mujoco: MuJoCo { class: node }
+isaac: Isaac Sim { class: node }
+
+run -> view
+run -> auto
+run -> teleop
+view -> sim
+teleop -> sim
+sim -> gazebo
+sim -> mujoco
+sim -> isaac

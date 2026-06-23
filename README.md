@@ -27,37 +27,9 @@ vcs import src < fm-ros2.repos     # pull the four public package repos into src
 ./run.sh --macos    # macOS overlay (OrbStack, sim only)
 ```
 
-```
-           +-------------+
-           |  ./run.sh   |
-           +------+------+ 
-                  |      \
-      +-----------+--+     +--------------------+
-      | Robot Description|  | Autonomous (stub) |
-      +-----------+--+     +--------------------+
-                  | \
-          +-------+-------+
-          |   Simulation   |
-          +-------+-------+
-                   |      \
-     +-------------+--+   +--------------+
-     |     Gazebo      |   |    MuJoCo    |
-     +-------------+--+   +-------+------+
-                              \
-                           +--------+
-                           | Isaac  |
-                           |  Sim   |
-                           +--------+
-           
-           +--------+
-           | Teleop |
-           +---+----+
-               |
-               v
-         +-----------+
-         | Simulation|
-         +-----------+
-```
+![launcher menu](docs/diagrams/menu.svg)
+
+Source: [`docs/diagrams/menu.d2`](docs/diagrams/menu.d2).
 **First run** (once, or after changing externals):
 
 ```bash
