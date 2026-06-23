@@ -65,23 +65,37 @@ cd "$(dirname "$0")"
 COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
 SERVICE=fm_ros2
 
+# Step narration lives in fm_tui (fm_tui/banner.py) so run.sh and the TUI share
+# one source of brand colour. It is pure-stdlib ANSI, so the host python3 renders
+# it without ROS or the container — needed because the first steps run before the
+# container exists. Fall back to a plain line when python3 or the module is
+# absent (e.g. before `vcs import`).
+BANNER=src/fm-app/fm_tui/fm_tui/banner.py
+banner() {
+  if [[ -f "$BANNER" ]] && command -v python3 >/dev/null 2>&1; then
+    python3 "$BANNER" "$1" "${2:-step}"
+  else
+    echo ">> $1"
+  fi
+}
+
 # macOS runs on OrbStack as the Docker provider. Install it if missing, then make
 # sure the daemon is up — both steps are idempotent no-ops once satisfied.
 if [[ "$OVERLAY" == docker/compose.macos.yaml ]]; then
-  echo ">> ensuring OrbStack is installed and running"
+  banner "ensuring OrbStack is installed and running"
   ./scripts/install-orbstack.sh
   ./scripts/ensure-docker.sh
 fi
 
-echo ">> shared stack — bringing container up (idempotent), overlay: $OVERLAY"
+banner "bringing container up (idempotent), overlay: $OVERLAY"
 "${COMPOSE[@]}" up -d
-echo ">> building workspace (colcon, incremental) — picks up source changes"
+banner "building workspace (colcon, incremental) — picks up source changes"
 # Route through the entrypoint so ROS is sourced; build from /ws (the compose
 # working_dir). Incremental, so a warm tree returns fast.
 "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
-echo ">> opening fm_tui launcher — pick action -> robot -> variant (-> backend)"
-echo ">> Foxglove Studio: connect to ws://localhost:8765"
-echo ">> tear down with: ${COMPOSE[*]} down"
+banner "opening fm_tui launcher — pick action -> robot -> variant (-> backend)"
+banner "Foxglove Studio: connect to ws://localhost:8765" info
+banner "tear down with: ${COMPOSE[*]} down" info
 # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
 # The launcher is an ament_python console_script (installed under lib/fm_tui/, not
 # on PATH), so reach it via `ros2 run`, not by name.
