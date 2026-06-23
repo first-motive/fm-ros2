@@ -65,6 +65,14 @@ cd "$(dirname "$0")"
 COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
 SERVICE=fm_ros2
 
+# macOS runs on OrbStack as the Docker provider. Install it if missing, then make
+# sure the daemon is up — both steps are idempotent no-ops once satisfied.
+if [[ "$OVERLAY" == docker/compose.macos.yaml ]]; then
+  echo ">> ensuring OrbStack is installed and running"
+  ./scripts/install-orbstack.sh
+  ./scripts/ensure-docker.sh
+fi
+
 echo ">> shared stack — bringing container up (idempotent), overlay: $OVERLAY"
 "${COMPOSE[@]}" up -d
 echo ">> building workspace (colcon, incremental) — picks up source changes"
