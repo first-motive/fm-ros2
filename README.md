@@ -12,7 +12,24 @@ container, CI, scripts) and the full-system docs.
 
 ## Quick Start
 
-See [docs/RUN.md](docs/RUN.md) for details.
+One command clones the repo, assembles the workspace, and opens the launcher.
+The package repos are private, so this needs git access to the `first-motive`
+org — see [docs/RUN.md](docs/RUN.md) for details.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh | bash
+```
+
+Pass flags through the pipe with `bash -s --`:
+
+```bash
+curl ... | bash -s -- --linux       # force the Linux overlay (GPU / hardware)
+curl ... | bash -s -- --macos       # force the macOS overlay (OrbStack, sim only)
+curl ... | bash -s -- --learning    # also import the private learning overlay
+```
+
+<details>
+<summary>Manual steps (fallback)</summary>
 
 ```bash
 git clone https://github.com/first-motive/fm-ros2.git
@@ -26,6 +43,8 @@ vcs import src < fm-ros2.repos     # pull the four public package repos into src
 ./run.sh --linux    # Linux overlay (GPU / hardware)
 ./run.sh --macos    # macOS overlay (OrbStack, sim only)
 ```
+
+</details>
 
 ![launcher menu](docs/diagrams/menu.svg)
 
@@ -110,12 +129,13 @@ macOS runs Humble in a Linux arm64 container — no GPU, no hardware; MuJoCo run
 
 [![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
-Three jobs per push and PR; each reproduces locally with the exact CI command
+Four jobs per push and PR; each reproduces locally with the exact CI command
 ([docs/CI.md](docs/CI.md)).
 
 | Job | Runner | Proves |
 |-----|--------|--------|
 | `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → three-robot headless smoke |
+| `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
 | `macos` | `macos-latest` (arm64) | host-native MuJoCo core — no Docker, no ROS2 |
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 
