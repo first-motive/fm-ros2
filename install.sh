@@ -39,9 +39,13 @@ done
 say() { echo "==> $1"; }
 
 # Clone on first run, reuse an existing checkout on re-run — never clobber a tree
-# the user already has work in.
+# the user already has work in. On reuse, try a fast-forward-only pull to pick up
+# upstream: --ff-only refuses on local commits, divergence, or a dirty tree, so it
+# never resets their work. A refusal is fine — warn and carry on with their tree.
 if [[ -d "$TARGET/.git" ]]; then
-  say "reusing existing $TARGET/"
+  say "reusing existing $TARGET/ — fast-forwarding to upstream ..."
+  git -C "$TARGET" pull --ff-only \
+    || say "could not fast-forward (local changes or divergence) — keeping your tree"
 else
   say "cloning fm-ros2 into $TARGET/ ..."
   git clone --depth 1 "$REPO_URL" "$TARGET"
