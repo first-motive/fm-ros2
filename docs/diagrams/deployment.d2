@@ -1,0 +1,33 @@
+# Deployment — one dev container hosts the full node graph per host. The host OS
+# provides Docker, the browser, and (on Linux) the GPU and CAN bus. Compose
+# overlays adapt the same base image per platform. Dashed edges are runtime /
+# bus links from the container to host hardware.
+...@styles
+direction: right
+
+mac: macOS · M5 · OrbStack {
+  class: block
+  macbrowser: Foxglove Studio { class: node }
+  maccontainer: container · compose.macos.yaml {
+    class: block
+    macgraph: "node graph\nbackend: mock / mujoco" { class: node }
+    macbridge: foxglove_bridge :8765 { class: node }
+  }
+}
+
+linux: Linux · GPU + hardware {
+  class: block
+  linbrowser: Foxglove Studio { class: node }
+  lincontainer: container · compose.linux.yaml {
+    class: block
+    lingraph: "node graph\nbackend: any incl. real" { class: node }
+    linbridge: foxglove_bridge :8765 { class: node }
+  }
+  gpu: GPU { shape: cylinder; class: art }
+  can: "CAN bus → arms" { shape: cylinder; class: art }
+}
+
+mac.macbrowser <-> mac.maccontainer.macbridge
+linux.linbrowser <-> linux.lincontainer.linbridge
+linux.lincontainer -> linux.gpu: NVIDIA runtime { style.stroke-dash: 4 }
+linux.lincontainer -> linux.can: SocketCAN { style.stroke-dash: 4 }

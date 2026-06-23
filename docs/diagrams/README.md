@@ -1,9 +1,11 @@
 # Diagrams
 
 Orchestrator-level architecture diagrams, authored in [d2](https://d2lang.com).
-This repo holds only the two top-of-stack views — `run` (front door) and `system`
-(entry points into the launcher). Per-package diagrams live in each package repo's
-`docs/diagrams/` (see [Diagram Ownership](#diagram-ownership)).
+This repo holds the top-of-stack views: the zoom pair — `run` (front door) and
+`system` (entry points into the launcher) — plus the whole-system maps that back
+[ARCHITECTURE.md](../ARCHITECTURE.md): `context`, `repomap`, `deployment`, and
+`learning`. Per-package diagrams live in each package repo's `docs/diagrams/`
+(see [Diagram Ownership](#diagram-ownership)).
 
 Each `.d2` file is the source of truth; the matching `.svg` is a generated
 artifact referenced by the docs. Edit the `.d2`, then re-render.
@@ -57,6 +59,11 @@ Every component is a stacked block built as a `grid-rows` container:
 - A block expanded in a deeper diagram uses `class: zoom` (dashed border).
 - Layout is ELK (straight orthogonal edges); `direction: right` for fan-in.
 
+The block grammar is for the zoom pair and the package diagrams. The whole-system
+maps (`context`, `repomap`, `deployment`, `learning`) are context graphs: `node`
+boxes for processes and actors, `cylinder` for stores, plain containers for
+groups. They share the palette and the brand font, not the banded blocks.
+
 ## Zoom Hierarchy
 
 Diagrams nest from orientation to detail; a dashed block expands in the next.
@@ -77,5 +84,6 @@ does. The detail that used to sit here moved down with its package.
 | Diagram | Owner repo | Shows |
 |---------|------------|-------|
 | `run`, `system` | **fm-ros2** | front door + entry into the launcher |
+| `context`, `repomap`, `deployment`, `learning` | **fm-ros2** | whole-system context, repo map, deployment, learning loop |
 | `launcher`, `bringup`, `viz` | [fm-app](https://github.com/first-motive/fm-app) | launcher menu, bringup composition, visualization |
 | `controllers`, `view_robot`, `hardware` | [fm-robot](https://github.com/first-motive/fm-robot) | ros2_control graph, robot state, hardware abstraction |

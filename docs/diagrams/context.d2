@@ -1,0 +1,35 @@
+# System context — operators reach the ROS2 node graph inside the dev container
+# from a browser (Foxglove) or a terminal (TUI). Physics and learning assets are
+# vendored externals; on Linux the same graph reaches OpenArm hardware over CAN.
+# Dashed edges are load / serve / bus links, not direct calls.
+...@styles
+direction: right
+
+operator: Operator { shape: person; class: node }
+browser: "Foxglove Studio\n+ teleop panel" { class: node }
+tui: "fm_tui\nmonitor / launcher" { class: node }
+
+container: Dev Container · ROS2 Humble {
+  class: block
+  nodegraph: ROS2 node graph { class: node }
+  bridge: "foxglove_bridge\nws://8765" { class: node }
+}
+
+externals: Vendored Externals · external.repos {
+  class: block
+  mujoco: MuJoCo MJCF { shape: cylinder; class: art }
+  lerobot: LeRobot { shape: cylinder; class: art }
+  openarm: "OpenArm desc /\nMoveIt / CAN" { shape: cylinder; class: art }
+}
+
+hw: "OpenArm hardware\nCAN-FD · Linux only" { class: node }
+
+operator -> browser
+operator -> tui
+browser <-> container.bridge
+container.bridge <-> container.nodegraph
+tui -> container.nodegraph
+container.nodegraph -> externals.mujoco: loads { style.stroke-dash: 4 }
+container.nodegraph -> externals.openarm: loads { style.stroke-dash: 4 }
+container.nodegraph -> externals.lerobot: records / serves { style.stroke-dash: 4 }
+container.nodegraph -> hw: SocketCAN { style.stroke-dash: 4 }

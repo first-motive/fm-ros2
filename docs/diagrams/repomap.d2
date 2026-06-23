@@ -1,0 +1,30 @@
+# Repo map — four public package repos assemble into src/; a private learning
+# overlay plugs in on top. Dependencies point one way: the application layer
+# depends on the layers below; the overlay never depends on the application
+# layer. Dashed edges are launch / plug-in links, not build dependencies.
+...@styles
+direction: right
+
+app: fm-app · application layer {
+  class: block
+  bringup: "fm_bringup\nlaunch · teleop adapters" { class: node }
+  tui: "fm_tui\nmonitor · launcher" { class: node }
+}
+
+robot: fm-robot · robot layer {
+  class: block
+  control: "fm_control\nros2_control xacro" { class: node }
+  desc: "fm_description\nURDF · meshes · registry" { class: node }
+  sensors: "fm_sensors\ncapture stub" { class: node }
+}
+
+sim: "fm-sim\nsim loop · backends · MJCF registry" { class: node }
+teleop: "fm-teleop\nservo · input adapters" { class: node }
+learning: "learning overlay · private\ndata engine + policy" { class: node }
+
+app.bringup -> robot.control
+app.bringup -> sim
+app.bringup -> teleop
+robot.control -> robot.desc
+app.bringup -> app.tui: launches { style.stroke-dash: 4 }
+learning -> robot.control: plugs in on top { style.stroke-dash: 4 }

@@ -46,35 +46,9 @@ The workspace runs inside a dev container. Operators drive it from a browser
 (Foxglove) or a terminal (TUI). Physics and learning assets are vendored
 externals. On Linux, the same stack reaches real OpenArm hardware over CAN.
 
-```mermaid
-flowchart TB
-    operator([Operator])
-    browser[Foxglove Studio<br/>+ teleop panel]
-    tui[fm_tui<br/>monitor / launcher]
+![context](diagrams/context.svg)
 
-    subgraph container [Dev Container · ROS2 Humble]
-        nodegraph[ROS2 node graph]
-        bridge[foxglove_bridge<br/>ws://8765]
-    end
-
-    subgraph externals [Vendored Externals · external.repos]
-        mujoco[(MuJoCo MJCF)]
-        lerobot[(LeRobot)]
-        openarm_ext[(OpenArm desc /<br/>MoveIt / CAN)]
-    end
-
-    hw([OpenArm hardware<br/>CAN-FD · Linux only])
-
-    operator --> browser
-    operator --> tui
-    browser <--> bridge
-    bridge <--> nodegraph
-    tui --> nodegraph
-    nodegraph -.loads.-> mujoco
-    nodegraph -.loads.-> openarm_ext
-    nodegraph -.records / serves.-> lerobot
-    nodegraph -.SocketCAN.-> hw
-```
+Source: [`diagrams/context.d2`](diagrams/context.d2).
 
 | Actor / System | Role |
 |----------------|------|
@@ -91,31 +65,9 @@ Four public package repos assemble into `src/`; a private learning overlay plugs
 in on top. Dependencies point one way: the application layer depends on the layers
 below it; the learning overlay never depends on the application layer.
 
-```mermaid
-flowchart TD
-    subgraph app [fm-app · application layer]
-        bringup[fm_bringup<br/>launch · teleop adapters]
-        tui[fm_tui<br/>monitor · launcher]
-    end
+![repo map](diagrams/repomap.svg)
 
-    subgraph robot [fm-robot · robot layer]
-        control[fm_control<br/>ros2_control xacro]
-        desc[fm_description<br/>URDF · meshes · registry]
-        sensors[fm_sensors<br/>capture stub]
-    end
-
-    sim[fm-sim<br/>sim loop · backends · MJCF registry]
-    teleop[fm-teleop<br/>servo · input adapters]
-
-    learning[learning overlay · private<br/>data engine + policy]
-
-    bringup --> control
-    bringup --> sim
-    bringup --> teleop
-    control --> desc
-    bringup -.launches.-> tui
-    learning -.plugs in on top.-> control
-```
+Source: [`diagrams/repomap.d2`](diagrams/repomap.d2).
 
 | Repo | Packages | Build | Responsibility |
 |------|----------|-------|----------------|
@@ -170,31 +122,9 @@ One dev container hosts the full node graph. The host OS only provides Docker, t
 browser, and (on Linux) the GPU and CAN bus. Compose overlays adapt the same base
 image per platform.
 
-```mermaid
-flowchart TB
-    subgraph mac [macOS · M5 · OrbStack]
-        macbrowser[Foxglove Studio]
-        subgraph maccontainer [container · compose.macos.yaml]
-            macgraph[node graph<br/>backend: mock / mujoco]
-            macbridge[foxglove_bridge :8765]
-        end
-    end
+![deployment](diagrams/deployment.svg)
 
-    subgraph linux [Linux · GPU + hardware]
-        linbrowser[Foxglove Studio]
-        subgraph lincontainer [container · compose.linux.yaml]
-            lingraph[node graph<br/>backend: any incl. real]
-            linbridge[foxglove_bridge :8765]
-        end
-        gpu[(GPU)]
-        can[(CAN bus → arms)]
-    end
-
-    macbrowser <--> macbridge
-    linbrowser <--> linbridge
-    lincontainer -.NVIDIA runtime.-> gpu
-    lincontainer -.SocketCAN.-> can
-```
+Source: [`diagrams/deployment.d2`](diagrams/deployment.d2).
 
 | Platform | Role | Backends | Notes |
 |----------|------|----------|-------|
@@ -213,14 +143,9 @@ imported on top of the public workspace via `fm-learning.repos` by team members
 with access. It is not part of the public stack. Structurally it follows the
 standard imitation-learning shape:
 
-```mermaid
-flowchart LR
-    livegraph[Live ROS graph] --> record[record]
-    record --> dataset[dataset]
-    dataset --> train[train]
-    train --> serve[serve]
-    serve -.-> control[fm_control<br/>→ robot]
-```
+![learning loop](diagrams/learning.svg)
+
+Source: [`diagrams/learning.d2`](diagrams/learning.d2).
 
 This closes the autonomy loop: teleop generates data, data trains policies, and
 policy output feeds back into the same `fm_control` stack the operator drives

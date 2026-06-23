@@ -1,0 +1,19 @@
+# Learning loop — the private overlay follows the standard imitation-learning
+# shape: teleop generates data, data trains policies, policy output feeds back
+# into the same fm_control stack the operator drives manually. The dashed edge is
+# the policy-serving path that closes the autonomy loop.
+...@styles
+direction: right
+
+livegraph: Live ROS graph { class: node }
+record: record { class: node }
+dataset: dataset { shape: cylinder; class: art }
+train: train { class: node }
+serve: serve { class: node }
+control: "fm_control\n→ robot" { class: node }
+
+livegraph -> record
+record -> dataset
+dataset -> train
+train -> serve
+serve -> control { style.stroke-dash: 4 }
