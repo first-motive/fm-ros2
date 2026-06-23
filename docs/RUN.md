@@ -7,14 +7,9 @@ dispatches the launch.
 
 ## What It Does
 
-```
-./run.sh
-   │
-   ├─ 1. detect overlay   host OS → macOS or Linux compose overlay
-   ├─ 2. up -d            start the fm_ros2 container (idempotent)
-   ├─ 3. colcon build     rebuild the workspace (incremental, --symlink-install)
-   └─ 4. ros2 run         open fm_tui launcher → action → robot → variant (→ backend)
-```
+![run](diagrams/run.svg)
+
+Source: [`diagrams/run.d2`](diagrams/run.d2).
 
 Every step routes through the image entrypoint (`/ros_entrypoint.sh`) so ROS and
 the workspace overlay are sourced before the command runs.
