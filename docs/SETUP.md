@@ -14,7 +14,10 @@ Source: [`diagrams/setup.d2`](diagrams/setup.d2).
 
 ## Prerequisites
 
-1. Install [OrbStack](https://orbstack.dev) — the Docker provider on M5.
+1. Install [OrbStack](https://orbstack.dev) — the Docker provider on M5. With
+   [Homebrew](https://brew.sh) present, `./run.sh` installs and starts it for you
+   (`scripts/install-orbstack.sh` + `scripts/ensure-docker.sh`); install it by
+   hand only if you skip `run.sh`.
 2. Install [Foxglove Studio](https://foxglove.dev/download) (native macOS app).
 
 ## First run

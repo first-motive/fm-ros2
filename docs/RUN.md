@@ -31,6 +31,20 @@ the workspace overlay are sourced before the command runs.
 Auto-detect maps `Darwin` → macOS overlay and `Linux` → Linux overlay. Any other
 host OS exits with an error — pass a flag explicitly.
 
+## macOS: OrbStack Bootstrap
+
+On the macOS path, `run.sh` ensures the Docker provider is ready before bringing
+the stack up — both steps are idempotent no-ops once satisfied:
+
+```
+install-orbstack.sh   OrbStack absent? install via Homebrew (brew install --cask)
+ensure-docker.sh      daemon down?     start OrbStack and wait for it
+```
+
+`install-orbstack.sh` needs Homebrew; without it the script points at
+[brew.sh](https://brew.sh) and [orbstack.dev](https://orbstack.dev) for a manual
+install. The Linux path skips this block — Docker runs natively.
+
 ## Prerequisite: Vendor Robot Sources
 
 Robot descriptions live outside the repo. Vendor them once before the first run:

@@ -18,11 +18,12 @@ os: "" {
   a: "uname -s" { class: art }
 }
 mac: "" {
-  grid-rows: 3
+  grid-rows: 4
   class: block
   r: macOS Container { class: role }
   a1: compose.macos.yaml { class: art }
-  a2: compose up -d { class: art }
+  a2: "orbstack: install + start" { class: art }
+  a3: compose up -d { class: art }
 }
 lin: "" {
   grid-rows: 3
