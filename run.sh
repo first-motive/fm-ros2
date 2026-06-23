@@ -24,16 +24,35 @@
 # capability without the menu.
 set -euo pipefail
 
+cd "$(dirname "$0")"
+
+# Step narration lives in fm_tui (fm_tui/banner.py) so run.sh and the TUI share
+# one source of brand colour. It draws each step as a rich rule block. The first
+# steps run on the host before the container exists, so reach rich through
+# `uv run --with rich`. Fall back to a plain line when uv or the module is absent
+# (e.g. before `vcs import`).
+BANNER=src/fm-app/fm_tui/fm_tui/banner.py
+banner() {  # title  description  [role]
+  if [[ -f "$BANNER" ]] && command -v uv >/dev/null 2>&1; then
+    uv run --quiet --no-project --with rich python3 "$BANNER" "$1" "${2:-}" "${3:-step}"
+  else
+    echo ">> $1${2:+ — $2}"
+  fi
+}
+
 OVERLAY=""
+SOURCE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --macos)
       OVERLAY=docker/compose.macos.yaml
+      SOURCE="forced by flag"
       shift
       ;;
     --linux)
       OVERLAY=docker/compose.linux.yaml
+      SOURCE="forced by flag"
       shift
       ;;
     *)
@@ -58,26 +77,13 @@ if [[ -z "$OVERLAY" ]]; then
       exit 1
       ;;
   esac
+  SOURCE="auto-detected"
 fi
 
-cd "$(dirname "$0")"
+banner "Host OS" "$(uname -s) · overlay: ${OVERLAY##*/} · ${SOURCE}"
 
 COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
 SERVICE=fm_ros2
-
-# Step narration lives in fm_tui (fm_tui/banner.py) so run.sh and the TUI share
-# one source of brand colour. It draws each step as a rich rule block. The first
-# steps run on the host before the container exists, so reach rich through
-# `uv run --with rich`. Fall back to a plain line when uv or the module is absent
-# (e.g. before `vcs import`).
-BANNER=src/fm-app/fm_tui/fm_tui/banner.py
-banner() {  # title  description  [role]
-  if [[ -f "$BANNER" ]] && command -v uv >/dev/null 2>&1; then
-    uv run --quiet --no-project --with rich python3 "$BANNER" "$1" "${2:-}" "${3:-step}"
-  else
-    echo ">> $1${2:+ — $2}"
-  fi
-}
 
 # macOS runs on OrbStack as the Docker provider. Install it if missing, then make
 # sure the daemon is up — both steps are idempotent no-ops once satisfied.
