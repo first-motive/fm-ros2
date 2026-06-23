@@ -13,6 +13,11 @@ fm-learning.repos
 # Vendored external sources (pulled via vcs import)
 external/
 
+# colcon build artifacts
+build/
+install/
+log/
+
 # Python
 __pycache__/
 *.py[cod]
