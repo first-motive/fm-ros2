@@ -7,12 +7,12 @@ WAIT_SECONDS="${DOCKER_WAIT_SECONDS:-60}"
 
 # Already up? Nothing to do.
 if docker info >/dev/null 2>&1; then
-  echo "    Docker daemon already running."
+  echo "Docker daemon already running"
   exit 0
 fi
 
 start_orbstack() {
-  echo "    Starting OrbStack..."
+  echo "Starting OrbStack..."
   if command -v orb >/dev/null 2>&1; then
     orb start >/dev/null 2>&1 || open -a OrbStack
   else
@@ -21,7 +21,7 @@ start_orbstack() {
 }
 
 start_docker_desktop() {
-  echo "    Starting Docker Desktop..."
+  echo "Starting Docker Desktop..."
   open -a Docker
 }
 
@@ -36,10 +36,10 @@ else
 fi
 
 # Wait for the daemon to accept connections.
-echo "    Waiting up to ${WAIT_SECONDS}s for the Docker daemon..."
+echo "Waiting up to ${WAIT_SECONDS}s for the Docker daemon..."
 for ((i = 0; i < WAIT_SECONDS; i++)); do
   if docker info >/dev/null 2>&1; then
-    echo "    Docker daemon ready."
+    echo "Docker daemon ready"
     exit 0
   fi
   sleep 1

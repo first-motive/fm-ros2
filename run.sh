@@ -27,32 +27,32 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # Step narration lives in fm_tui (fm_tui/banner.py) so run.sh and the TUI share
-# one source of brand colour. It draws each step as a rich rule block. The first
-# steps run on the host before the container exists, so reach rich through
-# `uv run --with rich`. Fall back to a plain line when uv or the module is absent
-# (e.g. before `vcs import`).
+# one source of brand colour. `step` draws a numbered header block as a rich rule;
+# `item` prints a plain status line beneath it. The first steps run on the host
+# before the container exists, so reach rich through `uv run --with rich`. Fall
+# back to a plain header when uv or the module is absent (e.g. before `vcs import`).
 BANNER=src/fm-app/fm_tui/fm_tui/banner.py
-banner() {  # title  description  [role]
+STEP=0
+step() {  # title  [role]
+  STEP=$((STEP + 1))
   if [[ -f "$BANNER" ]] && command -v uv >/dev/null 2>&1; then
-    uv run --quiet --no-project --with rich python3 "$BANNER" "$1" "${2:-}" "${3:-step}"
+    uv run --quiet --no-project --with rich python3 "$BANNER" "$STEP" "$1" "${2:-step}"
   else
-    echo ">> $1${2:+ — $2}"
+    echo "== $STEP. $1 =="
   fi
 }
+item() { echo "$1"; }  # status line under a step — one place to restyle later
 
 OVERLAY=""
-SOURCE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --macos)
       OVERLAY=docker/compose.macos.yaml
-      SOURCE="forced by flag"
       shift
       ;;
     --linux)
       OVERLAY=docker/compose.linux.yaml
-      SOURCE="forced by flag"
       shift
       ;;
     *)
@@ -77,31 +77,38 @@ if [[ -z "$OVERLAY" ]]; then
       exit 1
       ;;
   esac
-  SOURCE="auto-detected"
 fi
 
-banner "Host OS" "$(uname -s) · overlay: ${OVERLAY##*/} · ${SOURCE}"
+# Friendly host label, derived from whichever overlay won (flag or auto-detect).
+case "$OVERLAY" in
+  *macos*) HOST="macOS" ;;
+  *linux*) HOST="Linux" ;;
+esac
+
+step "Detect OS"
+item "${HOST} detected"
 
 COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
 SERVICE=fm_ros2
 
 # macOS runs on OrbStack as the Docker provider. Install it if missing, then make
-# sure the daemon is up — both steps are idempotent no-ops once satisfied.
+# sure the daemon is up — both idempotent, and each prints its own status bullet.
+step "${HOST} Container"
 if [[ "$OVERLAY" == docker/compose.macos.yaml ]]; then
-  banner "Starting OrbStack" "install if missing, wait for the Docker daemon"
   ./scripts/install-orbstack.sh
   ./scripts/ensure-docker.sh
 fi
-
-banner "Container Up" "compose up -d · overlay: ${OVERLAY##*/}"
 "${COMPOSE[@]}" up -d
-banner "Building Workspace" "colcon build --symlink-install · incremental"
+item "Container up"
+
+step "Build Workspace"
 # Route through the entrypoint so ROS is sourced; build from /ws (the compose
 # working_dir). Incremental, so a warm tree returns fast.
 "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
-banner "Launcher" "pick action → robot → variant → backend"
-banner "Foxglove Studio" "connect to ws://localhost:8765" info
-banner "Teardown" "${COMPOSE[*]} down" info
+
+step "Launcher"
+item "Foxglove Studio: ws://localhost:8765"
+item "teardown: ${COMPOSE[*]} down"
 # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
 # The launcher is an ament_python console_script (installed under lib/fm_tui/, not
 # on PATH), so reach it via `ros2 run`, not by name.

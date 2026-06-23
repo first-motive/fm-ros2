@@ -10,14 +10,14 @@ set -euo pipefail
 # Already installed? Nothing to do. Check the CLI first, then fall back to the app
 # bundle — a fresh cask install lands the .app before `orb` reaches the PATH.
 if command -v orb >/dev/null 2>&1 || [ -d "/Applications/OrbStack.app" ]; then
-  echo "    OrbStack already installed."
+  echo "OrbStack already installed"
   exit 0
 fi
 
-echo "    OrbStack not found — installing..."
+echo "OrbStack not found, installing..."
 if command -v brew >/dev/null 2>&1; then
   brew install --cask orbstack
-  echo "    OrbStack installed."
+  echo "OrbStack installed"
 else
   echo "ERROR: Homebrew not found. Install it (https://brew.sh) and re-run, or" >&2
   echo "       install OrbStack manually: https://orbstack.dev" >&2
