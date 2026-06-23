@@ -85,5 +85,6 @@ does. The detail that used to sit here moved down with its package.
 |---------|------------|-------|
 | `run`, `system` | **fm-ros2** | front door + entry into the launcher |
 | `context`, `repomap`, `deployment`, `learning` | **fm-ros2** | whole-system context, repo map, deployment, learning loop |
+| `setup` | **fm-ros2** | macOS host ↔ OrbStack container topology ([SETUP.md](../SETUP.md)) |
 | `launcher`, `bringup`, `viz` | [fm-app](https://github.com/first-motive/fm-app) | launcher menu, bringup composition, visualization |
 | `controllers`, `view_robot`, `hardware` | [fm-robot](https://github.com/first-motive/fm-robot) | ros2_control graph, robot state, hardware abstraction |

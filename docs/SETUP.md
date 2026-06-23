@@ -8,14 +8,9 @@ sim + dataset only — no GPU, no hardware. Hardware and GPU work happen on Linu
 ROS2 Humble targets Ubuntu. On macOS we run it inside a Linux arm64 container via
 OrbStack. The workspace is bind-mounted, so host edits rebuild without reimaging.
 
-```
-macOS host                          OrbStack (linux/arm64)
-┌────────────────┐                  ┌──────────────────────────┐
-│ Foxglove Studio│ ── ws://8765 ──> │ foxglove_bridge          │
-│ editor / git   │                  │ colcon build + ros2 run  │
-│ ../ (bind mount)│ <──────────────> │ /ws                      │
-└────────────────┘                  └──────────────────────────┘
-```
+![macOS setup](diagrams/setup.svg)
+
+Source: [`diagrams/setup.d2`](diagrams/setup.d2).
 
 ## Prerequisites
 

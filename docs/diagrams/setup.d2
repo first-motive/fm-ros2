@@ -1,0 +1,23 @@
+# macOS setup topology — ROS2 Humble runs in a Linux arm64 container under
+# OrbStack. The host runs Foxglove and the editor; the workspace is bind-mounted
+# into the container, so host edits rebuild without reimaging. Foxglove reaches
+# the bridge over a websocket; the bind mount is bidirectional.
+...@styles
+direction: right
+
+host: macOS host {
+  class: block
+  foxglove: Foxglove Studio { class: node }
+  editor: editor / git { class: node }
+  mount: "../ (bind mount)" { class: node }
+}
+
+orb: OrbStack · linux/arm64 {
+  class: block
+  bridge: foxglove_bridge { class: node }
+  build: colcon build + ros2 run { class: node }
+  ws: /ws { class: node }
+}
+
+host.foxglove <-> orb.bridge: ws://8765
+host.mount <-> orb.ws: bind mount
