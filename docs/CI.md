@@ -1,16 +1,20 @@
 # CI
 
-Every push and pull request runs three jobs ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
-The commands below are exactly what CI runs, so any job reproduces locally with
-the same line — not a prose claim that it works on each system. For the job
-summary, see the [CI table in the root README](../README.md#ci).
+Every push and pull request runs four jobs ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)):
+the Linux workspace build, the macOS native sim core, the installer import-path
+check, and the Foxglove panel build. The commands below are exactly what CI runs,
+so any job reproduces locally with the same line — not a prose claim that it works
+on each system. For the job summary, see the [CI table in the root README](../README.md#ci).
 
 ## Linux (`ubuntu-latest`)
 
-The full stack, in the same Linux container the team builds from:
+The full stack, in the same Linux container the team builds from. fm-ros2 owns no
+Dockerfile — it pulls the published `fm-app` full-stack image (the top of the
+inheritance chain) and tags it `fm-ros2:ci`:
 
 ```bash
-docker build -t fm-ros2:ci -f docker/Dockerfile.base .
+docker pull ghcr.io/first-motive/fm-app:humble
+docker tag ghcr.io/first-motive/fm-app:humble fm-ros2:ci
 docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci bash -lc './scripts/import-externals.sh'
 docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci \
   bash -lc 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'

@@ -61,7 +61,9 @@ ensure_vcs() {
     exit 1
   fi
   say "installing vcstool via uv ..."
-  uv tool install --quiet vcstool
+  # vcstool imports pkg_resources, which setuptools 81 dropped — pin setuptools
+  # below 81 in the tool env so the import does not crash.
+  uv tool install --quiet vcstool --with "setuptools<81"
   # uv drops console scripts into its tool bin dir; make sure it is on PATH for
   # this process and the import-externals.sh child.
   local bin
@@ -73,10 +75,12 @@ ensure_vcs() {
 }
 ensure_vcs
 
-# Pull the four public package repos into src/. A failure here is almost always
-# missing org access to the private repos — say so plainly, then exit non-zero.
-say "importing package repos into src/ ..."
-if ! vcs import src < fm-ros2.repos; then
+# Pull the container infra into docker/ and the four public package repos into
+# src/ (manifest paths are root-relative, so import from the root). A failure here
+# is almost always missing org access to the private repos — say so plainly, then
+# exit non-zero.
+say "importing container infra + package repos ..."
+if ! vcs import < fm-ros2.repos; then
   echo "error: failed to import the package repos." >&2
   echo "       The fm-* package repos are private — this needs git access to the" >&2
   echo "       first-motive org (SSH key or a credential helper). Check your auth" >&2

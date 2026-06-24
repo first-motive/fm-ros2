@@ -34,7 +34,7 @@ curl ... | bash -s -- --learning    # also import the private learning overlay
 ```bash
 git clone https://github.com/first-motive/fm-ros2.git
 cd fm-ros2
-vcs import src < fm-ros2.repos     # pull the four public package repos into src/
+vcs import < fm-ros2.repos         # pull container infra into docker/ + the package repos into src/
 ./scripts/import-externals.sh      # vendor externals into external/
 ./run.sh                           # auto-detect overlay, open the launcher
 ```
@@ -55,12 +55,12 @@ Source: [`docs/diagrams/menu.d2`](docs/diagrams/menu.d2).
 # macOS (M5, OrbStack)
 ./scripts/setup-macos.sh
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm_ros2 colcon build --symlink-install
+  run --rm fm colcon build --symlink-install
 
 # Linux (GPU / hardware) — swap the setup script and overlay
 ./scripts/setup-linux.sh
 docker compose -f docker/compose.yaml -f docker/compose.linux.yaml \
-  run --rm fm_ros2 colcon build --symlink-install
+  run --rm fm colcon build --symlink-install
 ```
 
 Then `./run.sh`, and connect Foxglove Studio to `ws://localhost:8765`.
@@ -86,8 +86,8 @@ orchestrator view is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Source:
 ## Layout
 
 This repo holds no package source — only the workspace metapackage, shared
-tooling, and full-system docs. `vcs import src < fm-ros2.repos` pulls the four
-public package repos into `src/`.
+tooling, and full-system docs. `vcs import < fm-ros2.repos` pulls the shared
+container infra into `docker/` and the four public package repos into `src/`.
 
 ```
 fm-ros2/

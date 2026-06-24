@@ -119,8 +119,28 @@ the xacro layering and the backend table — is in
 ## Deployment
 
 One dev container hosts the full node graph. The host OS only provides Docker, the
-browser, and (on Linux) the GPU and CAN bus. Compose overlays adapt the same base
-image per platform.
+browser, and (on Linux) the GPU and CAN bus. Compose overlays adapt one image per
+platform.
+
+### Image Inheritance
+
+The container is not one monolithic build. The shared `fm-docker` repo publishes a
+minimal base, and each package repo's image is `FROM` its parent, so deps point
+down through clear layers instead of a single union build:
+
+```
+fm-docker base       ros:humble + tooling + viz + xacro/rsp        (view any robot)
+   └ fm-robot   FROM base    + ros2-control                        (description + control + sensors)
+        ├ fm-sim     FROM robot  + mujoco/gz/xvfb
+        └ fm-teleop  FROM robot  + moveit/servo
+   └ fm-app     FROM robot  + sim & teleop apt deps + textual      (full-stack launcher)
+```
+
+The launcher image (`fm-app`) reconverges the union because the TUI launches every
+backend and Docker has single inheritance. `fm-ros2` owns no Dockerfile: it
+consumes the published `fm-app` image and sources the compose overlays from
+`fm-docker` (both imported via `fm-ros2.repos`). Each package repo also runs and
+CI-tests standalone through its own `run.sh`; `fm-ros2` only assembles them.
 
 ![deployment](diagrams/deployment.svg)
 

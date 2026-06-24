@@ -17,7 +17,7 @@
 # Every run rebuilds the workspace (colcon) before opening the launcher, so source
 # and console-script changes are always picked up. The build is incremental, so a
 # warm tree is quick. The package repos and externals are imported first, once:
-#   vcs import src < fm-ros2.repos   # pull the seven package repos into src/
+#   vcs import < fm-ros2.repos       # pull docker/ infra + the package repos into src/
 #   ./scripts/import-externals.sh    # vendor robot sources into external/
 #
 # scripts/view-robot.sh, scripts/sim.sh, and scripts/teleop.sh coexist as the
@@ -94,8 +94,16 @@ esac
 step "Detect OS"
 item "${HOST} detected"
 
+# fm-ros2 owns no image — it consumes the published fm-app full-stack image and
+# sources the compose overlays from fm-docker (imported into docker/ on first run
+# via fm-ros2.repos). FM_IMAGE/FM_WS feed the generic fm-docker compose base.
+if [[ ! -d docker ]]; then
+  vcs import < fm-ros2.repos
+fi
+export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
+export FM_WS="$PWD"
 COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
-SERVICE=fm_ros2
+SERVICE=fm
 
 # macOS runs on OrbStack as the Docker provider. Install it if missing, then make
 # sure the daemon is up — both idempotent, and each prints its own status bullet.
@@ -153,4 +161,7 @@ open_foxglove_when_ready
 # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
 # The launcher is an ament_python console_script (installed under lib/fm_tui/, not
 # on PATH), so reach it via `ros2 run`, not by name.
-exec "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
+# Forward the host terminal's colour capability (COLORTERM/TERM) into the
+# container; without it the TUI falls back to 16-colour and the brand palette
+# quantises to grey/white. -e VAR passes the host value through when set.
+exec "${COMPOSE[@]}" exec -e COLORTERM -e TERM "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher

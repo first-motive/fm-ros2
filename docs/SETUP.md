@@ -25,7 +25,7 @@ Source: [`diagrams/setup.d2`](diagrams/setup.d2).
 ```bash
 git clone https://github.com/first-motive/fm-ros2.git
 cd fm-ros2
-vcs import src < fm-ros2.repos     # pull the four public package repos into src/
+vcs import < fm-ros2.repos     # pull the four public package repos into src/
 ./scripts/setup-macos.sh
 ```
 
@@ -47,21 +47,21 @@ the bringup launch is running.
 Open a shell in the container:
 
 ```bash
-docker compose -f docker/compose.yaml -f docker/compose.macos.yaml run --rm fm_ros2 bash
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml run --rm fm bash
 ```
 
 Build and test (same commands CI runs):
 
 ```bash
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm_ros2 ./scripts/verify-build.sh
+  run --rm fm ./scripts/verify-build.sh
 ```
 
 Run the end-to-end smoke check:
 
 ```bash
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm_ros2 ./scripts/smoke.sh
+  run --rm fm ./scripts/smoke.sh
 ```
 
 Launch the graph (foxglove bridge + control):

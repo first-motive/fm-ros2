@@ -6,7 +6,7 @@
 # Prerequisites (run once, or after changing externals / sources):
 #   ./scripts/import-externals.sh    # clone/import robot sources into external/
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-#     run --rm fm_ros2 colcon build --symlink-install
+#     run --rm fm colcon build --symlink-install
 #
 # Then:
 #   ./scripts/view-robot.sh                                  # g1_d wheeled G1-D (default)
@@ -57,8 +57,13 @@ fi
 
 cd "$(dirname "$0")/.."
 
+# fm-ros2 consumes the published fm-app full-stack image and sources the compose
+# overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).
+[[ -d docker ]] || vcs import < fm-ros2.repos
+export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
+export FM_WS="$PWD"
 COMPOSE=(docker compose -f docker/compose.yaml -f docker/compose.macos.yaml)
-SERVICE=fm_ros2
+SERVICE=fm
 
 LAUNCH=(ros2 launch fm_description view_robot.launch.py "robot:=$ROBOT" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"})
 
