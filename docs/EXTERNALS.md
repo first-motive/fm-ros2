@@ -19,6 +19,9 @@ container.
 `setup-lerobot.sh` creates `~/.venvs/lerobot` and installs lerobot editable from
 the vendored `external/lerobot`, so it runs **after** `import-externals.sh`.
 The env is host-native — same story as the MuJoCo env on the M5 (CPU sim and
-dataset work, no container). The script is idempotent: it skips when the venv
-already exists. Pass `--force` to wipe and reinstall, which also migrates an
-older PyPI lerobot venv to this editable source install.
+dataset work, no container). It uses Python 3.12 and installs the `dataset` and
+`feetech` extras because the local replay/export flows import Hugging Face
+dataset APIs directly and the SO101 hardware path needs Feetech support. The
+script is idempotent: it skips when the venv already exists. Pass `--force` to
+wipe and reinstall, which also migrates an older PyPI lerobot venv to this
+editable source install.

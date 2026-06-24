@@ -24,7 +24,7 @@
 # Notes: the G1-D simulates its right arm only (the rest of the body holds);
 # its mujoco model is the bipedal g1_29dof (arm joints match, wired-not-validated).
 # G1-D has no `real` sim backend — the real arm runs through the arm_sdk bridge,
-# not a controller_manager (see scripts/teleop.sh + fm_control).
+# not a controller_manager (see scripts/teleop.sh + src/fm_control).
 #
 # --robot/--backend accept hyphen or underscore form. Extra args pass straight
 # through to `ros2 launch`.
@@ -33,6 +33,7 @@ set -euo pipefail
 ROBOT=openarm
 VARIANT=""
 BACKEND=mujoco
+TASK_ENV=default
 PASSTHROUGH=()
 
 while [[ $# -gt 0 ]]; do
@@ -43,6 +44,8 @@ while [[ $# -gt 0 ]]; do
     --variant=*) VARIANT="${1#--variant=}"; shift ;;
     --backend) BACKEND="$2"; shift 2 ;;
     --backend=*) BACKEND="${1#--backend=}"; shift ;;
+    --task-env) TASK_ENV="$2"; shift 2 ;;
+    --task-env=*) TASK_ENV="${1#--task-env=}"; shift ;;
     *) PASSTHROUGH+=("$1"); shift ;;
   esac
 done
@@ -70,6 +73,15 @@ esac
 
 cd "$(dirname "$0")/.."
 
+# On macOS the MuJoCo path depends on OrbStack/Docker being up first.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "ERROR: docker not found. Install OrbStack: https://orbstack.dev" >&2
+    exit 1
+  fi
+  ./scripts/ensure-docker.sh
+fi
+
 # fm-ros2 consumes the published fm-app full-stack image and sources the compose
 # overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).
 [[ -d docker ]] || vcs import < fm-ros2.repos
@@ -79,11 +91,14 @@ COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
 SERVICE=fm
 
 LAUNCH=(ros2 launch fm_bringup sim.launch.py \
-  "robot:=$ROBOT" "sim_backend:=$BACKEND")
+  "robot:=$ROBOT" "sim_backend:=$BACKEND" "task_env:=$TASK_ENV")
 [[ -n "$VARIANT" ]] && LAUNCH+=("variant:=$VARIANT")
 LAUNCH+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"})
 
 echo ">> $BACKEND backend — overlay $(basename "$OVERLAY")"
+if [[ "$TASK_ENV" != "default" ]]; then
+  echo ">> task environment: $TASK_ENV"
+fi
 echo ">> shared stack — bringing container up (idempotent)"
 "${COMPOSE[@]}" up -d
 echo ">> launching $ROBOT sim — Ctrl-C stops it, stack stays up"
