@@ -61,7 +61,9 @@ ensure_vcs() {
     exit 1
   fi
   say "installing vcstool via uv ..."
-  uv tool install --quiet vcstool
+  # vcstool imports pkg_resources, which setuptools 81 dropped — pin setuptools
+  # below 81 in the tool env so the import does not crash.
+  uv tool install --quiet vcstool --with "setuptools<81"
   # uv drops console scripts into its tool bin dir; make sure it is on PATH for
   # this process and the import-externals.sh child.
   local bin
