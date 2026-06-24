@@ -26,7 +26,7 @@ the `fm_ros2` workspace metapackage.
 ## Assembly
 
 ```bash
-vcs import src < fm-ros2.repos     # pull the four public package repos into src/
+vcs import < fm-ros2.repos     # pull container infra into docker/ + the four package repos into src/
 vcs import src < fm-learning.repos # private overlay — team members with access
 ./scripts/import-externals.sh      # vendor externals into external/
 ```
@@ -43,7 +43,7 @@ colcon test-result --verbose
 
 The repo root holds the `fm_ros2` workspace metapackage, the `fm-ros2.repos` and
 `external.repos` vcs manifests, and the shared tooling and docs — no package
-source. `vcs import src < fm-ros2.repos` pulls the four public package repos into
+source. `vcs import < fm-ros2.repos` pulls the four public package repos into
 `src/`, where `colcon build` recurses and finds every package regardless of
 nesting depth. The `fm_ros2` metapackage depends on the four public group
 metapackages (`fm_robot`, `fm_app`, `fm_sim`, `fm_teleop`), each of which pulls its
