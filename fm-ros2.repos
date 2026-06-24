@@ -1,26 +1,35 @@
-# vcs import src < fm-ros2.repos   (run from the workspace root)
+# vcs import < fm-ros2.repos   (run from the workspace root)
 #
-# Public-workspace assembly: pulls the four public First Motive package repos
-# into src/, each tracking main. The private learning stack (fm-learning,
-# fm-data, fm-policy) lives in the fm-learning.repos overlay — team members
-# import it on top of this manifest; see that file and docs/ARCHITECTURE.md.
-# Externals (lerobot, OpenArm, Unitree, ...) are vendored separately into
-# external/ by scripts/import-externals.sh, which reads external.repos and
-# COLCON_IGNOREs the file-only sources.
+# Public-workspace assembly: pulls the shared container infra into docker/ and the
+# four public First Motive package repos into src/, each tracking main. Paths are
+# relative to the workspace root, so import from the root (no `src` argument). The
+# private learning stack (fm-learning, fm-data, fm-policy) lives in the
+# fm-learning.repos overlay — team members import it on top of this manifest; see
+# that file and docs/ARCHITECTURE.md. Externals (lerobot, OpenArm, Unitree, ...)
+# are vendored separately into external/ by scripts/import-externals.sh, which
+# reads external.repos and COLCON_IGNOREs the file-only sources.
 repositories:
-  fm-robot:
+  # Shared container infra (base image, entrypoint, compose overlays). Imported
+  # into docker/ so run.sh and the launch scripts source one set of overlays — the
+  # same ones the package repos use. fm-ros2 owns no Dockerfile; it consumes the
+  # published fm-app full-stack image.
+  docker:
+    type: git
+    url: https://github.com/first-motive/fm-docker.git
+    version: main
+  src/fm-robot:
     type: git
     url: https://github.com/first-motive/fm-robot.git
     version: main
-  fm-sim:
+  src/fm-sim:
     type: git
     url: https://github.com/first-motive/fm-sim.git
     version: main
-  fm-teleop:
+  src/fm-teleop:
     type: git
     url: https://github.com/first-motive/fm-teleop.git
     version: main
-  fm-app:
+  src/fm-app:
     type: git
     url: https://github.com/first-motive/fm-app.git
     version: main

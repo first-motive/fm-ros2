@@ -73,10 +73,12 @@ ensure_vcs() {
 }
 ensure_vcs
 
-# Pull the four public package repos into src/. A failure here is almost always
-# missing org access to the private repos — say so plainly, then exit non-zero.
-say "importing package repos into src/ ..."
-if ! vcs import src < fm-ros2.repos; then
+# Pull the container infra into docker/ and the four public package repos into
+# src/ (manifest paths are root-relative, so import from the root). A failure here
+# is almost always missing org access to the private repos — say so plainly, then
+# exit non-zero.
+say "importing container infra + package repos ..."
+if ! vcs import < fm-ros2.repos; then
   echo "error: failed to import the package repos." >&2
   echo "       The fm-* package repos are private — this needs git access to the" >&2
   echo "       first-motive org (SSH key or a credential helper). Check your auth" >&2
