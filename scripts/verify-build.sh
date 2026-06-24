@@ -3,7 +3,7 @@
 # Usage:
 #   ./scripts/verify-build.sh            # run inside the container
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-#     run --rm fm_ros2 ./scripts/verify-build.sh    # from the macOS host
+#     run --rm fm ./scripts/verify-build.sh    # from the macOS host
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -4,7 +4,7 @@
     "../docker/compose.yaml",
     "../docker/compose.macos.yaml"
   ],
-  "service": "fm_ros2",
+  "service": "fm",
   "workspaceFolder": "/ws",
   "forwardPorts": [8765],
   "customizations": {

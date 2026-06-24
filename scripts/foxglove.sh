@@ -19,8 +19,13 @@ set -euo pipefail
 # Run from the repo root so the relative compose paths resolve.
 cd "$(dirname "$0")/.."
 
+# fm-ros2 consumes the published fm-app full-stack image and sources the compose
+# overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).
+[[ -d docker ]] || vcs import < fm-ros2.repos
+export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
+export FM_WS="$PWD"
 COMPOSE=(docker compose -f docker/compose.yaml -f docker/compose.macos.yaml)
-SERVICE=fm_ros2
+SERVICE=fm
 MODE=shared
 PORT=8765
 

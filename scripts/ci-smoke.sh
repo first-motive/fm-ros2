@@ -3,7 +3,7 @@
 # container, after `colcon build` — CI calls it, and it runs locally the same way:
 #
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-#     run --rm fm_ros2 ./scripts/ci-smoke.sh
+#     run --rm fm ./scripts/ci-smoke.sh
 #
 # Each check is bounded (timed waits, not fixed sleeps) and prints PASS/FAIL. All
 # checks run; the script exits non-zero if any failed. These cover the deterministic,

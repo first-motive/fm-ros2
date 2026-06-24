@@ -6,7 +6,7 @@
 #   4. tear everything down
 # Exit 0 = green. Run from the macOS host with:
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-#     run --rm fm_ros2 ./scripts/smoke.sh
+#     run --rm fm ./scripts/smoke.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
