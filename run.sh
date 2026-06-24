@@ -161,4 +161,7 @@ open_foxglove_when_ready
 # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
 # The launcher is an ament_python console_script (installed under lib/fm_tui/, not
 # on PATH), so reach it via `ros2 run`, not by name.
-exec "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
+# Forward the host terminal's colour capability (COLORTERM/TERM) into the
+# container; without it the TUI falls back to 16-colour and the brand palette
+# quantises to grey/white. -e VAR passes the host value through when set.
+exec "${COMPOSE[@]}" exec -e COLORTERM -e TERM "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
