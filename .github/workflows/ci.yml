@@ -37,15 +37,25 @@ jobs:
           mkdir -p src
           while read -r url; do
             name="$(basename "$url" .git)"
+            # fm-docker is shared container infra, not a colcon package — skip it.
+            [ "$name" = "fm-docker" ] && continue
             echo "cloning $name"
             git clone --depth 1 "$url" "src/$name"
           done < <(grep -oE 'https://github.com/[^ ]+\.git' fm-ros2.repos)
 
-      # Build the First Motive base image so CI carries the exact same deps the
-      # workspace needs (moveit, ros2_control, the sim backends, rosidl_generator_dds_idl
-      # for the vendored Unitree messages). One source of truth: docker/Dockerfile.base.
-      - name: Build base image
-        run: docker build -t fm-ros2:ci -f docker/Dockerfile.base .
+      # fm-ros2 owns no image — pull the published fm-app full-stack image (the top
+      # of the inheritance chain: fm-docker base -> fm-robot -> fm-app), which
+      # carries the exact deps the assembled workspace needs (moveit, ros2_control,
+      # the sim backends, rosidl_generator_dds_idl for the vendored Unitree
+      # messages). Tag it fm-ros2:ci so the build/test steps below are unchanged.
+      # The fm-app GHCR package is private, so log in with the App token (the
+      # fm-ros2-ci app needs packages:read on the first-motive org).
+      - name: Pull launcher image
+        run: |
+          echo "${{ steps.app-token.outputs.token }}" | \
+            docker login ghcr.io -u x-access-token --password-stdin
+          docker pull ghcr.io/first-motive/fm-app:humble
+          docker tag ghcr.io/first-motive/fm-app:humble fm-ros2:ci
 
       # external is gitignored, so CI must vendor the sources the build consumes
       # (openarm_description, the unitree_hg messages, ...) at their pinned commits.
