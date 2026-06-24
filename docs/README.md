@@ -13,6 +13,7 @@ Guides and references for the fm_ros2 workspace. Start at the root
 | [CI.md](CI.md) | The exact commands each CI job runs, reproducible locally per platform |
 | [FOXGLOVE.md](FOXGLOVE.md) | `foxglove_bridge` helper modes, robot viewing, teardown |
 | [EXTERNALS.md](EXTERNALS.md) | Vendoring robot sources, the LeRobot editable env |
+| [POLYREPO.md](POLYREPO.md) | Where to work in the split org, branch rules, training flow, and LeRobot episode flow |
 
 ## Where Else Docs Live
 
