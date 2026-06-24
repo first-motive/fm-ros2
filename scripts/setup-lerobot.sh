@@ -39,11 +39,11 @@ if [ -d "$VENV" ]; then
   fi
 fi
 
-echo "==> Creating lerobot venv at $VENV (python 3.11) ..."
-uv venv "$VENV" --python 3.11
+echo "==> Creating lerobot venv at $VENV (python 3.12) ..."
+uv venv "$VENV" --python 3.12
 
-echo "==> Installing lerobot (editable) from $SRC ..."
-uv pip install --python "$VENV/bin/python" -e "$SRC"
+echo "==> Installing lerobot (editable, dataset + feetech extras) from $SRC ..."
+uv pip install --python "$VENV/bin/python" -e "$SRC[dataset,feetech]"
 
 echo "==> Done. lerobot installed editable from $SRC."
 echo "==> Activate: source $VENV/bin/activate"
