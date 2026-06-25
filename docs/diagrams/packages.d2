@@ -1,0 +1,63 @@
+# Package dependency graph — the full top-down view the repo map abstracts away.
+# `fm_ros2` exec-depends on the four public group metapackages; each group pulls
+# its own leaf packages. Solid edges are build/exec `<depend>` relations between
+# packages. Every cross-group edge originates in `fm_bringup` — the app layer is
+# the only integration point. The private learning overlay stays an opaque node
+# (this repo is public) — its internal packages live in private repos.
+...@styles
+direction: down
+
+root: "fm_ros2\nworkspace metapackage" { class: node }
+
+robot: fm-robot · robot layer {
+  class: block
+  desc: "fm_description\nURDF · meshes · registry" { class: node }
+  control: "fm_control\nros2_control · xacro" { class: node }
+  sensors: "fm_sensors\ncapture stub" { class: node }
+}
+
+app: fm-app · application layer {
+  class: block
+  bringup: "fm_bringup\nlaunch composition" { class: node }
+  tui: "fm_tui\nmonitor · launcher" { class: node }
+}
+
+sim: fm-sim · simulation layer {
+  class: block
+  core: "fm_sim_core" { class: node }
+  backends: "fm_sim_backends" { class: node }
+  models: "fm_sim_models\nMJCF registry" { class: node }
+}
+
+teleop: fm-teleop · teleop layer {
+  class: block
+  tcore: "fm_teleop_core\ninput contract" { class: node }
+  device: "fm_teleop_device" { class: node }
+  leader: "fm_teleop_leader" { class: node }
+  vr: "fm_teleop_vr" { class: node }
+  vision: "fm_teleop_vision" { class: node }
+}
+
+learning: "learning overlay · private\ndata engine + policy" { class: node }
+
+# metapackage exec-deps — fm_ros2 pulls each group metapackage
+root -> robot.control
+root -> app.bringup
+root -> sim.core
+root -> teleop.tcore
+
+# internal edges
+robot.control -> robot.desc
+teleop.device -> teleop.tcore
+teleop.leader -> teleop.tcore
+teleop.vr -> teleop.tcore
+teleop.vision -> teleop.tcore
+
+# cross-group edges — all from fm_bringup, the integration point
+app.bringup -> robot.control
+app.bringup -> sim.models
+app.bringup -> sim.backends
+app.bringup -> teleop.device
+
+# overlay plugs in at the control layer, depends on no public package
+learning -> robot.control: plugs in on top { style.stroke-dash: 4 }

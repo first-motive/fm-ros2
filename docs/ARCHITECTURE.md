@@ -89,6 +89,31 @@ foundation**, `fm_control` adds the control layer on top of it, and `fm_bringup`
 orchestrates everything. The learning overlay plugs in at the top without the lower
 layers knowing it exists.
 
+## Package Dependency Graph
+
+The repo map above is the repo-level view. Below is the full top-down graph: every
+`fm_` package and the `<depend>` edges between them. `fm_ros2` exec-depends on the
+four public group metapackages, and each group pulls its own leaf packages, so
+`colcon build` reaches every package by recursion.
+
+![packages](diagrams/packages.svg)
+
+Source: [`diagrams/packages.d2`](diagrams/packages.d2).
+
+Two properties of the graph are the design contract:
+
+- **`fm_bringup` is the only cross-group edge.** Every dependency that leaves a
+  group originates in `fm_bringup` — it pulls `fm_control` (robot), `fm_sim_models`
+  and `fm_sim_backends` (sim), and `fm_teleop_device` (teleop). The app layer is
+  the sole integration point; no other package reaches across a group boundary.
+- **`fm_description` is the foundation.** Inside `fm-robot`, `fm_control` depends on
+  `fm_description` and nothing depends back on it. The teleop group is a star — all
+  four adapters depend on `fm_teleop_core`, never on each other.
+
+The private learning overlay plugs in at `fm_control` (policy serving feeds the same
+control stack the operator drives) and depends on no public package, so it adds a
+top edge without the lower layers knowing it exists.
+
 ## Per-Repo Architecture
 
 Each repo documents its own internals. The detail that once lived here moved down
