@@ -27,17 +27,21 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# Step narration lives in fm_tui (fm_tui/banner.py) so run.sh and the TUI share
-# one source of brand colour. `step` draws a numbered header block as a rich rule;
-# `item` prints a plain status line beneath it. The first steps run on the host
-# before the container exists, so reach rich through `uv run --with rich`. Fall
-# back to a plain header when uv or the module is absent (e.g. before `vcs import`).
-BANNER=src/fm-app/fm_tui/fm_tui/banner.py
+# Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
+# run.sh and the TUIs share one source of brand colour. `step` draws a numbered
+# header block as a rich rule; `item` prints a plain status line beneath it. The
+# first steps run on the host before the container exists, so reach the banner
+# through `uv run --with` (SHA-pinned == fm-tools v0.1.0). Fall back to a plain
+# header when uv is absent.
+FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@3523b395365909d1b3b49e82f83cebc931910ae4"
 STEP=0
 step() {  # title  [role]
   STEP=$((STEP + 1))
-  if [[ -f "$BANNER" ]] && command -v uv >/dev/null 2>&1; then
-    uv run --quiet --no-project --with rich python3 "$BANNER" "$STEP" "$1" "${2:-step}"
+  if command -v uv >/dev/null 2>&1; then
+    # -W ignore::RuntimeWarning silences runpy's harmless "already in sys.modules"
+    # note: fm_tools.tui re-exports banner, so `-m` sees it pre-imported.
+    uv run --quiet --no-project --with "$FM_TOOLS" \
+      python3 -W ignore::RuntimeWarning -m fm_tools.tui.banner "$STEP" "$1" "${2:-step}"
   else
     echo "== $STEP. $1 =="
   fi
