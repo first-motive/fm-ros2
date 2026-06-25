@@ -33,7 +33,7 @@ cd "$(dirname "$0")"
 # first steps run on the host before the container exists, so reach the banner
 # through `uv run --with` (SHA-pinned == fm-tools v0.1.0). Fall back to a plain
 # header when uv is absent.
-FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@3523b395365909d1b3b49e82f83cebc931910ae4"
+FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@5d9ef62f9449321730b8ebcacef7be3bc13448f5"
 STEP=0
 step() {  # title  [role]
   STEP=$((STEP + 1))
