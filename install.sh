@@ -25,6 +25,7 @@ set -euo pipefail
 
 REPO_URL="https://github.com/first-motive/fm-ros2.git"
 TARGET="fm-ros2"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm-ros2"
 
 say() { echo "==> $1"; }
 
@@ -32,13 +33,49 @@ usage() {
   cat <<'EOF'
 install.sh — bootstrap the fm_ros2 workspace (clone + import + run)
 
-Usage: ./install.sh [--macos|--linux] [--learning] [--no-run] [-h|--help]
+Usage: ./install.sh [install|uninstall] [options]
 
+  install      clone + import + run (default)
+  uninstall    tear down the compose stack and clear the fm-tools lib cache
+               (the workspace clone and pulled images are left in place)
+
+Options:
   --macos | --linux   force the overlay handed to run.sh (default: auto-detect)
   --learning          also import the private learning overlay (fm-learning.repos)
   --no-run            clone + import only, stop before run.sh (CI)
+  --dry-run           print what would happen, change nothing (uninstall)
   -h, --help          show this help
 EOF
+}
+
+# Tear down the running stack and clear the fm-tools lib cache. Removes only what
+# this bootstrap owns transiently — never the cloned workspace (the user's work)
+# or pulled images (shared, re-pullable).
+do_uninstall() {
+  local dry="$1"
+  if [[ "$dry" == 1 ]]; then
+    say "would tear down the compose stack (docker compose down)"
+    say "would remove the fm-tools lib cache ($CACHE_DIR)"
+    return 0
+  fi
+  if [[ -f docker/compose.yaml ]]; then
+    # One overlay is enough to address the compose project for teardown; pick
+    # whichever this host has. Best-effort — a stack that is already down is fine.
+    local overlay=""
+    local o
+    for o in docker/compose.macos.yaml docker/compose.linux.yaml; do
+      [[ -f "$o" ]] && { overlay="$o"; break; }
+    done
+    say "tearing down the compose stack ..."
+    if [[ -n "$overlay" ]]; then
+      docker compose -f docker/compose.yaml -f "$overlay" down 2>/dev/null || true
+    else
+      docker compose -f docker/compose.yaml down 2>/dev/null || true
+    fi
+  fi
+  say "removing the fm-tools lib cache ($CACHE_DIR) ..."
+  rm -rf "$CACHE_DIR"
+  say "uninstall complete — workspace clone and pulled images left in place."
 }
 
 # vcs (vcstool) drives the imports. Prefer one already on PATH; otherwise install
@@ -64,12 +101,14 @@ ensure_vcs() {
 }
 
 main() {
-  local learning=false no_run=false
+  local cmd=install learning=false no_run=false dry=0
   local -a run_args=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      install|uninstall) cmd="$1"; shift ;;
       --learning) learning=true; shift ;;
       --no-run) no_run=true; shift ;;
+      --dry-run) dry=1; shift ;;
       --macos|--linux) run_args+=("$1"); shift ;;  # forwarded to run.sh
       -h|--help) usage; return 0 ;;
       *)
@@ -79,6 +118,11 @@ main() {
         ;;
     esac
   done
+
+  if [[ "$cmd" == uninstall ]]; then
+    do_uninstall "$dry"
+    return $?
+  fi
 
   # Clone on first run, reuse an existing checkout on re-run — never clobber a tree
   # the user already has work in. On reuse, try a fast-forward-only pull to pick up
