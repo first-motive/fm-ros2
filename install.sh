@@ -124,6 +124,13 @@ main() {
     return $?
   fi
 
+  # CI self-test hook: arg parse survived the curl|bash pipe — stop before any
+  # clone or import. Lets the curl-path test prove the script loads, no auth.
+  if [[ -n "${FM_SELFTEST:-}" ]]; then
+    echo "selftest ok: install.sh parsed under curl|bash"
+    return 0
+  fi
+
   # Clone on first run, reuse an existing checkout on re-run — never clobber a tree
   # the user already has work in. On reuse, try a fast-forward-only pull to pick up
   # upstream: --ff-only refuses on local commits, divergence, or a dirty tree, so it

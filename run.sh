@@ -160,6 +160,13 @@ main() {
     *linux*) HOST="Linux" ;;
   esac
 
+  # CI self-test hook: lib loaded + overlay resolved — stop before any import,
+  # container, or build. Lets the curl-path test exercise the piped lib fetch.
+  if [[ -n "${FM_SELFTEST:-}" ]]; then
+    echo "selftest ok: lib loaded, host=$HOST"
+    return 0
+  fi
+
   step "Detect OS"
   item "${HOST} detected"
 
