@@ -6,12 +6,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo "==> Checking Docker / OrbStack..."
-if ! command -v docker >/dev/null 2>&1; then
-  echo "ERROR: docker not found. Install OrbStack: https://orbstack.dev" >&2
-  exit 1
+echo "==> Setting up Docker / OrbStack via fm-docker..."
+# Delegate the runtime bring-up to fm-docker — no vendored helper here. Use the
+# imported installer when docker/ is present; fall back to the pinned tag.
+if [[ -f docker/install.sh ]]; then
+  bash docker/install.sh --no-pull
+else
+  curl -fsSL --proto '=https' --proto-redir '=https' \
+    "https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.0/install.sh" | bash -s -- --no-pull
 fi
-./scripts/ensure-docker.sh
 if docker info 2>/dev/null | grep -qi orbstack; then
   echo "    OrbStack detected."
 else

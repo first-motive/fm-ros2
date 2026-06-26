@@ -31,9 +31,32 @@ cd "$(dirname "$0")"
 # run.sh and the TUIs share one source of brand colour. `step` draws a numbered
 # header block as a rich rule; `item` prints a plain status line beneath it. The
 # first steps run on the host before the container exists, so reach the banner
-# through `uv run --with` (SHA-pinned == fm-tools v0.1.0). Fall back to a plain
+# through `uv run --with` (pinned to fm-tools v0.2.0). Fall back to a plain
 # header when uv is absent.
-FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@5d9ef62f9449321730b8ebcacef7be3bc13448f5"
+FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.2.0"
+# lib.sh is owned by fm-tools; fetch it from the same pinned tag for the host
+# checks (fm_detect_os). The container runtime is delegated to fm-docker v0.1.0.
+FM_TOOLS_RAW="https://raw.githubusercontent.com/first-motive/fm-tools/v0.2.0"
+FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.0"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm-ros2"
+
+# Load the shared bootstrap library (fm-tools lib.sh) for fm_detect_os. Reuse a
+# cached fetch, else fetch from the pinned fm-tools tag and cache it.
+load_lib() {
+  local cached="$CACHE_DIR/lib.sh"
+  if [ ! -f "$cached" ]; then
+    mkdir -p "$CACHE_DIR"
+    chmod 700 "$CACHE_DIR"  # lib.sh is sourced from here; keep the cache user-only
+    local tmp="$cached.tmp.$$"
+    curl -fsSL --proto '=https' --proto-redir '=https' "$FM_TOOLS_RAW/lib.sh" -o "$tmp" \
+      || { rm -f "$tmp"; echo "error: failed to fetch lib.sh from fm-tools" >&2; exit 1; }
+    [ -s "$tmp" ] || { rm -f "$tmp"; echo "error: empty lib.sh download" >&2; exit 1; }
+    mv "$tmp" "$cached"
+  fi
+  # shellcheck source=/dev/null
+  source "$cached"
+}
+load_lib
 STEP=0
 step() {  # title  [role]
   STEP=$((STEP + 1))
@@ -73,19 +96,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Auto-detect the overlay from the host OS when not forced by a flag.
+# Auto-detect the overlay from the host OS when not forced by a flag. fm_detect_os
+# (from the fm-tools lib) echoes macos|linux.
 if [[ -z "$OVERLAY" ]]; then
-  case "$(uname -s)" in
-    Darwin)
-      OVERLAY=docker/compose.macos.yaml
-      ;;
-    Linux)
-      OVERLAY=docker/compose.linux.yaml
-      ;;
-    *)
-      echo "error: unsupported host OS '$(uname -s)' — pass --macos or --linux" >&2
-      exit 1
-      ;;
+  case "$(fm_detect_os)" in
+    macos) OVERLAY=docker/compose.macos.yaml ;;
+    linux) OVERLAY=docker/compose.linux.yaml ;;
+    *) echo "error: unsupported host OS — pass --macos or --linux" >&2; exit 1 ;;
   esac
 fi
 
@@ -113,8 +130,14 @@ SERVICE=fm
 # sure the daemon is up — both idempotent, and each prints its own status bullet.
 step "${HOST} Container"
 if [[ "$OVERLAY" == docker/compose.macos.yaml ]]; then
-  ./scripts/install-orbstack.sh
-  ./scripts/ensure-docker.sh
+  # Delegate the container runtime (OrbStack install + daemon start) to fm-docker
+  # — no vendored helper here. docker/ is imported above, so use the imported
+  # installer; fall back to the pinned fm-docker tag when it is absent.
+  if [[ -f docker/install.sh ]]; then
+    bash docker/install.sh --no-pull
+  else
+    curl -fsSL --proto '=https' --proto-redir '=https' "$FM_DOCKER_RAW/install.sh" | bash -s -- --no-pull
+  fi
 fi
 "${COMPOSE[@]}" up -d
 item "Container up"

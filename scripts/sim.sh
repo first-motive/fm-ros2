@@ -73,18 +73,21 @@ esac
 
 cd "$(dirname "$0")/.."
 
-# On macOS the MuJoCo path depends on OrbStack/Docker being up first.
-if [[ "$(uname -s)" == "Darwin" ]]; then
-  if ! command -v docker >/dev/null 2>&1; then
-    echo "ERROR: docker not found. Install OrbStack: https://orbstack.dev" >&2
-    exit 1
-  fi
-  ./scripts/ensure-docker.sh
-fi
-
 # fm-ros2 consumes the published fm-app full-stack image and sources the compose
 # overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).
 [[ -d docker ]] || vcs import < fm-ros2.repos
+
+# On macOS the MuJoCo path depends on OrbStack/Docker being up first. Delegate the
+# runtime bring-up to fm-docker — no vendored helper here. docker/ is imported
+# above, so use the imported installer; fall back to the pinned tag when absent.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if [[ -f docker/install.sh ]]; then
+    bash docker/install.sh --no-pull
+  else
+    curl -fsSL --proto '=https' --proto-redir '=https' \
+      "https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.0/install.sh" | bash -s -- --no-pull
+  fi
+fi
 export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
 export FM_WS="$PWD"
 COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
