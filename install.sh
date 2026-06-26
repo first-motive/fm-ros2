@@ -5,6 +5,10 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh | bash
 #
+# Inspect before running (always offer this path):
+#   curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh -o install.sh
+#   less install.sh && bash install.sh
+#
 # fm-ros2 is public, so the script is reachable; the package repos are private,
 # so the import step assumes git auth (SSH key or a credential helper) and fails
 # with a clear "need org access" message without it. Team-only by design.
@@ -14,43 +18,28 @@
 #   curl ... | bash -s -- --macos       # force the macOS overlay on run.sh
 #   curl ... | bash -s -- --learning    # also import the private learning overlay
 #   curl ... | bash -s -- --no-run      # clone + import only, stop before run.sh (CI)
+#
+# The body is wrapped in main() and called on the last line, so a truncated
+# curl|bash leaves an incomplete function that never runs.
 set -euo pipefail
 
 REPO_URL="https://github.com/first-motive/fm-ros2.git"
 TARGET="fm-ros2"
 
-LEARNING=false
-NO_RUN=false
-RUN_ARGS=()
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --learning) LEARNING=true; shift ;;
-    --no-run) NO_RUN=true; shift ;;
-    --macos|--linux) RUN_ARGS+=("$1"); shift ;;  # forwarded to run.sh
-    *)
-      echo "error: unknown argument '$1'" >&2
-      echo "usage: install.sh [--macos|--linux] [--learning] [--no-run]" >&2
-      exit 1
-      ;;
-  esac
-done
-
 say() { echo "==> $1"; }
 
-# Clone on first run, reuse an existing checkout on re-run — never clobber a tree
-# the user already has work in. On reuse, try a fast-forward-only pull to pick up
-# upstream: --ff-only refuses on local commits, divergence, or a dirty tree, so it
-# never resets their work. A refusal is fine — warn and carry on with their tree.
-if [[ -d "$TARGET/.git" ]]; then
-  say "reusing existing $TARGET/ — fast-forwarding to upstream ..."
-  git -C "$TARGET" pull --ff-only \
-    || say "could not fast-forward (local changes or divergence) — keeping your tree"
-else
-  say "cloning fm-ros2 into $TARGET/ ..."
-  git clone --depth 1 "$REPO_URL" "$TARGET"
-fi
-cd "$TARGET"
+usage() {
+  cat <<'EOF'
+install.sh — bootstrap the fm_ros2 workspace (clone + import + run)
+
+Usage: ./install.sh [--macos|--linux] [--learning] [--no-run] [-h|--help]
+
+  --macos | --linux   force the overlay handed to run.sh (default: auto-detect)
+  --learning          also import the private learning overlay (fm-learning.repos)
+  --no-run            clone + import only, stop before run.sh (CI)
+  -h, --help          show this help
+EOF
+}
 
 # vcs (vcstool) drives the imports. Prefer one already on PATH; otherwise install
 # it with uv so the `vcs` import-externals.sh shells out to is also available.
@@ -73,46 +62,81 @@ ensure_vcs() {
     *) export PATH="$bin:$PATH" ;;
   esac
 }
-ensure_vcs
 
-# Pull the container infra into docker/ and the four public package repos into
-# src/ (manifest paths are root-relative, so import from the root). A failure here
-# is almost always missing org access to the private repos — say so plainly, then
-# exit non-zero.
-say "importing container infra + package repos ..."
-if ! vcs import < fm-ros2.repos; then
-  echo "error: failed to import the package repos." >&2
-  echo "       The fm-* package repos are private — this needs git access to the" >&2
-  echo "       first-motive org (SSH key or a credential helper). Check your auth" >&2
-  echo "       and retry." >&2
-  exit 1
-fi
+main() {
+  local learning=false no_run=false
+  local -a run_args=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --learning) learning=true; shift ;;
+      --no-run) no_run=true; shift ;;
+      --macos|--linux) run_args+=("$1"); shift ;;  # forwarded to run.sh
+      -h|--help) usage; return 0 ;;
+      *)
+        echo "error: unknown argument '$1'" >&2
+        usage >&2
+        return 1
+        ;;
+    esac
+  done
 
-# Optional private learning overlay (fm-data + fm-policy + fm-learning).
-if [[ "$LEARNING" == true ]]; then
-  say "importing learning overlay into src/ ..."
-  if ! vcs import src < fm-learning.repos; then
-    echo "error: failed to import the learning overlay (fm-learning.repos)." >&2
-    echo "       This needs access to the private learning repos. Check your auth." >&2
-    exit 1
+  # Clone on first run, reuse an existing checkout on re-run — never clobber a tree
+  # the user already has work in. On reuse, try a fast-forward-only pull to pick up
+  # upstream: --ff-only refuses on local commits, divergence, or a dirty tree, so it
+  # never resets their work. A refusal is fine — warn and carry on with their tree.
+  if [[ -d "$TARGET/.git" ]]; then
+    say "reusing existing $TARGET/ — fast-forwarding to upstream ..."
+    git -C "$TARGET" pull --ff-only \
+      || say "could not fast-forward (local changes or divergence) — keeping your tree"
+  else
+    say "cloning fm-ros2 into $TARGET/ ..."
+    git clone --depth 1 "$REPO_URL" "$TARGET"
   fi
-fi
+  cd "$TARGET"
 
-# Vendor the external sources the build consumes into external/.
-say "vendoring externals into external/ ..."
-./scripts/import-externals.sh
+  ensure_vcs
 
-if [[ "$NO_RUN" == true ]]; then
-  say "import complete — stopping before run.sh (--no-run)."
-  exit 0
-fi
+  # Pull the container infra into docker/ and the four public package repos into
+  # src/ (manifest paths are root-relative, so import from the root). A failure here
+  # is almost always missing org access to the private repos — say so plainly, then
+  # exit non-zero.
+  say "importing container infra + package repos ..."
+  if ! vcs import < fm-ros2.repos; then
+    echo "error: failed to import the package repos." >&2
+    echo "       The fm-* package repos are private — this needs git access to the" >&2
+    echo "       first-motive org (SSH key or a credential helper). Check your auth" >&2
+    echo "       and retry." >&2
+    return 1
+  fi
 
-# Install the macOS robot viewer so run.sh can auto-open it pre-connected to the
-# bridge. Best-effort and macOS-only (the script self-skips on Linux) — a failure
-# never blocks the bootstrap.
-say "ensuring Foxglove Studio (macOS viewer) ..."
-./scripts/install-foxglove.sh
+  # Optional private learning overlay (fm-data + fm-policy + fm-learning).
+  if [[ "$learning" == true ]]; then
+    say "importing learning overlay into src/ ..."
+    if ! vcs import src < fm-learning.repos; then
+      echo "error: failed to import the learning overlay (fm-learning.repos)." >&2
+      echo "       This needs access to the private learning repos. Check your auth." >&2
+      return 1
+    fi
+  fi
 
-# Hand off to the front door: detect OS, build, open the launcher.
-say "launching run.sh ..."
-exec ./run.sh ${RUN_ARGS[@]+"${RUN_ARGS[@]}"}
+  # Vendor the external sources the build consumes into external/.
+  say "vendoring externals into external/ ..."
+  ./scripts/import-externals.sh
+
+  if [[ "$no_run" == true ]]; then
+    say "import complete — stopping before run.sh (--no-run)."
+    return 0
+  fi
+
+  # Install the macOS robot viewer so run.sh can auto-open it pre-connected to the
+  # bridge. Best-effort and macOS-only (the script self-skips on Linux) — a failure
+  # never blocks the bootstrap.
+  say "ensuring Foxglove Studio (macOS viewer) ..."
+  ./scripts/install-foxglove.sh
+
+  # Hand off to the front door: detect OS, build, open the launcher.
+  say "launching run.sh ..."
+  exec ./run.sh ${run_args[@]+"${run_args[@]}"}
+}
+
+main "$@"

@@ -3,42 +3,63 @@
 # Full hardware path — GPU, device passthrough, X11.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+usage() {
+  cat <<'EOF'
+setup-linux.sh — Linux (native) setup: verify Docker + NVIDIA toolkit, build base image
 
-echo "==> Checking Docker..."
-if ! command -v docker >/dev/null 2>&1; then
-  echo "ERROR: docker not found." >&2
-  exit 1
-fi
-if ! docker info >/dev/null 2>&1; then
-  echo "ERROR: Docker daemon not reachable. Start Docker and retry." >&2
-  exit 1
-fi
+Full hardware path — GPU, device passthrough, X11.
 
-echo "==> Checking NVIDIA container toolkit (GPU path)..."
-if docker info 2>/dev/null | grep -qi nvidia; then
-  echo "    NVIDIA runtime detected."
-else
-  echo "    WARNING: NVIDIA runtime not detected. Install nvidia-container-toolkit"
-  echo "    for GPU access, or the linux overlay's GPU reservation will fail."
-fi
+Usage: ./scripts/setup-linux.sh [-h]
 
-echo "==> Allowing local X11 connections (for GUI tools)..."
-command -v xhost >/dev/null 2>&1 && xhost +local:docker || \
-  echo "    xhost not available — skip if running headless."
+  -h, --help   show this help
+EOF
+}
 
-echo "==> Importing external dependencies (placeholder pins)..."
-if command -v vcs >/dev/null 2>&1; then
-  ./scripts/import-externals.sh
-else
-  echo "    vcs not on host; import runs inside the container instead:"
-  echo "      docker compose -f docker/compose.yaml -f docker/compose.linux.yaml run --rm fm \\"
-  echo "        ./scripts/import-externals.sh"
-fi
+main() {
+  case "${1:-}" in
+    -h|--help) usage; return 0 ;;
+  esac
 
-echo "==> Building base image..."
-docker compose -f docker/compose.yaml -f docker/compose.linux.yaml build
+  local ROOT
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  cd "$ROOT"
 
-echo "==> Done. Bring the stack up with:"
-echo "    docker compose -f docker/compose.yaml -f docker/compose.linux.yaml up"
+  echo "==> Checking Docker..."
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "ERROR: docker not found." >&2
+    return 1
+  fi
+  if ! docker info >/dev/null 2>&1; then
+    echo "ERROR: Docker daemon not reachable. Start Docker and retry." >&2
+    return 1
+  fi
+
+  echo "==> Checking NVIDIA container toolkit (GPU path)..."
+  if docker info 2>/dev/null | grep -qi nvidia; then
+    echo "    NVIDIA runtime detected."
+  else
+    echo "    WARNING: NVIDIA runtime not detected. Install nvidia-container-toolkit"
+    echo "    for GPU access, or the linux overlay's GPU reservation will fail."
+  fi
+
+  echo "==> Allowing local X11 connections (for GUI tools)..."
+  command -v xhost >/dev/null 2>&1 && xhost +local:docker || \
+    echo "    xhost not available — skip if running headless."
+
+  echo "==> Importing external dependencies (placeholder pins)..."
+  if command -v vcs >/dev/null 2>&1; then
+    ./scripts/import-externals.sh
+  else
+    echo "    vcs not on host; import runs inside the container instead:"
+    echo "      docker compose -f docker/compose.yaml -f docker/compose.linux.yaml run --rm fm \\"
+    echo "        ./scripts/import-externals.sh"
+  fi
+
+  echo "==> Building base image..."
+  docker compose -f docker/compose.yaml -f docker/compose.linux.yaml build
+
+  echo "==> Done. Bring the stack up with:"
+  echo "    docker compose -f docker/compose.yaml -f docker/compose.linux.yaml up"
+}
+
+main "$@"

@@ -9,41 +9,64 @@
 #            venv (uv pip install lerobot) to this editable source install.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+usage() {
+  cat <<'EOF'
+setup-lerobot.sh — create the lerobot env: editable install from external/lerobot
 
-VENV="$HOME/.venvs/lerobot"
-SRC="external/lerobot"
+Run scripts/import-externals.sh first (this needs the vendored source).
+Idempotent: skips if ~/.venvs/lerobot already exists.
 
-FORCE=0
-[[ "${1:-}" == "--force" ]] && FORCE=1
+Usage: ./scripts/setup-lerobot.sh [--force] [-h]
 
-if ! command -v uv >/dev/null 2>&1; then
-  echo "ERROR: uv not found. Install uv first (see README)." >&2
-  exit 1
-fi
+  --force      wipe and reinstall editable (migrate an old PyPI lerobot venv)
+  -h, --help   show this help
+EOF
+}
 
-# The editable install points at the vendored source — fail loud if it is absent.
-if [ ! -d "$SRC" ]; then
-  echo "ERROR: $SRC missing. Run scripts/import-externals.sh first." >&2
-  exit 1
-fi
+main() {
+  case "${1:-}" in
+    -h|--help) usage; return 0 ;;
+  esac
 
-if [ -d "$VENV" ]; then
-  if [ "$FORCE" -eq 1 ]; then
-    echo "==> --force: removing existing venv at $VENV ..."
-    rm -rf "$VENV"
-  else
-    echo "==> lerobot venv exists at $VENV — skipping (use --force to recreate)."
-    exit 0
+  local ROOT
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  cd "$ROOT"
+
+  local VENV="$HOME/.venvs/lerobot"
+  local SRC="external/lerobot"
+
+  local FORCE=0
+  [[ "${1:-}" == "--force" ]] && FORCE=1
+
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "ERROR: uv not found. Install uv first (see README)." >&2
+    return 1
   fi
-fi
 
-echo "==> Creating lerobot venv at $VENV (python 3.12) ..."
-uv venv "$VENV" --python 3.12
+  # The editable install points at the vendored source — fail loud if it is absent.
+  if [ ! -d "$SRC" ]; then
+    echo "ERROR: $SRC missing. Run scripts/import-externals.sh first." >&2
+    return 1
+  fi
 
-echo "==> Installing lerobot (editable, dataset + feetech extras) from $SRC ..."
-uv pip install --python "$VENV/bin/python" -e "$SRC[dataset,feetech]"
+  if [ -d "$VENV" ]; then
+    if [ "$FORCE" -eq 1 ]; then
+      echo "==> --force: removing existing venv at $VENV ..."
+      rm -rf "$VENV"
+    else
+      echo "==> lerobot venv exists at $VENV — skipping (use --force to recreate)."
+      return 0
+    fi
+  fi
 
-echo "==> Done. lerobot installed editable from $SRC."
-echo "==> Activate: source $VENV/bin/activate"
+  echo "==> Creating lerobot venv at $VENV (python 3.12) ..."
+  uv venv "$VENV" --python 3.12
+
+  echo "==> Installing lerobot (editable, dataset + feetech extras) from $SRC ..."
+  uv pip install --python "$VENV/bin/python" -e "${SRC}[dataset,feetech]"
+
+  echo "==> Done. lerobot installed editable from $SRC."
+  echo "==> Activate: source $VENV/bin/activate"
+}
+
+main "$@"

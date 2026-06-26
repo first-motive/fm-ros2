@@ -10,30 +10,51 @@
 # missing. On Linux the viewer path is RViz inside the container, so this skips.
 set -euo pipefail
 
-if [ "$(uname -s)" != "Darwin" ]; then
-  exit 0
-fi
+usage() {
+  cat <<'EOF'
+install-foxglove.sh — ensure Foxglove Studio is installed on macOS (idempotent)
 
-if [ -d "/Applications/Foxglove.app" ]; then
-  echo "Foxglove Studio already installed"
-  exit 0
-fi
+Installs via the Homebrew cask when missing; warns and returns 0 on any
+failure (the viewer is optional). No-op off macOS.
 
-echo "Foxglove Studio not found, installing..."
-if ! command -v brew >/dev/null 2>&1; then
-  echo "WARNING: Homebrew not found — skipping Foxglove Studio." >&2
-  echo "         Install it (https://brew.sh), then: brew install --cask foxglove" >&2
-  echo "         Or download manually: https://foxglove.dev/download" >&2
-  exit 0
-fi
+Usage: ./scripts/install-foxglove.sh [-h]
 
-if brew install --cask foxglove; then
-  echo "Foxglove Studio installed"
-else
-  echo "WARNING: Foxglove Studio install failed — continuing without it." >&2
-  echo "         Retry later: brew install --cask foxglove" >&2
-fi
+  -h, --help   show this help
+EOF
+}
 
-# Best-effort viewer: succeed regardless of the install outcome so the bootstrap
-# never aborts on a missing or failed Foxglove install.
-exit 0
+main() {
+  case "${1:-}" in
+    -h|--help) usage; return 0 ;;
+  esac
+
+  if [ "$(uname -s)" != "Darwin" ]; then
+    return 0
+  fi
+
+  if [ -d "/Applications/Foxglove.app" ]; then
+    echo "Foxglove Studio already installed"
+    return 0
+  fi
+
+  echo "Foxglove Studio not found, installing..."
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "WARNING: Homebrew not found — skipping Foxglove Studio." >&2
+    echo "         Install it (https://brew.sh), then: brew install --cask foxglove" >&2
+    echo "         Or download manually: https://foxglove.dev/download" >&2
+    return 0
+  fi
+
+  if brew install --cask foxglove; then
+    echo "Foxglove Studio installed"
+  else
+    echo "WARNING: Foxglove Studio install failed — continuing without it." >&2
+    echo "         Retry later: brew install --cask foxglove" >&2
+  fi
+
+  # Best-effort viewer: succeed regardless of the install outcome so the bootstrap
+  # never aborts on a missing or failed Foxglove install.
+  return 0
+}
+
+main "$@"

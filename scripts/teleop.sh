@@ -43,75 +43,95 @@
 # Extra args pass straight through to `ros2 launch`.
 set -euo pipefail
 
-ROBOT=openarm
-VARIANT=""
-BACKEND=mujoco
-INPUT=foxglove
-PASSTHROUGH=()
+usage() {
+  cat <<'EOF'
+teleop.sh — jog a robot's arm interactively through MoveIt Servo
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --robot) ROBOT="$2"; shift 2 ;;
-    --robot=*) ROBOT="${1#--robot=}"; shift ;;
-    --variant) VARIANT="$2"; shift 2 ;;
-    --variant=*) VARIANT="${1#--variant=}"; shift ;;
-    --backend) BACKEND="$2"; shift 2 ;;
-    --backend=*) BACKEND="${1#--backend=}"; shift ;;
-    --input) INPUT="$2"; shift 2 ;;
-    --input=*) INPUT="${1#--input=}"; shift ;;
-    *) PASSTHROUGH+=("$1"); shift ;;
+Usage: ./scripts/teleop.sh [--robot R] [--variant V] [--backend B] [--input I] [-h] [ros2-launch-args...]
+
+  --robot R      openarm | so101 | g1_d (default openarm)
+  --variant V    description variant
+  --backend B    mock | mujoco | gazebo | isaac | real (default mujoco)
+  --input I      foxglove | joy | spacenav | vision (default foxglove)
+  -h, --help     show this help
+
+mock/mujoco use the macOS (CPU) overlay; gazebo/isaac/real use the Linux (GPU)
+overlay. Extra args pass straight through to `ros2 launch`.
+EOF
+}
+
+main() {
+  local ROBOT=openarm VARIANT="" BACKEND=mujoco INPUT=foxglove
+  local PASSTHROUGH=()
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help) usage; return 0 ;;
+      --robot) ROBOT="$2"; shift 2 ;;
+      --robot=*) ROBOT="${1#--robot=}"; shift ;;
+      --variant) VARIANT="$2"; shift 2 ;;
+      --variant=*) VARIANT="${1#--variant=}"; shift ;;
+      --backend) BACKEND="$2"; shift 2 ;;
+      --backend=*) BACKEND="${1#--backend=}"; shift ;;
+      --input) INPUT="$2"; shift 2 ;;
+      --input=*) INPUT="${1#--input=}"; shift ;;
+      *) PASSTHROUGH+=("$1"); shift ;;
+    esac
+  done
+
+  ROBOT="${ROBOT//-/_}"
+  BACKEND="${BACKEND//-/_}"
+
+  local VALID_BACKENDS=(mock mujoco gazebo isaac real)
+  local ok=false b
+  for b in "${VALID_BACKENDS[@]}"; do
+    [[ "$BACKEND" == "$b" ]] && ok=true && break
+  done
+  if [[ "$ok" != true ]]; then
+    echo "error: unknown backend '$BACKEND'" >&2
+    echo "valid backends: ${VALID_BACKENDS[*]}" >&2
+    return 1
+  fi
+
+  local VALID_INPUTS=(foxglove joy spacenav vision) i
+  ok=false
+  for i in "${VALID_INPUTS[@]}"; do
+    [[ "$INPUT" == "$i" ]] && ok=true && break
+  done
+  if [[ "$ok" != true ]]; then
+    echo "error: unknown input '$INPUT'" >&2
+    echo "valid inputs: ${VALID_INPUTS[*]}" >&2
+    return 1
+  fi
+
+  local OVERLAY
+  case "$BACKEND" in
+    mock|mujoco) OVERLAY=docker/compose.macos.yaml ;;
+    gazebo|isaac|real) OVERLAY=docker/compose.linux.yaml ;;
   esac
-done
 
-ROBOT="${ROBOT//-/_}"
-BACKEND="${BACKEND//-/_}"
+  cd "$(dirname "$0")/.."
 
-VALID_BACKENDS=(mock mujoco gazebo isaac real)
-ok=false
-for b in "${VALID_BACKENDS[@]}"; do
-  [[ "$BACKEND" == "$b" ]] && ok=true && break
-done
-if [[ "$ok" != true ]]; then
-  echo "error: unknown backend '$BACKEND'" >&2
-  echo "valid backends: ${VALID_BACKENDS[*]}" >&2
-  exit 1
-fi
+  # fm-ros2 consumes the published fm-app full-stack image and sources the compose
+  # overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).
+  [[ -d docker ]] || vcs import < fm-ros2.repos
+  export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
+  export FM_WS="$PWD"
+  local COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
+  local SERVICE=fm
 
-VALID_INPUTS=(foxglove joy spacenav vision)
-ok=false
-for i in "${VALID_INPUTS[@]}"; do
-  [[ "$INPUT" == "$i" ]] && ok=true && break
-done
-if [[ "$ok" != true ]]; then
-  echo "error: unknown input '$INPUT'" >&2
-  echo "valid inputs: ${VALID_INPUTS[*]}" >&2
-  exit 1
-fi
+  local LAUNCH=(ros2 launch fm_bringup teleop.launch.py \
+    "robot:=$ROBOT" "sim_backend:=$BACKEND" "input:=$INPUT")
+  [[ -n "$VARIANT" ]] && LAUNCH+=("variant:=$VARIANT")
+  LAUNCH+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"})
 
-case "$BACKEND" in
-  mock|mujoco) OVERLAY=docker/compose.macos.yaml ;;
-  gazebo|isaac|real) OVERLAY=docker/compose.linux.yaml ;;
-esac
+  echo ">> teleop: $INPUT -> MoveIt Servo -> $ROBOT ($BACKEND target)"
+  echo ">> shared stack — bringing container up (idempotent)"
+  "${COMPOSE[@]}" up -d
+  echo ">> Ctrl-C stops teleop, stack stays up"
+  echo ">> Foxglove Studio: connect to ws://localhost:8765"
+  # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
+  exec "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh "${LAUNCH[@]}"
+}
 
-cd "$(dirname "$0")/.."
-
-# fm-ros2 consumes the published fm-app full-stack image and sources the compose
-# overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).
-[[ -d docker ]] || vcs import < fm-ros2.repos
-export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
-export FM_WS="$PWD"
-COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
-SERVICE=fm
-
-LAUNCH=(ros2 launch fm_bringup teleop.launch.py \
-  "robot:=$ROBOT" "sim_backend:=$BACKEND" "input:=$INPUT")
-[[ -n "$VARIANT" ]] && LAUNCH+=("variant:=$VARIANT")
-LAUNCH+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"})
-
-echo ">> teleop: $INPUT -> MoveIt Servo -> $ROBOT ($BACKEND target)"
-echo ">> shared stack — bringing container up (idempotent)"
-"${COMPOSE[@]}" up -d
-echo ">> Ctrl-C stops teleop, stack stays up"
-echo ">> Foxglove Studio: connect to ws://localhost:8765"
-# `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
-exec "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh "${LAUNCH[@]}"
+main "$@"

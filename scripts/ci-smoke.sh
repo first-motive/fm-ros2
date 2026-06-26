@@ -12,13 +12,18 @@
 # real-hardware items stay manual.
 set -uo pipefail  # not -e: run every check, aggregate failures at the end
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+usage() {
+  cat <<'EOF'
+ci-smoke.sh — headless smoke asserts for the three-robot teleop stack
 
-set +u
-source "/opt/ros/${ROS_DISTRO}/setup.bash"
-source install/setup.bash
-set -u
+Runs inside the built container, after `colcon build`. Every check runs;
+the script exits non-zero if any failed.
+
+Usage: ./scripts/ci-smoke.sh [-h]
+
+  -h, --help   show this help
+EOF
+}
 
 READY_TIMEOUT=40    # seconds to wait for a controller to reach "active"
 TEARDOWN_TIMEOUT=15 # seconds to wait for a torn-down control node to exit
@@ -279,14 +284,33 @@ PY
   sleep 2
 }
 
-echo "==> ci-smoke: three-robot headless asserts"
-assert_mock_controllers so101 so101_arm_controller
-assert_mock_controllers g1_d g1_right_arm_controller
-assert_g1_base_diff_drive
-assert_g1_arm_bridge
-assert_g1_hand_bridge
-assert_g1_hand_teleop
-assert_g1_base_teleop
+main() {
+  case "${1:-}" in
+    -h|--help) usage; return 0 ;;
+  esac
 
-echo "==> ci-smoke: ${fails} failure(s)"
-[ "$fails" -eq 0 ]
+  local ROOT
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  cd "$ROOT" || return 1
+
+  set +u
+  # shellcheck source=/dev/null
+  source "/opt/ros/${ROS_DISTRO}/setup.bash"
+  # shellcheck source=/dev/null
+  source install/setup.bash
+  set -u
+
+  echo "==> ci-smoke: three-robot headless asserts"
+  assert_mock_controllers so101 so101_arm_controller
+  assert_mock_controllers g1_d g1_right_arm_controller
+  assert_g1_base_diff_drive
+  assert_g1_arm_bridge
+  assert_g1_hand_bridge
+  assert_g1_hand_teleop
+  assert_g1_base_teleop
+
+  echo "==> ci-smoke: ${fails} failure(s)"
+  [ "$fails" -eq 0 ]
+}
+
+main "$@"

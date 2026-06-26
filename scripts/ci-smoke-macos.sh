@@ -13,22 +13,40 @@
 # the Linux job (scripts/ci-smoke.sh).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+usage() {
+  cat <<'EOF'
+ci-smoke-macos.sh — host-native macOS smoke: the ROS-free sim core on bare arm64
 
-# The ROS-free packages aren't installed here — point Python at their sources.
-# fm_sim lives in the fm-sim repo, imported under src/fm-sim (override with SIM_SRC).
-SIM_SRC="${SIM_SRC:-src/fm-sim}"
-export PYTHONPATH="$SIM_SRC/fm_sim_core:$SIM_SRC/fm_sim_models"
+Usage: ./scripts/ci-smoke-macos.sh [-h]
 
-echo "==> pytest: ROS-free sim core (stepper + MJCF registry)"
-uv run --with pytest --with mujoco pytest -q \
-  "$SIM_SRC/fm_sim_core/test/test_sim.py" \
-  "$SIM_SRC/fm_sim_models/test/test_models.py" \
-  "$SIM_SRC/fm_sim_models/test/test_import.py"
+  -h, --help   show this help
 
-echo "==> native mujoco: step the built-in model on arm64 CPU"
-uv run --with mujoco python - <<'PY'
+Env: SIM_SRC  fm_sim source root (default: src/fm-sim)
+EOF
+}
+
+main() {
+  case "${1:-}" in
+    -h|--help) usage; return 0 ;;
+  esac
+
+  local ROOT
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  cd "$ROOT"
+
+  # The ROS-free packages aren't installed here — point Python at their sources.
+  # fm_sim lives in the fm-sim repo, imported under src/fm-sim (override with SIM_SRC).
+  local SIM_SRC="${SIM_SRC:-src/fm-sim}"
+  export PYTHONPATH="$SIM_SRC/fm_sim_core:$SIM_SRC/fm_sim_models"
+
+  echo "==> pytest: ROS-free sim core (stepper + MJCF registry)"
+  uv run --with pytest --with mujoco pytest -q \
+    "$SIM_SRC/fm_sim_core/test/test_sim.py" \
+    "$SIM_SRC/fm_sim_models/test/test_models.py" \
+    "$SIM_SRC/fm_sim_models/test/test_import.py"
+
+  echo "==> native mujoco: step the built-in model on arm64 CPU"
+  uv run --with mujoco python - <<'PY'
 from fm_sim_core.stepper import MujocoStepper
 
 stepper = MujocoStepper()  # built-in 1-DOF MJCF, real mujoco wheel
@@ -39,4 +57,7 @@ assert len(sample.positions) == 1
 print("PASS: native mujoco step on arm64")
 PY
 
-echo "==> ci-smoke-macos: all host-native checks passed"
+  echo "==> ci-smoke-macos: all host-native checks passed"
+}
+
+main "$@"

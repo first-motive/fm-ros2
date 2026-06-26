@@ -6,21 +6,41 @@
 #     run --rm fm ./scripts/verify-build.sh    # from the macOS host
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+usage() {
+  cat <<'EOF'
+verify-build.sh — build and test the workspace inside the base image (same as CI)
 
-# ROS setup files reference unbound vars; relax `set -u` only across sourcing.
-set +u
-source "/opt/ros/${ROS_DISTRO}/setup.bash"
-set -u
+Usage: ./scripts/verify-build.sh [-h]
 
-echo "==> colcon build"
-colcon build --symlink-install
+  -h, --help   show this help
+EOF
+}
 
-echo "==> colcon test"
-colcon test --return-code-on-test-failure
+main() {
+  case "${1:-}" in
+    -h|--help) usage; return 0 ;;
+  esac
 
-echo "==> colcon test-result"
-colcon test-result --verbose
+  local ROOT
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  cd "$ROOT"
 
-echo "==> Build + test green."
+  # ROS setup files reference unbound vars; relax `set -u` only across sourcing.
+  set +u
+  # shellcheck source=/dev/null
+  source "/opt/ros/${ROS_DISTRO}/setup.bash"
+  set -u
+
+  echo "==> colcon build"
+  colcon build --symlink-install
+
+  echo "==> colcon test"
+  colcon test --return-code-on-test-failure
+
+  echo "==> colcon test-result"
+  colcon test-result --verbose
+
+  echo "==> Build + test green."
+}
+
+main "$@"

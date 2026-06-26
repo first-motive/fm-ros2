@@ -23,6 +23,9 @@
 # scripts/view-robot.sh, scripts/sim.sh, and scripts/teleop.sh coexist as the
 # direct, scriptable paths to the same launches — use them when you want one
 # capability without the menu.
+#
+# The body is wrapped in main() and called on the last line, so a truncated
+# curl|bash never half-runs.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -56,7 +59,7 @@ load_lib() {
   # shellcheck source=/dev/null
   source "$cached"
 }
-load_lib
+
 STEP=0
 step() {  # title  [role]
   STEP=$((STEP + 1))
@@ -71,81 +74,17 @@ step() {  # title  [role]
 }
 item() { echo "$1"; }  # status line under a step — one place to restyle later
 
-OVERLAY=""
-OPEN_FOXGLOVE=true  # auto-open Foxglove Studio on macOS; --no-foxglove disables
+usage() {
+  cat <<'EOF'
+run.sh — bring the fm_ros2 stack up and open the fm_tui launcher
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --macos)
-      OVERLAY=docker/compose.macos.yaml
-      shift
-      ;;
-    --linux)
-      OVERLAY=docker/compose.linux.yaml
-      shift
-      ;;
-    --no-foxglove)
-      OPEN_FOXGLOVE=false
-      shift
-      ;;
-    *)
-      echo "error: unknown argument '$1'" >&2
-      echo "usage: ./run.sh [--macos|--linux] [--no-foxglove]" >&2
-      exit 1
-      ;;
-  esac
-done
+Usage: ./run.sh [--macos|--linux] [--no-foxglove] [-h|--help]
 
-# Auto-detect the overlay from the host OS when not forced by a flag. fm_detect_os
-# (from the fm-tools lib) echoes macos|linux.
-if [[ -z "$OVERLAY" ]]; then
-  case "$(fm_detect_os)" in
-    macos) OVERLAY=docker/compose.macos.yaml ;;
-    linux) OVERLAY=docker/compose.linux.yaml ;;
-    *) echo "error: unsupported host OS — pass --macos or --linux" >&2; exit 1 ;;
-  esac
-fi
-
-# Friendly host label, derived from whichever overlay won (flag or auto-detect).
-case "$OVERLAY" in
-  *macos*) HOST="macOS" ;;
-  *linux*) HOST="Linux" ;;
-esac
-
-step "Detect OS"
-item "${HOST} detected"
-
-# fm-ros2 owns no image — it consumes the published fm-app full-stack image and
-# sources the compose overlays from fm-docker (imported into docker/ on first run
-# via fm-ros2.repos). FM_IMAGE/FM_WS feed the generic fm-docker compose base.
-if [[ ! -d docker ]]; then
-  vcs import < fm-ros2.repos
-fi
-export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
-export FM_WS="$PWD"
-COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
-SERVICE=fm
-
-# macOS runs on OrbStack as the Docker provider. Install it if missing, then make
-# sure the daemon is up — both idempotent, and each prints its own status bullet.
-step "${HOST} Container"
-if [[ "$OVERLAY" == docker/compose.macos.yaml ]]; then
-  # Delegate the container runtime (OrbStack install + daemon start) to fm-docker
-  # — no vendored helper here. docker/ is imported above, so use the imported
-  # installer; fall back to the pinned fm-docker tag when it is absent.
-  if [[ -f docker/install.sh ]]; then
-    bash docker/install.sh --no-pull
-  else
-    curl -fsSL --proto '=https' --proto-redir '=https' "$FM_DOCKER_RAW/install.sh" | bash -s -- --no-pull
-  fi
-fi
-"${COMPOSE[@]}" up -d
-item "Container up"
-
-step "Build Workspace"
-# Route through the entrypoint so ROS is sourced; build from /ws (the compose
-# working_dir). Incremental, so a warm tree returns fast.
-"${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
+  --macos | --linux   force the compose overlay (default: auto-detect)
+  --no-foxglove       skip auto-opening Foxglove Studio (macOS)
+  -h, --help          show this help
+EOF
+}
 
 # Open Foxglove Studio on the host once a view is actually launched from the TUI —
 # not while the menu is still open. The bridge runs inside the container and binds
@@ -156,6 +95,7 @@ step "Build Workspace"
 # forked before the launcher `exec` so it outlives this shell, and bounded so a
 # quit (or a non-Foxglove view) leaves nothing polling. macOS GUI path only —
 # skipped on Linux/CI/headless and with --no-foxglove; never blocks the launcher.
+# Reads OVERLAY / OPEN_FOXGLOVE / COMPOSE / SERVICE set by main (dynamic scope).
 open_foxglove_when_ready() {
   [[ "$OPEN_FOXGLOVE" == true ]] || return 0
   [[ "$OVERLAY" == docker/compose.macos.yaml ]] || return 0
@@ -181,14 +121,91 @@ open_foxglove_when_ready() {
   item "Foxglove Studio: opens when a view starts (ws://localhost:8765)"
 }
 
-step "Launcher"
-item "Foxglove Studio: ws://localhost:8765"
-item "teardown: ${COMPOSE[*]} down"
-open_foxglove_when_ready
-# `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
-# The launcher is an ament_python console_script (installed under lib/fm_tui/, not
-# on PATH), so reach it via `ros2 run`, not by name.
-# Forward the host terminal's colour capability (COLORTERM/TERM) into the
-# container; without it the TUI falls back to 16-colour and the brand palette
-# quantises to grey/white. -e VAR passes the host value through when set.
-exec "${COMPOSE[@]}" exec -e COLORTERM -e TERM "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
+main() {
+  # OVERLAY / OPEN_FOXGLOVE / COMPOSE / SERVICE / HOST stay global (no `local`) so
+  # the forked open_foxglove_when_ready watcher sees them.
+  OVERLAY=""
+  OPEN_FOXGLOVE=true  # auto-open Foxglove Studio on macOS; --no-foxglove disables
+
+  # Parse before loading lib so --help works offline, with no network fetch.
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --macos) OVERLAY=docker/compose.macos.yaml; shift ;;
+      --linux) OVERLAY=docker/compose.linux.yaml; shift ;;
+      --no-foxglove) OPEN_FOXGLOVE=false; shift ;;
+      -h|--help) usage; return 0 ;;
+      *)
+        echo "error: unknown argument '$1'" >&2
+        usage >&2
+        return 1
+        ;;
+    esac
+  done
+
+  load_lib
+
+  # Auto-detect the overlay from the host OS when not forced by a flag. fm_detect_os
+  # (from the fm-tools lib) echoes macos|linux.
+  if [[ -z "$OVERLAY" ]]; then
+    case "$(fm_detect_os)" in
+      macos) OVERLAY=docker/compose.macos.yaml ;;
+      linux) OVERLAY=docker/compose.linux.yaml ;;
+      *) echo "error: unsupported host OS — pass --macos or --linux" >&2; return 1 ;;
+    esac
+  fi
+
+  # Friendly host label, derived from whichever overlay won (flag or auto-detect).
+  case "$OVERLAY" in
+    *macos*) HOST="macOS" ;;
+    *linux*) HOST="Linux" ;;
+  esac
+
+  step "Detect OS"
+  item "${HOST} detected"
+
+  # fm-ros2 owns no image — it consumes the published fm-app full-stack image and
+  # sources the compose overlays from fm-docker (imported into docker/ on first run
+  # via fm-ros2.repos). FM_IMAGE/FM_WS feed the generic fm-docker compose base.
+  if [[ ! -d docker ]]; then
+    vcs import < fm-ros2.repos
+  fi
+  export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
+  export FM_WS="$PWD"
+  COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
+  SERVICE=fm
+
+  # macOS runs on OrbStack as the Docker provider. Install it if missing, then make
+  # sure the daemon is up — both idempotent, and each prints its own status bullet.
+  step "${HOST} Container"
+  if [[ "$OVERLAY" == docker/compose.macos.yaml ]]; then
+    # Delegate the container runtime (OrbStack install + daemon start) to fm-docker
+    # — no vendored helper here. docker/ is imported above, so use the imported
+    # installer; fall back to the pinned fm-docker tag when it is absent.
+    if [[ -f docker/install.sh ]]; then
+      bash docker/install.sh --no-pull
+    else
+      curl -fsSL --proto '=https' --proto-redir '=https' "$FM_DOCKER_RAW/install.sh" | bash -s -- --no-pull
+    fi
+  fi
+  "${COMPOSE[@]}" up -d
+  item "Container up"
+
+  step "Build Workspace"
+  # Route through the entrypoint so ROS is sourced; build from /ws (the compose
+  # working_dir). Incremental, so a warm tree returns fast.
+  "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
+
+  step "Launcher"
+  item "Foxglove Studio: ws://localhost:8765"
+  item "teardown: ${COMPOSE[*]} down"
+  open_foxglove_when_ready
+  # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
+  # The launcher is an ament_python console_script (installed under lib/fm_tui/, not
+  # on PATH), so reach it via `ros2 run`, not by name.
+  # Forward the host terminal's colour capability (COLORTERM/TERM) into the
+  # container; without it the TUI falls back to 16-colour and the brand palette
+  # quantises to grey/white. -e VAR passes the host value through when set.
+  exec "${COMPOSE[@]}" exec -e COLORTERM -e TERM "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
+}
+
+main "$@"

@@ -24,6 +24,20 @@
 #   ./scripts/setup-branch-protection.sh --apply    # apply to every repo below
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+setup-branch-protection.sh — apply branch protection to the First Motive repos
+
+Usage:
+  ./scripts/setup-branch-protection.sh            # dry-run: print plan only
+  ./scripts/setup-branch-protection.sh --apply    # apply to every repo
+  ./scripts/setup-branch-protection.sh -h|--help  # show this help
+
+  --apply      apply protection (default is a dry-run plan)
+  -h, --help   show this help
+EOF
+}
+
 OWNER="first-motive"
 BRANCH="main"
 
@@ -49,12 +63,6 @@ contexts_for() {
   esac
 }
 
-APPLY=false
-[[ "${1:-}" == "--apply" ]] && APPLY=true
-
-command -v gh >/dev/null 2>&1 || { echo "ERROR: gh CLI not found — https://cli.github.com" >&2; exit 1; }
-gh auth status >/dev/null 2>&1 || { echo "ERROR: gh not authenticated — run: gh auth login" >&2; exit 1; }
-
 # Branch-protection payload for one repo. enforce_admins=false keeps
 # owner-free-on-main: the owner (admin) pushes straight to main; the rules bind
 # everyone else. strict=true requires the PR branch be current with main before
@@ -79,19 +87,32 @@ payload_for() {
 JSON
 }
 
-for repo in "${REPOS[@]}"; do
-  checks="$(contexts_for "$repo")"
-  if ! $APPLY; then
-    echo "[dry-run] ${OWNER}/${repo}@${BRANCH}: PR + code-owner review, CI ${checks}, admin bypass, no force-push/delete"
-    continue
-  fi
-  echo "==> Protecting ${OWNER}/${repo}@${BRANCH} (CI ${checks}) ..."
-  payload_for "$repo" | gh api \
-    --method PUT \
-    -H "Accept: application/vnd.github+json" \
-    "repos/${OWNER}/${repo}/branches/${BRANCH}/protection" \
-    --input - >/dev/null
-  echo "    done."
-done
+main() {
+  local APPLY=false repo checks
+  case "${1:-}" in
+    -h|--help) usage; return 0 ;;
+    --apply) APPLY=true ;;
+  esac
 
-$APPLY && echo "All done." || echo "Dry-run only. Re-run with --apply to enforce."
+  command -v gh >/dev/null 2>&1 || { echo "ERROR: gh CLI not found — https://cli.github.com" >&2; return 1; }
+  gh auth status >/dev/null 2>&1 || { echo "ERROR: gh not authenticated — run: gh auth login" >&2; return 1; }
+
+  for repo in "${REPOS[@]}"; do
+    checks="$(contexts_for "$repo")"
+    if ! $APPLY; then
+      echo "[dry-run] ${OWNER}/${repo}@${BRANCH}: PR + code-owner review, CI ${checks}, admin bypass, no force-push/delete"
+      continue
+    fi
+    echo "==> Protecting ${OWNER}/${repo}@${BRANCH} (CI ${checks}) ..."
+    payload_for "$repo" | gh api \
+      --method PUT \
+      -H "Accept: application/vnd.github+json" \
+      "repos/${OWNER}/${repo}/branches/${BRANCH}/protection" \
+      --input - >/dev/null
+    echo "    done."
+  done
+
+  $APPLY && echo "All done." || echo "Dry-run only. Re-run with --apply to enforce."
+}
+
+main "$@"
