@@ -87,6 +87,18 @@ main() {
     fi
   done
 
+  # Gravity-compensate the OpenArm MuJoCo model (for the vision mirror teleop path). The
+  # vendored MJCF runs under full gravity, but MoveIt Servo does NO gravity compensation —
+  # so while servoing the 7-DOF arm sags out of its 'ready' pose into the straight-elbow
+  # singularity and locks there (the JTC's static hold masks this when idle). A real
+  # OpenArm's joint drivers gravity-compensate; the simplest faithful equivalent in sim is
+  # a weightless arm. Insert <option gravity="0 0 0"/> (idempotent).
+  local openarm_mjcf="external/openarm_mujoco/v2/openarm_bimanual.xml"
+  if [ -f "$openarm_mjcf" ] && ! grep -q 'gravity="0 0 0"' "$openarm_mjcf"; then
+    sed -i 's#\(<compiler angle="radian" meshdir="assets" />\)#\1\n  <option gravity="0 0 0" />  <!-- gravity comp (Servo has none); see scripts/import-externals.sh -->#' "$openarm_mjcf"
+    echo "==> Patched OpenArm MuJoCo model with gravity compensation (option gravity=0)."
+  fi
+
   echo "==> Current versions:"
   vcs custom external --git --args rev-parse --short HEAD 2>/dev/null || vcs status external
   echo "==> Done. ${BUILD_DIRS[*]} join the workspace build; other externals are COLCON_IGNORE'd."
