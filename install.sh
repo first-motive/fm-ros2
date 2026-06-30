@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
-# One-curl bootstrap for the fm_ros2 stack. Clones this repo, assembles the
-# colcon workspace from the package + external manifests, then hands off to
-# run.sh. Designed to be piped:
+# One-curl provisioner for the fm_ros2 stack. Clones this repo, assembles the
+# colcon workspace from the package + external manifests, and installs the macOS
+# viewer. Setup only — it does not build or launch; that is run.sh's job, run
+# from a real terminal. Designed to be piped:
 #
 #   curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh | bash
+#
+# Then, in your terminal:
+#   cd fm-ros2 && ./run.sh
+#
+# install and run are split on purpose: install is non-interactive and safe to
+# pipe through curl|bash or run in CI, while run.sh drives an interactive TUI and
+# needs a controlling terminal a pipe cannot supply.
 #
 # Inspect before running (always offer this path):
 #   curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh -o install.sh
@@ -14,10 +22,7 @@
 # with a clear "need org access" message without it. Team-only by design.
 #
 # Flags (pass through the pipe with `bash -s --`):
-#   curl ... | bash -s -- --linux       # force the Linux overlay on run.sh
-#   curl ... | bash -s -- --macos       # force the macOS overlay on run.sh
 #   curl ... | bash -s -- --learning    # also import the private learning overlay
-#   curl ... | bash -s -- --no-run      # clone + import only, stop before run.sh (CI)
 #
 # The body is wrapped in main() and called on the last line, so a truncated
 # curl|bash leaves an incomplete function that never runs.
@@ -27,22 +32,45 @@ REPO_URL="https://github.com/first-motive/fm-ros2.git"
 TARGET="fm-ros2"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm-ros2"
 
+# Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
+# install.sh and run.sh share one source of brand colour. `step` draws a numbered
+# header block as a rich rule; `item` prints a plain status line beneath it. Reach
+# the banner through `uv run --with` (pinned to fm-tools v0.2.0); fall back to a
+# plain header when uv is absent. Keep this pin in sync with run.sh.
+FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.2.0"
+
+STEP=0
+step() {  # title  [role]
+  STEP=$((STEP + 1))
+  if command -v uv >/dev/null 2>&1; then
+    # -W ignore::RuntimeWarning silences runpy's harmless "already in sys.modules"
+    # note: fm_tools.tui re-exports banner, so `-m` sees it pre-imported.
+    uv run --quiet --no-project --with "$FM_TOOLS" \
+      python3 -W ignore::RuntimeWarning -m fm_tools.tui.banner "$STEP" "$1" "${2:-step}"
+  else
+    echo "== $STEP. $1 =="
+  fi
+}
+item() { echo "$1"; }  # status line under a step — one place to restyle later
+
+# Plain narration for secondary paths (uninstall, dependency bootstrap) that sit
+# outside the numbered install flow.
 say() { echo "==> $1"; }
 
 usage() {
   cat <<'EOF'
-install.sh — bootstrap the fm_ros2 workspace (clone + import + run)
+install.sh — provision the fm_ros2 workspace (clone + import + viewer)
+
+Setup only. To build and launch, run ./run.sh from a terminal afterwards.
 
 Usage: ./install.sh [install|uninstall] [options]
 
-  install      clone + import + run (default)
+  install      clone + import + install the macOS viewer (default)
   uninstall    tear down the compose stack and clear the fm-tools lib cache
                (the workspace clone and pulled images are left in place)
 
 Options:
-  --macos | --linux   force the overlay handed to run.sh (default: auto-detect)
   --learning          also import the private learning overlay (fm-learning.repos)
-  --no-run            clone + import only, stop before run.sh (CI)
   --dry-run           print what would happen, change nothing (uninstall)
   -h, --help          show this help
 EOF
@@ -101,15 +129,12 @@ ensure_vcs() {
 }
 
 main() {
-  local cmd=install learning=false no_run=false dry=0
-  local -a run_args=()
+  local cmd=install learning=false dry=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       install|uninstall) cmd="$1"; shift ;;
       --learning) learning=true; shift ;;
-      --no-run) no_run=true; shift ;;
       --dry-run) dry=1; shift ;;
-      --macos|--linux) run_args+=("$1"); shift ;;  # forwarded to run.sh
       -h|--help) usage; return 0 ;;
       *)
         echo "error: unknown argument '$1'" >&2
@@ -135,12 +160,13 @@ main() {
   # the user already has work in. On reuse, try a fast-forward-only pull to pick up
   # upstream: --ff-only refuses on local commits, divergence, or a dirty tree, so it
   # never resets their work. A refusal is fine — warn and carry on with their tree.
+  step "Clone fm-ros2"
   if [[ -d "$TARGET/.git" ]]; then
-    say "reusing existing $TARGET/ — fast-forwarding to upstream ..."
+    item "reusing existing $TARGET/ — fast-forwarding to upstream ..."
     git -C "$TARGET" pull --ff-only \
-      || say "could not fast-forward (local changes or divergence) — keeping your tree"
+      || item "could not fast-forward (local changes or divergence) — keeping your tree"
   else
-    say "cloning fm-ros2 into $TARGET/ ..."
+    item "cloning into $TARGET/ ..."
     git clone --depth 1 "$REPO_URL" "$TARGET"
   fi
   cd "$TARGET"
@@ -151,7 +177,8 @@ main() {
   # src/ (manifest paths are root-relative, so import from the root). A failure here
   # is almost always missing org access to the private repos — say so plainly, then
   # exit non-zero.
-  say "importing container infra + package repos ..."
+  step "Import Packages"
+  item "container infra + package repos ..."
   if ! vcs import < fm-ros2.repos; then
     echo "error: failed to import the package repos." >&2
     echo "       The fm-* package repos are private — this needs git access to the" >&2
@@ -162,7 +189,7 @@ main() {
 
   # Optional private learning overlay (fm-data + fm-policy + fm-learning).
   if [[ "$learning" == true ]]; then
-    say "importing learning overlay into src/ ..."
+    item "learning overlay into src/ ..."
     if ! vcs import src < fm-learning.repos; then
       echo "error: failed to import the learning overlay (fm-learning.repos)." >&2
       echo "       This needs access to the private learning repos. Check your auth." >&2
@@ -171,23 +198,21 @@ main() {
   fi
 
   # Vendor the external sources the build consumes into external/.
-  say "vendoring externals into external/ ..."
+  step "Vendor Externals"
   ./scripts/import-externals.sh
-
-  if [[ "$no_run" == true ]]; then
-    say "import complete — stopping before run.sh (--no-run)."
-    return 0
-  fi
 
   # Install the macOS robot viewer so run.sh can auto-open it pre-connected to the
   # bridge. Best-effort and macOS-only (the script self-skips on Linux) — a failure
-  # never blocks the bootstrap.
-  say "ensuring Foxglove Studio (macOS viewer) ..."
+  # never blocks provisioning. No container exec here, so no terminal is needed.
+  step "Install Viewer"
+  item "Foxglove Studio (macOS; skipped on Linux) ..."
   ./scripts/install-foxglove.sh
 
-  # Hand off to the front door: detect OS, build, open the launcher.
-  say "launching run.sh ..."
-  exec ./run.sh ${run_args[@]+"${run_args[@]}"}
+  # Setup ends here. run.sh builds and launches the interactive TUI, which needs a
+  # controlling terminal — so it is the user's next step, not a curl|bash handoff.
+  step "Ready"
+  item "workspace provisioned at $PWD"
+  item "next: cd $TARGET && ./run.sh    (build + launch, from your terminal)"
 }
 
 main "$@"

@@ -12,20 +12,26 @@ container, CI, scripts) and the full-system docs.
 
 ## Quick Start
 
-One command clones the repo, assembles the workspace, and opens the launcher.
-The package repos are private, so this needs git access to the `first-motive`
-org — see [docs/RUN.md](docs/RUN.md) for details.
+Provision in one command, then launch from your terminal. The package repos are
+private, so this needs git access to the `first-motive` org — see
+[docs/RUN.md](docs/RUN.md) for details.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh | bash
+cd fm-ros2 && ./run.sh
 ```
 
-Pass flags through the pipe with `bash -s --`:
+`install.sh` is setup only (clone + import + viewer); `run.sh` builds the
+workspace and opens the launcher. They are split because `run.sh` drives an
+interactive menu that a curl pipe cannot supply a terminal for, while `install.sh`
+is non-interactive and safe to pipe. Pick the overlay on `run.sh` with `--macos`
+or `--linux` (default: auto-detect).
+
+Pass `--learning` through the install pipe to also import the private learning
+overlay:
 
 ```bash
-curl ... | bash -s -- --linux       # force the Linux overlay (GPU / hardware)
-curl ... | bash -s -- --macos       # force the macOS overlay (OrbStack, sim only)
-curl ... | bash -s -- --learning    # also import the private learning overlay
+curl ... | bash -s -- --learning
 ```
 
 <details>
