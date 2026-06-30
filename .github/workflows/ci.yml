@@ -160,15 +160,16 @@ jobs:
           private-key: ${{ secrets.FM_CI_APP_KEY }}
           owner: first-motive
 
-      # Run the installer's import path only (--no-run stops before the docker
-      # build run.sh would start). Rewrite github.com to carry the App token so the
-      # vcs import over HTTPS authenticates, then assert src/ came out populated.
-      - name: Run installer (--no-run)
+      # Run the installer: setup only (clone + import + viewer), no docker build or
+      # run — that is run.sh's job. install-foxglove self-skips off macOS, so this
+      # runs clean on Linux. Rewrite github.com to carry the App token so the vcs
+      # import over HTTPS authenticates, then assert src/ came out populated.
+      - name: Run installer
         run: |
           git config --global \
             url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
             "https://github.com/"
-          ./install.sh --no-run
+          ./install.sh
           for pkg in fm-robot fm-sim fm-teleop fm-app; do
             test -d "fm-ros2/src/$pkg" || { echo "missing src/$pkg"; exit 1; }
           done
