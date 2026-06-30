@@ -94,8 +94,17 @@ main() {
   # OpenArm's joint drivers gravity-compensate; the simplest faithful equivalent in sim is
   # a weightless arm. Insert <option gravity="0 0 0"/> (idempotent).
   local openarm_mjcf="external/openarm_mujoco/v2/openarm_bimanual.xml"
+  local mjcf_anchor='<compiler angle="radian" meshdir="assets" />'
   if [ -f "$openarm_mjcf" ] && ! grep -q 'gravity="0 0 0"' "$openarm_mjcf"; then
-    sed -i 's#\(<compiler angle="radian" meshdir="assets" />\)#\1\n  <option gravity="0 0 0" />  <!-- gravity comp (Servo has none); see scripts/import-externals.sh -->#' "$openarm_mjcf"
+    # Insert <option gravity="0 0 0"/> after the compiler line. awk (not sed -i) for
+    # macOS/Linux portability: BSD sed -i needs a backup-suffix arg and does not expand
+    # \n in the replacement, so a sed one-liner silently corrupts the file on macOS.
+    awk -v anchor="$mjcf_anchor" '
+      { print }
+      index($0, anchor) {
+        print "  <option gravity=\"0 0 0\" />  <!-- gravity comp (Servo has none); see scripts/import-externals.sh -->"
+      }
+    ' "$openarm_mjcf" > "$openarm_mjcf.tmp" && mv "$openarm_mjcf.tmp" "$openarm_mjcf"
     echo "==> Patched OpenArm MuJoCo model with gravity compensation (option gravity=0)."
   fi
 
