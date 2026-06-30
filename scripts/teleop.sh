@@ -52,7 +52,7 @@ Usage: ./scripts/teleop.sh [--robot R] [--variant V] [--backend B] [--input I] [
   --robot R      openarm | so101 | g1_d (default openarm)
   --variant V    description variant
   --backend B    mock | mujoco | gazebo | isaac | real (default mujoco)
-  --input I      foxglove | joy | spacenav | vision (default foxglove)
+  --input I      foxglove | joy | spacenav | vision | mirror (default foxglove)
   -h, --help     show this help
 
 mock/mujoco use the macOS (CPU) overlay; gazebo/isaac/real use the Linux (GPU)
@@ -93,7 +93,7 @@ main() {
     return 1
   fi
 
-  local VALID_INPUTS=(foxglove joy spacenav vision) i
+  local VALID_INPUTS=(foxglove joy spacenav vision mirror) i
   ok=false
   for i in "${VALID_INPUTS[@]}"; do
     [[ "$INPUT" == "$i" ]] && ok=true && break
