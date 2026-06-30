@@ -199,8 +199,10 @@ main() {
 
   step "Build Workspace"
   # Route through the entrypoint so ROS is sourced; build from /ws (the compose
-  # working_dir). Incremental, so a warm tree returns fast.
-  "${COMPOSE[@]}" exec "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
+  # working_dir). Incremental, so a warm tree returns fast. -T disables TTY
+  # allocation: the build is non-interactive, and `docker compose exec` otherwise
+  # demands a terminal on stdin and aborts when there is none (e.g. a piped run).
+  "${COMPOSE[@]}" exec -T "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
 
   step "Launcher"
   item "Foxglove Studio: ws://localhost:8765"
