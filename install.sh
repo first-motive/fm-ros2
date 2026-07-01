@@ -34,7 +34,7 @@ set -euo pipefail
 # — no global git-config mutation.
 export GIT_CONFIG_COUNT=1 \
   GIT_CONFIG_KEY_0=advice.detachedHead GIT_CONFIG_VALUE_0=false
-export PYTHONWARNINGS=ignore::UserWarning:pkg_resources
+export PYTHONWARNINGS='ignore:pkg_resources is deprecated:UserWarning'
 
 REPO_URL="https://github.com/first-motive/fm-ros2.git"
 TARGET="fm_ros2"
@@ -73,7 +73,9 @@ spin() {  # label  cmd...
     return $?
   fi
   local log; log="$(mktemp)" || return 1
-  "$@" >"$log" 2>&1 &
+  # <&0 forwards our stdin to the async job — a backgrounded command otherwise
+  # gets stdin from /dev/null (POSIX), starving `vcs import < manifest`.
+  "$@" <&0 >"$log" 2>&1 &
   local pid=$! frames='|/-\' i=0 start=$SECONDS
   while kill -0 "$pid" 2>/dev/null; do
     printf '\r  %s %s (%ds)' "${frames:i%4:1}" "$label" "$((SECONDS - start))"
