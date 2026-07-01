@@ -4,6 +4,14 @@
 # external/ is gitignored; this is a local working copy, not committed.
 set -euo pipefail
 
+# Silence the child-process noise the imports spew: git's detached-HEAD advice
+# (repeated once per imported repo) and vcstool's pkg_resources deprecation
+# warning. Scoped to this process env and inherited by vcs -> git/python children
+# — no global git-config mutation.
+export GIT_CONFIG_COUNT=1 \
+  GIT_CONFIG_KEY_0=advice.detachedHead GIT_CONFIG_VALUE_0=false
+export PYTHONWARNINGS=ignore::UserWarning:pkg_resources
+
 usage() {
   cat <<'EOF'
 import-externals.sh — vendor external dependencies into external/ from external.repos

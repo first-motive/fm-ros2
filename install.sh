@@ -28,6 +28,14 @@
 # curl|bash leaves an incomplete function that never runs.
 set -euo pipefail
 
+# Silence the child-process noise the imports spew: git's detached-HEAD advice
+# (repeated once per imported repo) and vcstool's pkg_resources deprecation
+# warning. Scoped to this process env and inherited by vcs -> git/python children
+# — no global git-config mutation.
+export GIT_CONFIG_COUNT=1 \
+  GIT_CONFIG_KEY_0=advice.detachedHead GIT_CONFIG_VALUE_0=false
+export PYTHONWARNINGS=ignore::UserWarning:pkg_resources
+
 REPO_URL="https://github.com/first-motive/fm-ros2.git"
 TARGET="fm-ros2"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm-ros2"
