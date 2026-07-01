@@ -61,6 +61,32 @@ step() {  # title  [role]
 }
 item() { echo "$1"; }  # status line under a step — one place to restyle later
 
+# Run a long command with live feedback. TTY: fork it, spin a frame + elapsed
+# seconds on one \r line until it exits, then clear the line — replaying the
+# captured output only on failure so a green run stays quiet and a red one is
+# still debuggable. Piped (no TTY): run inline so output and errors stream
+# straight through, no \r control chars in a log. Returns the command's exit.
+spin() {  # label  cmd...
+  local label="$1"; shift
+  if [ ! -t 1 ]; then
+    "$@"
+    return $?
+  fi
+  local log; log="$(mktemp)" || return 1
+  "$@" >"$log" 2>&1 &
+  local pid=$! frames='|/-\' i=0 start=$SECONDS
+  while kill -0 "$pid" 2>/dev/null; do
+    printf '\r  %s %s (%ds)' "${frames:i%4:1}" "$label" "$((SECONDS - start))"
+    i=$((i + 1))
+    sleep 0.1
+  done
+  wait "$pid"; local rc=$?
+  printf '\r\033[K'
+  [ "$rc" -eq 0 ] || cat "$log" >&2
+  rm -f "$log"
+  return "$rc"
+}
+
 # Plain narration for secondary paths (uninstall, dependency bootstrap) that sit
 # outside the numbered install flow.
 say() { echo "==> $1"; }
@@ -186,8 +212,9 @@ main() {
   # is almost always missing org access to the private repos — say so plainly, then
   # exit non-zero.
   step "Import Packages"
-  item "container infra + package repos ..."
-  if ! vcs import < fm-ros2.repos; then
+  local n; n=$(grep -c 'version:' fm-ros2.repos)
+  item "importing $n repos (container infra + packages) — first run clones, sit tight ..."
+  if ! spin "importing $n repos" vcs import < fm-ros2.repos; then
     echo "error: failed to import the package repos." >&2
     echo "       The fm-* package repos are private — this needs git access to the" >&2
     echo "       first-motive org (SSH key or a credential helper). Check your auth" >&2
@@ -197,13 +224,14 @@ main() {
 
   # Optional private learning overlay (fm-data + fm-policy + fm-learning).
   if [[ "$learning" == true ]]; then
-    item "learning overlay into src/ ..."
-    if ! vcs import src < fm-learning.repos; then
+    item "importing the learning overlay into src/ ..."
+    if ! spin "importing learning overlay" vcs import src < fm-learning.repos; then
       echo "error: failed to import the learning overlay (fm-learning.repos)." >&2
       echo "       This needs access to the private learning repos. Check your auth." >&2
       return 1
     fi
   fi
+  item "imported — $(du -sh src 2>/dev/null | cut -f1) in src/"
 
   # Vendor the external sources the build consumes into external/.
   step "Vendor Externals"
