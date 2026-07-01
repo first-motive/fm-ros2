@@ -94,6 +94,10 @@ main() {
   #   unitree_sdk2, unitree_mujoco      reference for the arm_sdk loop + DDS sim
   #   feetech_ros2_driver, openarm_can  Linux + real-hardware backends only
   #   unitree_ros                       G1 description (flat URDF + meshes, file-vendored)
+  #   axol                              Axol description (flat URDF + STL, file-vendored).
+  #                                     Its COLCON_IGNORE also stops colcon descending into
+  #                                     the repo's nested cli/*/setup.py, which otherwise
+  #                                     break package identification.
   local BUILD_DIRS=(openarm_description openarm_ros2 unitree_ros2)
   # Sub-packages inside a built repo that must stay OUT of the build. openarm_hardware
   # is C++ SocketCAN (Linux-only, needs openarm_can) and joins the build only on the
