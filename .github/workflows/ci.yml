@@ -171,7 +171,12 @@ jobs:
           git config --global \
             url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
             "https://github.com/"
-          ./install.sh
+          # Provision from an empty dir — the real curl|bash path. Running from the
+          # repo root collides the fm_ros2 clone target with the fm_ros2/ workspace
+          # metapackage already checked out there.
+          workdir="$(mktemp -d)"
+          cd "$workdir"
+          bash "$GITHUB_WORKSPACE/install.sh"
           for pkg in fm_robot fm_sim fm_teleop fm_app; do
             test -d "fm_ros2/src/$pkg" || { echo "missing src/$pkg"; exit 1; }
           done
