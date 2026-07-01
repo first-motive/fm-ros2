@@ -22,12 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          path: src/fm-sim
+          path: src/fm_sim
 
       - name: Import + mark externals
         run: |
           apt-get update && apt-get install -y python3-vcstool
-          vcs import < src/fm-sim/fm-sim.repos
+          vcs import < src/fm_sim/fm-sim.repos
           # Externals are MJCF/file-only — not colcon packages. Keep them out.
           for d in external/*/; do touch "${d}COLCON_IGNORE"; done
 

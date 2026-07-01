@@ -41,7 +41,7 @@ FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.2.0"
 # checks (fm_detect_os). The container runtime is delegated to fm-docker v0.1.0.
 FM_TOOLS_RAW="https://raw.githubusercontent.com/first-motive/fm-tools/v0.2.0"
 FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.0"
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm-ros2"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm_ros2"
 
 # Load the shared bootstrap library (fm-tools lib.sh) for fm_detect_os. Reuse a
 # cached fetch, else fetch from the pinned fm-tools tag and cache it.

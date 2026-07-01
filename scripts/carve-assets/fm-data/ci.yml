@@ -21,12 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          path: src/fm-data
+          path: src/fm_data
 
       - name: Import siblings + externals
         run: |
           apt-get update && apt-get install -y python3-vcstool
-          vcs import < src/fm-data/fm-data.repos
+          vcs import < src/fm_data/fm-data.repos
 
       - name: Install ROS deps
         run: |

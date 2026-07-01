@@ -23,12 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          path: src/fm-robot
+          path: src/fm_robot
 
       - name: Import + mark externals
         run: |
           apt-get update && apt-get install -y python3-vcstool
-          vcs import < src/fm-robot/fm-robot.repos
+          vcs import < src/fm_robot/fm-robot.repos
           # Keep only the ament packages we build; ignore the rest.
           for d in external/*/; do touch "${d}COLCON_IGNORE"; done
           rm -f external/openarm_description/COLCON_IGNORE external/unitree_ros2/COLCON_IGNORE

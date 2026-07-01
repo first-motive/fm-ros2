@@ -65,7 +65,9 @@ jobs:
             # fm-docker is shared container infra, not a colcon package — skip it.
             [ "$name" = "fm-docker" ] && continue
             echo "cloning $name"
-            git clone --depth 1 "$url" "src/$name"
+            # Snake the local checkout dir (src/fm_robot) to match the package name;
+            # the GitHub slug in $url stays kebab (fm-robot.git).
+            git clone --depth 1 "$url" "src/${name//-/_}"
           done < <(grep -oE 'https://github.com/[^ ]+\.git' fm-ros2.repos)
 
       # fm-ros2 owns no image — pull the published fm-app full-stack image (the top
@@ -118,7 +120,7 @@ jobs:
       - uses: actions/checkout@v7
 
       # The native sim-core smoke runs the fm_sim sources, which live in the fm-sim
-      # repo — check it out into src/fm-sim (where ci-smoke-macos.sh expects it).
+      # repo — check it out into src/fm_sim (where ci-smoke-macos.sh expects it).
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:
@@ -130,7 +132,7 @@ jobs:
         with:
           repository: first-motive/fm-sim
           token: ${{ steps.app-token.outputs.token }}
-          path: src/fm-sim
+          path: src/fm_sim
 
       - uses: astral-sh/setup-uv@v7
 
@@ -170,8 +172,8 @@ jobs:
             url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
             "https://github.com/"
           ./install.sh
-          for pkg in fm-robot fm-sim fm-teleop fm-app; do
-            test -d "fm-ros2/src/$pkg" || { echo "missing src/$pkg"; exit 1; }
+          for pkg in fm_robot fm_sim fm_teleop fm_app; do
+            test -d "fm_ros2/src/$pkg" || { echo "missing src/$pkg"; exit 1; }
           done
           echo "src/ populated — installer import path green"
 
@@ -193,7 +195,7 @@ jobs:
         with:
           repository: first-motive/fm-teleop
           token: ${{ steps.app-token.outputs.token }}
-          path: src/fm-teleop
+          path: src/fm_teleop
 
       - uses: actions/setup-node@v6
         with:
@@ -202,7 +204,7 @@ jobs:
       # Type-checks + bundles the TypeScript/React teleop panel (not part of the ROS
       # workspace). Catches panel breakage — a broken ROBOTS entry, a type error.
       - name: Build panel
-        working-directory: src/fm-teleop/fm_teleop_panel
+        working-directory: src/fm_teleop/fm_teleop_panel
         run: |
           npm ci
           npm run build

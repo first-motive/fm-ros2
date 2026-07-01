@@ -21,12 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          path: src/fm-teleop
+          path: src/fm_teleop
 
       - name: Import siblings + externals
         run: |
           apt-get update && apt-get install -y python3-vcstool
-          vcs import < src/fm-teleop/fm-teleop.repos
+          vcs import < src/fm_teleop/fm-teleop.repos
 
       - name: Install ROS deps
         run: |

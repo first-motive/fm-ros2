@@ -2,15 +2,15 @@
 #
 # Siblings fm-robot + fm-sim + fm-teleop (track main) + their externals.
 repositories:
-  src/fm-robot:
+  src/fm_robot:
     type: git
     url: https://github.com/first-motive/fm-robot.git
     version: main
-  src/fm-sim:
+  src/fm_sim:
     type: git
     url: https://github.com/first-motive/fm-sim.git
     version: main
-  src/fm-teleop:
+  src/fm_teleop:
     type: git
     url: https://github.com/first-motive/fm-teleop.git
     version: main

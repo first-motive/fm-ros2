@@ -7,7 +7,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh | bash
 #
 # Then, in your terminal:
-#   cd fm-ros2 && ./run.sh
+#   cd fm_ros2 && ./run.sh
 #
 # install and run are split on purpose: install is non-interactive and safe to
 # pipe through curl|bash or run in CI, while run.sh drives an interactive TUI and
@@ -37,8 +37,8 @@ export GIT_CONFIG_COUNT=1 \
 export PYTHONWARNINGS=ignore::UserWarning:pkg_resources
 
 REPO_URL="https://github.com/first-motive/fm-ros2.git"
-TARGET="fm-ros2"
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm-ros2"
+TARGET="fm_ros2"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm_ros2"
 
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
 # install.sh and run.sh share one source of brand colour. `step` draws a numbered

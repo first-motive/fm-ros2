@@ -2,7 +2,7 @@
 # Sync the public First Motive package repos into src/ from fm-ros2.repos, plus
 # the private learning stack from fm-learning.repos when that overlay is present.
 # Imports any missing repo, then pulls every repo to its tracked ref (main).
-# src/ is gitignored; each src/fm-* is its own clone with its own remote —
+# src/ is gitignored; each src/fm_* is its own clone with its own remote —
 # commit and push package changes from inside that repo, not from here.
 set -euo pipefail
 

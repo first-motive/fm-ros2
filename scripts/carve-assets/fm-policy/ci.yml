@@ -21,12 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          path: src/fm-policy
+          path: src/fm_policy
 
       - name: Import siblings + externals
         run: |
           apt-get update && apt-get install -y python3-vcstool
-          vcs import < src/fm-policy/fm-policy.repos
+          vcs import < src/fm_policy/fm-policy.repos
 
       - name: Install ROS deps
         run: |

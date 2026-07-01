@@ -21,7 +21,7 @@ Usage: ./scripts/ci-smoke-macos.sh [-h]
 
   -h, --help   show this help
 
-Env: SIM_SRC  fm_sim source root (default: src/fm-sim)
+Env: SIM_SRC  fm_sim source root (default: src/fm_sim)
 EOF
 }
 
@@ -35,8 +35,8 @@ main() {
   cd "$ROOT"
 
   # The ROS-free packages aren't installed here — point Python at their sources.
-  # fm_sim lives in the fm-sim repo, imported under src/fm-sim (override with SIM_SRC).
-  local SIM_SRC="${SIM_SRC:-src/fm-sim}"
+  # fm_sim lives in the fm-sim repo, imported under src/fm_sim (override with SIM_SRC).
+  local SIM_SRC="${SIM_SRC:-src/fm_sim}"
   export PYTHONPATH="$SIM_SRC/fm_sim_core:$SIM_SRC/fm_sim_models"
 
   echo "==> pytest: ROS-free sim core (stepper + MJCF registry)"
