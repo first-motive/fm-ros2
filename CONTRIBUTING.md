@@ -65,6 +65,10 @@ non-standard prefixes (`update: stuff`).
 - **Packages** — snake_case (`fm_bringup`, `fm_data`). ROS2 requires snake_case
   package names; the inner Python module, the `resource/` marker, and the
   `package.xml` `<name>` all match it exactly.
+- **Local checkout dirs** — snake_case (`fm_ros2`, `src/fm_robot`), matching the
+  package names. vcstool decouples the checkout path from the GitHub slug, so the
+  clone dirs are snake while the repos they come from keep their kebab slugs
+  (`fm-ros2`, `fm-robot`) and the `.repos` manifest filenames follow the slug.
 
 ## Tests
 

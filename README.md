@@ -18,7 +18,7 @@ private, so this needs git access to the `first-motive` org — see
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh | bash
-cd fm-ros2 && ./run.sh
+cd fm_ros2 && ./run.sh
 ```
 
 `install.sh` is setup only (clone + import + viewer); `run.sh` builds the
@@ -38,8 +38,8 @@ curl ... | bash -s -- --learning
 <summary>Manual steps (fallback)</summary>
 
 ```bash
-git clone https://github.com/first-motive/fm-ros2.git
-cd fm-ros2
+git clone https://github.com/first-motive/fm-ros2.git fm_ros2
+cd fm_ros2
 vcs import < fm-ros2.repos         # pull container infra into docker/ + the package repos into src/
 ./scripts/import-externals.sh      # vendor externals into external/
 ./run.sh                           # auto-detect overlay, open the launcher
@@ -96,7 +96,7 @@ tooling, and full-system docs. `vcs import < fm-ros2.repos` pulls the shared
 container infra into `docker/` and the four public package repos into `src/`.
 
 ```
-fm-ros2/
+fm_ros2/                     local checkout dir (snake to match the packages; GitHub slug stays fm-ros2)
 ├── fm_ros2/                 workspace metapackage (depends on the 4 public group metas)
 ├── fm-ros2.repos            vcs manifest: the 4 public package repos -> src/
 ├── external.repos           vcs pins for vendored externals -> external/

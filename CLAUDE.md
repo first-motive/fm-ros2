@@ -49,7 +49,10 @@ nesting depth. The `fm_ros2` metapackage depends on the four public group
 metapackages (`fm_robot`, `fm_app`, `fm_sim`, `fm_teleop`), each of which pulls its
 own sub-packages transitively. The private `fm-learning.repos` overlay adds
 `fm_learning` (with `fm_data` + `fm_policy`); colcon builds it too once imported.
-The carve-out recipe that produced the repos lives in
+Local checkout dirs are snake_case (`fm_ros2`, `src/fm_robot`) to match the
+package names; the GitHub repo slugs they clone from stay kebab (`fm-ros2`,
+`fm-robot`), and the `.repos` manifest filenames follow the slug. The carve-out
+recipe that produced the repos lives in
 [docs/CARVE-RECIPE.md](docs/CARVE-RECIPE.md).
 
 ## Diagrams

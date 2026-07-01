@@ -23,8 +23,8 @@ Source: [`diagrams/setup.d2`](diagrams/setup.d2).
 ## First run
 
 ```bash
-git clone https://github.com/first-motive/fm-ros2.git
-cd fm-ros2
+git clone https://github.com/first-motive/fm-ros2.git fm_ros2
+cd fm_ros2
 vcs import < fm-ros2.repos     # pull the four public package repos into src/
 ./scripts/setup-macos.sh
 ```

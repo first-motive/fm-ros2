@@ -69,8 +69,8 @@ If a change spans more than one layer, split it into repo-native commits and PRs
 The normal public workspace flow is:
 
 ```bash
-git clone https://github.com/first-motive/fm-ros2.git
-cd fm-ros2
+git clone https://github.com/first-motive/fm-ros2.git fm_ros2
+cd fm_ros2
 vcs import src < fm-ros2.repos
 ./scripts/import-externals.sh
 ./run.sh
@@ -79,11 +79,11 @@ vcs import src < fm-ros2.repos
 That gives you:
 
 ```text
-fm-ros2/
-  src/fm-robot
-  src/fm-sim
-  src/fm-teleop
-  src/fm-app
+fm_ros2/
+  src/fm_robot
+  src/fm_sim
+  src/fm_teleop
+  src/fm_app
   external/...
 ```
 
@@ -91,10 +91,10 @@ If you also have private access, add the learning repos into the same workspace.
 The exact import manifest may be managed privately, but the intended layout is:
 
 ```text
-fm-ros2/
-  src/fm-data
-  src/fm-policy
-  src/fm-learning
+fm_ros2/
+  src/fm_data
+  src/fm_policy
+  src/fm_learning
 ```
 
 That lets one workspace assemble the public runtime plus the private learning
@@ -125,7 +125,7 @@ Training now lives in `fm-policy`, not in the old monorepo path.
 If you are working from the integrated workspace:
 
 ```bash
-cd fm-ros2/src/fm-policy
+cd fm_ros2/src/fm_policy
 vcs import < fm-policy.repos
 ```
 
@@ -185,7 +185,7 @@ LeRobot episode tooling now lives in `fm-data`.
 If you want to export one episode into the local viewer:
 
 ```bash
-cd fm-ros2/src/fm-data
+cd fm_ros2/src/fm_data
 vcs import < fm-data.repos
 ./scripts/export-lerobot-viewer-episode.sh \
   --dataset-repo-id LeRobot-worldwide-hackathon/174-Mate-so101_dataset6 \
@@ -205,7 +205,7 @@ npm run dev -- --hostname 127.0.0.1 --port 3000
 If you want to replay an exported episode into Foxglove topics:
 
 ```bash
-cd fm-ros2/src/fm-data
+cd fm_ros2/src/fm_data
 ./scripts/replay-lerobot-viewer-episode-foxglove.sh \
   LeRobot-worldwide-hackathon__174-Mate-so101_dataset6__episode-000000
 ```
@@ -213,7 +213,7 @@ cd fm-ros2/src/fm-data
 If you want to record a live SO101 MuJoCo episode bundle for the viewer:
 
 ```bash
-cd fm-ros2/src/fm-data
+cd fm_ros2/src/fm_data
 ./scripts/record-so101-mujoco-episode.sh --duration-s 20
 ```
 
