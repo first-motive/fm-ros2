@@ -25,6 +25,8 @@ Usage: ./scripts/import-externals.sh [-h]
 EOF
 }
 
+item() { echo "$1"; }  # status line — mirrors install.sh, one place to restyle later
+
 main() {
   case "${1:-}" in
     -h|--help) usage; return 0 ;;
@@ -40,7 +42,7 @@ main() {
   fi
 
   mkdir -p external
-  echo "==> Importing externals into external/ ..."
+  item "Importing externals into external/ ..."
   vcs import external < external.repos
 
   # Selective workspace build: externals are sources to read or file-vendor, NOT to
@@ -64,7 +66,7 @@ main() {
   local NESTED_IGNORE=(openarm_ros2/openarm_hardware unitree_ros2/example/src)
   # Drop any blanket top-level ignore from an earlier import — markers are per-dir now.
   rm -f external/COLCON_IGNORE
-  echo "==> Marking externals COLCON_IGNORE (keeping ${BUILD_DIRS[*]} in the build) ..."
+  item "Marking externals COLCON_IGNORE (keeping ${BUILD_DIRS[*]} in the build) ..."
   local dir name keep b sub
   for dir in external/*/; do
     name="$(basename "$dir")"
@@ -113,13 +115,13 @@ main() {
         print "  <option gravity=\"0 0 0\" />  <!-- gravity comp (Servo has none); see scripts/import-externals.sh -->"
       }
     ' "$openarm_mjcf" > "$openarm_mjcf.tmp" && mv "$openarm_mjcf.tmp" "$openarm_mjcf"
-    echo "==> Patched OpenArm MuJoCo model with gravity compensation (option gravity=0)."
+    item "Patched OpenArm MuJoCo model with gravity compensation (option gravity=0)."
   fi
 
-  echo "==> Current versions:"
+  item "Current versions:"
   vcs custom external --git --args rev-parse --short HEAD 2>/dev/null || vcs status external
-  echo "==> Done. ${BUILD_DIRS[*]} join the workspace build; other externals are COLCON_IGNORE'd."
-  echo "==> Reminder: pins in external.repos are placeholders — pin real tags."
+  item "Done. ${BUILD_DIRS[*]} join the workspace build; other externals are COLCON_IGNORE'd."
+  item "Reminder: pins in external.repos are placeholders — pin real tags."
 }
 
 main "$@"
