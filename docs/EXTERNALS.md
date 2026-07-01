@@ -9,8 +9,8 @@ refresh.
 ./scripts/setup-lerobot.sh           # then: editable lerobot env from the vendored source
 ```
 
-Pins in `external.repos` are placeholders (LeRobot, OpenArm, Unitree) — replace
-with real tags and fork before patching upstream. Vendored sources live under
+Pins in `external.repos` are placeholders (LeRobot, OpenArm, Unitree, Axol) —
+replace with real tags and fork before patching upstream. Vendored sources live under
 `external/` and are gitignored. If `vcs` is not on the host, run it inside the
 container.
 

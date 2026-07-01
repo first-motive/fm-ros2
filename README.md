@@ -140,7 +140,7 @@ Four jobs per push and PR; each reproduces locally with the exact CI command
 
 | Job | Runner | Proves |
 |-----|--------|--------|
-| `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → three-robot headless smoke |
+| `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → four-robot headless smoke |
 | `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
 | `macos` | `macos-latest` (arm64) | host-native MuJoCo core — no Docker, no ROS2 |
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
