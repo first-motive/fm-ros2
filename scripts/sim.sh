@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Launch a robot in a ros2_control simulation backend. One control stack across
-# three robots (--robot openarm | so101 | g1_d), the sim backend selectable with
+# four robots (--robot openarm | so101 | g1_d | axol), the sim backend selectable with
 # --backend; the compose overlay follows from it:
 #
 #   mock, mujoco   -> compose.macos   (Mac daily driver, CPU)
@@ -17,6 +17,7 @@
 #   ./scripts/sim.sh                                       # openarm right_arm, mujoco
 #   ./scripts/sim.sh --robot so101 --backend mock          # SO101, no sim
 #   ./scripts/sim.sh --robot g1_d --backend mujoco         # G1-D right arm in mujoco
+#   ./scripts/sim.sh --robot axol --backend mujoco         # Axol, both arms in mujoco
 #   ./scripts/sim.sh --variant default_bimanual            # both OpenArm arms
 #   ./scripts/sim.sh --backend gazebo                      # Linux/GPU overlay
 #   ./scripts/sim.sh --backend isaac                       # Isaac over ROS topics
@@ -36,7 +37,7 @@ sim.sh — launch a robot in a ros2_control simulation backend
 
 Usage: ./scripts/sim.sh [--robot R] [--variant V] [--backend B] [--task-env E] [-h] [ros2-launch-args...]
 
-  --robot R      openarm | so101 | g1_d (default openarm)
+  --robot R      openarm | so101 | g1_d | axol (default openarm)
   --variant V    description variant (e.g. default_bimanual)
   --backend B    mock | mujoco | gazebo | isaac | real (default mujoco)
   --task-env E   task environment (default default)

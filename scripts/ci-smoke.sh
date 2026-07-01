@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Headless smoke asserts for the three-robot teleop stack. Runs inside the built
+# Headless smoke asserts for the four-robot teleop stack. Runs inside the built
 # container, after `colcon build` — CI calls it, and it runs locally the same way:
 #
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
@@ -14,7 +14,7 @@ set -uo pipefail  # not -e: run every check, aggregate failures at the end
 
 usage() {
   cat <<'EOF'
-ci-smoke.sh — headless smoke asserts for the three-robot teleop stack
+ci-smoke.sh — headless smoke asserts for the four-robot teleop stack
 
 Runs inside the built container, after `colcon build`. Every check runs;
 the script exits non-zero if any failed.
@@ -300,9 +300,10 @@ main() {
   source install/setup.bash
   set -u
 
-  echo "==> ci-smoke: three-robot headless asserts"
+  echo "==> ci-smoke: four-robot headless asserts"
   assert_mock_controllers so101 so101_arm_controller
   assert_mock_controllers g1_d g1_right_arm_controller
+  assert_mock_controllers axol axol_right_arm_controller
   assert_g1_base_diff_drive
   assert_g1_arm_bridge
   assert_g1_hand_bridge

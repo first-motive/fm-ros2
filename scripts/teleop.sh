@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Jog a robot's arm interactively through MoveIt Servo (--robot openarm | so101 |
-# g1_d). Brings up Servo plus the selected teleop input against a sim (or real)
+# g1_d | axol). Brings up Servo plus the selected teleop input against a sim (or real)
 # target. The compose overlay follows from --backend, same mapping as sim.sh:
 #
 #   mock, mujoco   -> compose.macos   (Mac daily driver, CPU)
@@ -24,12 +24,14 @@
 #   openarm  7-DOF  full 6-DOF Cartesian
 #   g1_d     7-DOF  full 6-DOF Cartesian (right arm; base driven separately)
 #   so101    5-DOF  JointJog primary; Cartesian is translation-only, orientation drifts
+#   axol     7+7-DOF  full 6-DOF Cartesian (both arms, one servo_node each)
 #
 # Real backends differ by robot: OpenArm + SO101 use a ros2_control hardware plugin
 # (openarm SocketCAN, SO101 feetech serial); the G1-D has no such plugin — its real
 # arm runs through the Servo->arm_sdk bridge (fm_control/g1_arm_sdk_bridge), and
-# the wheeled base is driven separately by a Twist->AGV node. All real paths are
-# plumbed but untested — no physical hardware yet.
+# the wheeled base is driven separately by a Twist->AGV node. Axol's real CAN backend
+# is deferred (no ros2_control plugin yet), so it is sim-only. The OpenArm/SO101/G1-D
+# real paths are plumbed but untested — no physical hardware yet.
 #
 # Prerequisites: build the workspace first (see sim.sh). The sim/real target must
 # be reachable — run ./scripts/sim.sh in another terminal, or wire the real arm.
@@ -38,6 +40,7 @@
 #   ./scripts/teleop.sh                              # openarm, mujoco target, foxglove
 #   ./scripts/teleop.sh --robot so101 --backend mock # SO101 teleop
 #   ./scripts/teleop.sh --robot g1_d                 # G1-D right arm, mujoco
+#   ./scripts/teleop.sh --robot axol                 # Axol, one servo_node per arm
 #   ./scripts/teleop.sh --input joy                  # gamepad
 #
 # Extra args pass straight through to `ros2 launch`.
@@ -49,7 +52,7 @@ teleop.sh — jog a robot's arm interactively through MoveIt Servo
 
 Usage: ./scripts/teleop.sh [--robot R] [--variant V] [--backend B] [--input I] [-h] [ros2-launch-args...]
 
-  --robot R      openarm | so101 | g1_d (default openarm)
+  --robot R      openarm | so101 | g1_d | axol (default openarm)
   --variant V    description variant
   --backend B    mock | mujoco | gazebo | isaac | real (default mujoco)
   --input I      foxglove | joy | spacenav | vision | mirror (default foxglove)
