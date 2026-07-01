@@ -19,18 +19,24 @@ import-externals.sh — vendor external dependencies into external/ from externa
 Imports externals, marks all but the built repos COLCON_IGNORE, and reports
 versions. external/ is gitignored — a local working copy, not committed.
 
-Usage: ./scripts/import-externals.sh [-h]
+Usage: ./scripts/import-externals.sh [-h] [--verbose]
 
   -h, --help   show this help
+  --verbose    also print the per-repo external version dump
 EOF
 }
 
 item() { echo "$1"; }  # status line — mirrors install.sh, one place to restyle later
 
 main() {
-  case "${1:-}" in
-    -h|--help) usage; return 0 ;;
-  esac
+  local verbose=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help) usage; return 0 ;;
+      --verbose) verbose=true; shift ;;
+      *) echo "error: unknown argument '$1'" >&2; usage >&2; return 1 ;;
+    esac
+  done
 
   local ROOT
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -118,8 +124,10 @@ main() {
     item "Patched OpenArm MuJoCo model with gravity compensation (option gravity=0)."
   fi
 
-  item "Current versions:"
-  vcs custom external --git --args rev-parse --short HEAD 2>/dev/null || vcs status external
+  if [ "$verbose" = true ]; then
+    item "Current versions:"
+    vcs custom external --git --args rev-parse --short HEAD 2>/dev/null || vcs status external
+  fi
   item "Done. ${BUILD_DIRS[*]} join the workspace build; other externals are COLCON_IGNORE'd."
   item "Reminder: pins in external.repos are placeholders — pin real tags."
 }
