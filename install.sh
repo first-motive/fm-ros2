@@ -62,13 +62,15 @@ step() {  # title  [role]
     echo "== $STEP. $1 =="
   fi
 }
-item() { echo "$1"; }  # status line under a step — one place to restyle later
+item() { echo "$1"; }  # status line under a step — inline copy of lib.sh's item
 
 # Run a long command with live feedback. TTY: fork it, spin a frame + elapsed
 # seconds on one \r line until it exits, then clear the line — replaying the
 # captured output only on failure so a green run stays quiet and a red one is
 # still debuggable. Piped (no TTY): run inline so output and errors stream
 # straight through, no \r control chars in a log. Returns the command's exit.
+# Inline copy of lib.sh's spin — this script runs curl-piped before the clone
+# exists, so there is no repo file to source. Keep in sync with lib.sh.
 spin() {  # label  cmd...
   local label="$1"; shift
   if [ ! -t 1 ]; then
@@ -249,7 +251,9 @@ main() {
       || item "could not fast-forward (local changes or divergence) — keeping your tree"
   else
     item "cloning into $TARGET/ ..."
-    git clone --depth 1 ${REPO_REF:+--branch "$REPO_REF"} "$REPO_URL" "$TARGET"
+    # --quiet: the item line above already narrates this; git's clone progress is
+    # the only raw child output in the flow, so silence it for a uniform transcript.
+    git clone --quiet --depth 1 ${REPO_REF:+--branch "$REPO_REF"} "$REPO_URL" "$TARGET"
   fi
   cd "$TARGET"
 
@@ -279,7 +283,9 @@ main() {
       return 1
     fi
   fi
-  item "imported — $(du -sh src 2>/dev/null | cut -f1) in src/"
+  # LC_ALL=C: du's size unit honours locale (a comma decimal separator reads as a
+  # typo in the transcript) — pin the C locale for a stable "5.5M".
+  item "imported — $(LC_ALL=C du -sh src 2>/dev/null | cut -f1) in src/"
 
   # Vendor the external sources the build consumes into external/.
   step "Vendor Externals"

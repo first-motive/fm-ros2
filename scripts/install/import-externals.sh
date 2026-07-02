@@ -26,35 +26,9 @@ Usage: ./scripts/install/import-externals.sh [-h] [--verbose]
 EOF
 }
 
-item() { echo "$1"; }  # status line — mirrors install.sh, one place to restyle later
-
-# Run a long command with live feedback. TTY: fork it, spin a frame + elapsed
-# seconds on one \r line until it exits, then clear the line — replaying the
-# captured output only on failure so a green run stays quiet and a red one is
-# still debuggable. Piped (no TTY): run inline so output and errors stream
-# straight through, no \r control chars in a log. Returns the command's exit.
-spin() {  # label  cmd...
-  local label="$1"; shift
-  if [ ! -t 1 ]; then
-    "$@"
-    return $?
-  fi
-  local log; log="$(mktemp)" || return 1
-  # <&0 forwards our stdin to the async job — a backgrounded command otherwise
-  # gets stdin from /dev/null (POSIX), starving `vcs import < manifest`.
-  "$@" <&0 >"$log" 2>&1 &
-  local pid=$! frames='|/-\' i=0 start=$SECONDS
-  while kill -0 "$pid" 2>/dev/null; do
-    printf '\r  %s %s (%ds)' "${frames:i%4:1}" "$label" "$((SECONDS - start))"
-    i=$((i + 1))
-    sleep 0.1
-  done
-  wait "$pid"; local rc=$?
-  printf '\r\033[K'
-  [ "$rc" -eq 0 ] || cat "$log" >&2
-  rm -f "$log"
-  return "$rc"
-}
+# Shared narration helpers (item, spin) — lib.sh sits at the repo root, two
+# levels up from scripts/install/.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/lib.sh"
 
 main() {
   local verbose=false
@@ -77,9 +51,11 @@ main() {
 
   mkdir -p external
   local n; n=$(grep -c 'version:' external.repos)
-  item "Importing $n externals into external/ — first run clones, sit tight ..."
+  item "importing $n externals into external/ — first run clones, sit tight ..."
   spin "importing $n externals" vcs import external < external.repos
-  item "Imported — $(du -sh external 2>/dev/null | cut -f1) in external/"
+  # LC_ALL=C: du's size unit honours locale (a comma decimal separator reads as a
+  # typo in the transcript) — pin the C locale for a stable "3.3G".
+  item "imported — $(LC_ALL=C du -sh external 2>/dev/null | cut -f1) in external/"
 
   # Selective workspace build: externals are sources to read or file-vendor, NOT to
   # build — except real ament packages whose code or xacro we consume directly:
@@ -106,7 +82,7 @@ main() {
   local NESTED_IGNORE=(openarm_ros2/openarm_hardware unitree_ros2/example/src)
   # Drop any blanket top-level ignore from an earlier import — markers are per-dir now.
   rm -f external/COLCON_IGNORE
-  item "Marking externals COLCON_IGNORE (keeping ${BUILD_DIRS[*]} in the build) ..."
+  item "marking externals COLCON_IGNORE (keeping ${BUILD_DIRS[*]} in the build) ..."
   local dir name keep b sub
   for dir in external/*/; do
     name="$(basename "$dir")"
@@ -155,15 +131,13 @@ main() {
         print "  <option gravity=\"0 0 0\" />  <!-- gravity comp (Servo has none); see scripts/install/import-externals.sh -->"
       }
     ' "$openarm_mjcf" > "$openarm_mjcf.tmp" && mv "$openarm_mjcf.tmp" "$openarm_mjcf"
-    item "Patched OpenArm MuJoCo model with gravity compensation (option gravity=0)."
+    item "patched OpenArm MuJoCo model with gravity compensation (option gravity=0)"
   fi
 
   if [ "$verbose" = true ]; then
-    item "Current versions:"
+    item "current versions:"
     vcs custom external --git --args rev-parse --short HEAD 2>/dev/null || vcs status external
   fi
-  item "Done. ${BUILD_DIRS[*]} join the workspace build; other externals are COLCON_IGNORE'd."
-  item "Reminder: pins in external.repos are placeholders — pin real tags."
 }
 
 main "$@"

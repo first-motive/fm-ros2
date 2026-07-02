@@ -13,6 +13,9 @@ set -euo pipefail
 # Reach the repo root (pixi.toml lives there) — this script sits in scripts/install/.
 cd "$(dirname "$0")/../.."
 
+# Shared narration helpers (spin) — sourced from the repo root we just cd'd to.
+. ./lib.sh
+
 VIEWER=foxglove
 
 usage() {
@@ -93,8 +96,10 @@ main() {
   fi
 
   ensure_pixi
-  echo "solving the native ROS2 env (pixi install) ..."
-  pixi install
+  # spin keeps rattler's post-link WARN block and the solver progress out of the
+  # branded transcript on success; a failed solve still replays its full log.
+  echo "solving the native ROS2 env (pixi install) — first run takes a few minutes ..."
+  spin "solving env" pixi install
   install_viewer
   echo "native env ready — run.sh builds and launches from here."
 }
