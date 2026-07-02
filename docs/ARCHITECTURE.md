@@ -25,8 +25,13 @@ The design follows a few systems-engineering principles, made explicit in
 
 ## System Overview
 
-`./run.sh` is the front door: it detects the host, brings up the container (macOS)
-or runs bare-metal (Linux), builds the workspace, and execs the `fm_tui` launcher.
+`./run.sh` is the front door: a thin dispatcher that reads the install profile
+(`.fm_ros2.json`) and routes to the **native** path or the **container** path,
+builds the workspace, and execs the `fm_tui` launcher. macOS and Windows run
+native — ROS2 Humble on the host via pixi + RoboStack (see [SETUP.md](SETUP.md#why-pixi));
+Linux, CI, and parity runs use the Docker container. Shared tooling lives under
+`scripts/` by role: `install/` (provision), `run/` (native + container launch),
+`ci/` (build + smoke), `dev/` (carve + maintenance).
 
 ![run](diagrams/run.svg)
 
@@ -176,10 +181,11 @@ Source: [`diagrams/deployment.d2`](diagrams/deployment.d2).
 | Linux (GPU) | Main system | mock, mujoco, gazebo, isaac, real | Full stack incl. hardware |
 | macOS M5 (OrbStack) | Dev / build / sim / dataset | mock, mujoco | No GPU, no hardware; MuJoCo via native arm64 wheel |
 
-The entry point is `./run.sh`, which detects the host, selects the compose overlay,
-brings the container up, and opens the `fm_tui` launcher. The `openarm_hardware`
-and `openarm_can` packages are `COLCON_IGNORE`'d on macOS, since they need Linux
-SocketCAN.
+This is the container deployment; on macOS and Windows the same launcher runs
+native via pixi (no image). The entry point is `./run.sh`, which reads the profile,
+and on the container path selects the compose overlay, brings the container up, and
+opens the `fm_tui` launcher. The `openarm_hardware` and `openarm_can` packages are
+`COLCON_IGNORE`'d on macOS, since they need Linux SocketCAN.
 
 ## Learning Stack (private overlay)
 

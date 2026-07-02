@@ -1,9 +1,22 @@
 # run.sh — The Front Door
 
-`./run.sh` is the single entry point for the fm_ros2 stack. It brings the dev
-container up, builds the workspace, and opens the **fm_tui launcher** — an
-arrow-key menu that walks action → robot → variant (→ backend for sim/teleop) and
-dispatches the launch.
+`./run.sh` is the single entry point for the fm_ros2 stack. It is a thin
+dispatcher: it reads the install profile (`.fm_ros2.json`) and routes the launch to
+the **native** path (pixi/RoboStack) or the **container** path (Docker + compose).
+Either way it builds the workspace and opens the **fm_tui launcher** — an arrow-key
+menu that walks action → robot → variant (→ backend for sim/teleop) and dispatches
+the launch.
+
+## Native vs Container
+
+| Path | Runs | Build + launch |
+|------|------|----------------|
+| **native** | ROS2 on the host via pixi | `pixi run colcon build`, then `fm_tui` natively — rviz2 renders natively, no VNC |
+| **container** | ROS2 in a Linux arm64 container | compose build + up, launcher inside the container — rviz over VNC on macOS |
+
+The path is set at install time by OS (macOS/Windows → native, Linux → container)
+and persisted to `.fm_ros2.json`. `--native` / `--container` override it per run.
+See [SETUP.md](SETUP.md) for the two install paths.
 
 ## What It Does
 
@@ -11,25 +24,43 @@ dispatches the launch.
 
 Source: [`diagrams/run.d2`](diagrams/run.d2).
 
-Every step routes through the image entrypoint (`/ros_entrypoint.sh`) so ROS and
-the workspace overlay are sourced before the command runs.
+On the container path, every step routes through the image entrypoint
+(`/ros_entrypoint.sh`) so ROS and the workspace overlay are sourced before the
+command runs. On the native path, `pixi run` activates ROS and the script sources
+the workspace overlay before launching.
 
 ## Usage
 
 ```bash
-./run.sh            # auto-detect overlay, build, open the launcher
-./run.sh --linux    # force the Linux overlay (GPU / hardware)
-./run.sh --macos    # force the macOS overlay (OrbStack, sim only)
+./run.sh                # route by profile (or OS default), build, open the launcher
+./run.sh --native       # force the native path (pixi/RoboStack)
+./run.sh --container    # force the container path (Docker + compose)
 ```
 
-| Flag | Overlay | When |
-|------|---------|------|
-| (none) | auto-detect from `uname -s` | normal use |
-| `--linux` | `docker/compose.linux.yaml` | GPU, robot hardware |
-| `--macos` | `docker/compose.macos.yaml` | OrbStack, sim only |
+| Flag | Path | When |
+|------|------|------|
+| (none) | profile in `.fm_ros2.json`, else OS default | normal use |
+| `--native` | pixi/RoboStack on the host | macOS/Windows dev |
+| `--container` | Docker + compose | Linux, CI/parity, Unitree robots |
 
-Auto-detect maps `Darwin` → macOS overlay and `Linux` → Linux overlay. Any other
-host OS exits with an error — pass a flag explicitly.
+The OS default maps `Darwin` / Windows → native and `Linux` → container. Remaining
+args forward to the chosen path script (`scripts/run/native.sh` or
+`scripts/run/container.sh`) — run either with `-h` for its own flags.
+
+### Path-Specific Flags
+
+```bash
+./run.sh --no-foxglove              # (native) skip auto-opening Foxglove Studio
+./run.sh --container --linux        # (container) force the Linux overlay (GPU / hardware)
+./run.sh --container --macos        # (container) force the macOS overlay (OrbStack, sim only)
+```
+
+On the container path, `--linux` selects `docker/compose.linux.yaml` and `--macos`
+selects `docker/compose.macos.yaml`; unflagged, it auto-detects from `uname -s`.
+
+**Windows has no container path** — OrbStack is macOS-only. `run.sh` refuses
+`--container` on Windows and points WSL2 users at the Linux container path from a
+WSL2 shell.
 
 ## macOS: OrbStack Bootstrap
 
