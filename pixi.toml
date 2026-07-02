@@ -38,14 +38,21 @@ ros-humble-spacenav = ">=3.3.0,<4"
 ros-humble-foxglove-bridge = "*"
 ros-humble-spacenav = ">=3.3.0,<4"
 
-[tasks]
 # Build the full colcon workspace (src/ + external/) from the host. Point CMake's
 # FindPython at the env interpreter — rosidl_generator_py (used by unitree_api and
 # other interface packages) cannot otherwise locate the conda Python's dev
-# component on osx-arm64, and the failure aborts the whole build.
-build = "colcon build --symlink-install --cmake-args -DPython_EXECUTABLE=$CONDA_PREFIX/bin/python -DPython3_EXECUTABLE=$CONDA_PREFIX/bin/python"
+# component on osx-arm64, and the failure aborts the whole build. PYTHONWARNINGS
+# silences setuptools' per-package "Unknown distribution option: 'tests_require'"
+# spam (same pattern install.sh uses for the pkg_resources warning) until the
+# package repos drop the deprecated tests_require from their setup.py.
+[tasks.build]
+cmd = "colcon build --symlink-install --cmake-args -DPython_EXECUTABLE=$CONDA_PREFIX/bin/python -DPython3_EXECUTABLE=$CONDA_PREFIX/bin/python"
+env = { PYTHONWARNINGS = "ignore:Unknown distribution option:UserWarning" }
+
 # Run the fm_ package tests natively.
-test = { cmd = "colcon test --packages-select $(colcon list --names-only | grep '^fm_')", depends-on = ["build"] }
+[tasks.test]
+cmd = "colcon test --packages-select $(colcon list --names-only | grep '^fm_')"
+depends-on = ["build"]
 
 # Python runtime deps that colcon does not install (fm_tui's setup.py install_requires
 # plus mujoco for the sim). The container installs these via the image Dockerfile; on
