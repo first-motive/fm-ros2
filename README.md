@@ -86,7 +86,7 @@ Source: [`docs/diagrams/menu.d2`](docs/diagrams/menu.d2).
 separate build step:
 
 ```bash
-./run.sh                # native: pixi run colcon build, then the launcher
+./run.sh                # native: pixi run build, then the launcher
 ./run.sh --container    # container: compose build + up, then the launcher
 ```
 
@@ -156,8 +156,9 @@ via `fm-learning.repos` for team members with access — see
 | macOS M5 (OrbStack) | dev · build · sim · dataset |
 
 macOS runs Humble natively via pixi + RoboStack (the container path stays available
-for parity) — no GPU, no hardware; MuJoCo runs native. Unitree-interface robots
-(e.g. G1) need the container — see [SETUP.md](docs/SETUP.md).
+for parity) — no GPU, no hardware; MuJoCo runs native. The full workspace builds
+natively; driving real Unitree hardware (e.g. G1) still needs the container — see
+[SETUP.md](docs/SETUP.md).
 
 ## CI
 
