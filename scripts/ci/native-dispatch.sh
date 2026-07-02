@@ -47,11 +47,14 @@ main() {
   FM_SELFTEST=1 ./scripts/install/native.sh --viewer foxglove | grep -q 'native.sh parsed'
 
   echo "==> run.sh dispatcher routing"
-  # A native profile routes to the native run path; an override flag wins; an
-  # unknown path errors.
+  # The dispatcher resolves a native profile to the native path; an override flag
+  # wins; an unknown path errors. run.sh stops at its own selftest hook after
+  # resolving, so assert the resolved path here.
   printf '{"path":"native","viewer":"rviz"}\n' > "$PROFILE_PATH"
-  FM_SELFTEST=1 ./run.sh          | grep -q 'native run resolved (viewer=rviz'
-  FM_SELFTEST=1 ./run.sh --native | grep -q 'native run resolved'
+  FM_SELFTEST=1 ./run.sh             | grep -q 'run.sh dispatch resolved (path=native'
+  FM_SELFTEST=1 ./run.sh --container | grep -q 'run.sh dispatch resolved (path=container'
+  # The native run path itself resolves the viewer from the profile.
+  FM_SELFTEST=1 ./scripts/run/native.sh | grep -q 'native run resolved (viewer=rviz'
   printf '{"path":"bogus","viewer":"rviz"}\n' > "$PROFILE_PATH"
   if ./run.sh >/dev/null 2>&1; then
     echo "FAIL: run.sh accepted an unknown path" >&2; return 1
