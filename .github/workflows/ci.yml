@@ -136,11 +136,22 @@ jobs:
 
       - uses: astral-sh/setup-uv@v7
 
+      # Install the pixi binary (no full env solve — run-install: false) so the
+      # smoke's pixi block runs on the runner instead of skipping: it checks the
+      # lockfile is consistent with pixi.toml and covers all three platforms. The
+      # heavy full-env materialization is deferred; the lock check validates the
+      # native env solves from one manifest.
+      - uses: prefix-dev/setup-pixi@v0.8.10
+        with:
+          run-install: false
+
       # The M5 daily driver runs the full stack in a Linux container (OrbStack),
       # which GitHub's macOS runners cannot host. This job covers the ROS-free
       # pieces the M5 runs natively on arm64 CPU — the MuJoCo stepper and the MJCF
-      # registry — plus a real native mujoco wheel step. uv provisions Python +
-      # deps; no Docker, no ROS2. Same script runs locally: ./scripts/ci/ci-smoke-macos.sh
+      # registry — plus a real native mujoco wheel step — and now the native
+      # install/run dispatch (flags, profile routing) and the pixi lock check. uv
+      # provisions Python + deps; no Docker, no ROS2. Same script runs locally:
+      # ./scripts/ci/ci-smoke-macos.sh
       - name: Host-native sim core smoke
         run: ./scripts/ci/ci-smoke-macos.sh
 
