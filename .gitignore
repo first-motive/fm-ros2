@@ -7,6 +7,9 @@ MUJOCO_LOG.TXT
 # fm_tui viewer preference (written to the /ws mount on toggle; local only)
 .fm_tui.json
 
+# install profile: path (native|container) + viewer, written by install.sh
+.fm_ros2.json
+
 # Package repos pulled into the workspace (vcs import src < fm-ros2.repos)
 src/
 

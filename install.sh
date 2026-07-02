@@ -95,21 +95,44 @@ say() { echo "==> $1"; }
 
 usage() {
   cat <<'EOF'
-install.sh — provision the fm_ros2 workspace (clone + import + viewer)
+install.sh — provision the fm_ros2 workspace (clone + import + env + viewer)
 
 Setup only. To build and launch, run ./run.sh from a terminal afterwards.
 
 Usage: ./install.sh [install|uninstall] [options]
 
-  install      clone + import + install the macOS viewer (default)
+  install      clone + import + set up the selected path and viewer (default)
   uninstall    tear down the compose stack and clear the fm-tools lib cache
                (the workspace clone and pulled images are left in place)
+
+Path (where the stack runs):
+  --native            native ROS2 via pixi + RoboStack (default on macOS/Windows)
+  --container         Docker + compose (default on Linux; tests/CI/parity elsewhere)
+
+Viewer:
+  --viewer VIEWER     foxglove (default) | rviz | none
 
 Options:
   --learning          also import the private learning overlay (fm-learning.repos)
   --dry-run           print what would happen, change nothing (uninstall)
   -h, --help          show this help
+
+The chosen path + viewer are written to .fm_ros2.json at the workspace root, which
+run.sh reads to route the launch. Flags override; headless + unflagged falls back
+to the OS default path and the foxglove viewer.
 EOF
+}
+
+# Persist the selected path + viewer to .fm_ros2.json at the workspace root. run.sh
+# reads this to route native vs container. Written after a successful setup.
+write_profile() {  # path  viewer
+  cat > .fm_ros2.json <<EOF
+{
+  "path": "$1",
+  "viewer": "$2"
+}
+EOF
+  item "profile written: .fm_ros2.json (path=$1, viewer=$2)"
 }
 
 # Tear down the running stack and clear the fm-tools lib cache. Removes only what
@@ -165,10 +188,13 @@ ensure_vcs() {
 }
 
 main() {
-  local cmd=install learning=false dry=0
+  local cmd=install learning=false dry=0 path="" viewer=foxglove
   while [[ $# -gt 0 ]]; do
     case "$1" in
       install|uninstall) cmd="$1"; shift ;;
+      --native) path=native; shift ;;
+      --container) path=container; shift ;;
+      --viewer) viewer="${2:?--viewer needs a value}"; shift 2 ;;
       --learning) learning=true; shift ;;
       --dry-run) dry=1; shift ;;
       -h|--help) usage; return 0 ;;
@@ -180,15 +206,32 @@ main() {
     esac
   done
 
+  case "$viewer" in
+    foxglove|rviz|none) ;;
+    *) echo "error: --viewer must be foxglove, rviz, or none (got '$viewer')" >&2; return 1 ;;
+  esac
+
+  # Default path by OS when unflagged: native is the recommended path on macOS and
+  # Windows; Linux stays on the container (native Linux is deferred). The flag wins
+  # when set. The interactive fm-tools selector (menu via /dev/tty) is a pending
+  # cross-repo component — until it lands, unflagged runs take this OS default.
+  if [[ -z "$path" ]]; then
+    case "$(uname -s)" in
+      Darwin|MINGW*|MSYS*|CYGWIN*) path=native ;;
+      *) path=container ;;
+    esac
+  fi
+
   if [[ "$cmd" == uninstall ]]; then
     do_uninstall "$dry"
     return $?
   fi
 
-  # CI self-test hook: arg parse survived the curl|bash pipe — stop before any
-  # clone or import. Lets the curl-path test prove the script loads, no auth.
+  # CI self-test hook: arg parse + profile resolution survived the curl|bash pipe —
+  # stop before any clone or import. Lets the curl-path test prove the script loads
+  # and the flag/default routing works, no auth.
   if [[ -n "${FM_SELFTEST:-}" ]]; then
-    echo "selftest ok: install.sh parsed under curl|bash"
+    echo "selftest ok: install.sh parsed under curl|bash (path=$path, viewer=$viewer)"
     return 0
   fi
 
@@ -239,20 +282,33 @@ main() {
   step "Vendor Externals"
   ./scripts/install/import-externals.sh
 
-  # Install the macOS robot viewer so run.sh can auto-open it pre-connected to the
-  # bridge. Best-effort and macOS-only (the script self-skips on Linux) — a failure
-  # never blocks provisioning. No container exec here, so no terminal is needed.
-  step "Install Viewer"
-  item "Foxglove Studio (macOS; skipped on Linux) ..."
-  ./scripts/install/install-foxglove.sh
-  # The macOS rviz viewer needs no host install — it renders in the container and
-  # streams to the browser over VNC (see scripts/run/rviz-vnc.sh). Deps are baked into
-  # the fm-app image.
+  # Set up the selected path and viewer, then persist the profile. run.sh reads
+  # .fm_ros2.json to route the launch; both paths share the imported workspace above.
+  if [[ "$path" == native ]]; then
+    # Native: bootstrap pixi, solve the RoboStack env, install the viewer. native.sh
+    # installs foxglove itself (per platform) and leaves rviz/none to the pixi env.
+    step "Native Env"
+    item "pixi + RoboStack (viewer: $viewer) ..."
+    ./scripts/install/native.sh --viewer "$viewer"
+  else
+    # Container: the fm-app image carries ROS + rviz, so only foxglove needs a host
+    # install. rviz renders in the container over VNC (scripts/run/rviz-vnc.sh) and
+    # none installs nothing — so the host viewer install is foxglove-only.
+    step "Install Viewer"
+    if [[ "$viewer" == foxglove ]]; then
+      item "Foxglove Studio (macOS; skipped on Linux) ..."
+      ./scripts/install/install-foxglove.sh
+    else
+      item "viewer '$viewer' needs no host install (renders in the container)"
+    fi
+  fi
+
+  write_profile "$path" "$viewer"
 
   # Setup ends here. run.sh builds and launches the interactive TUI, which needs a
   # controlling terminal — so it is the user's next step, not a curl|bash handoff.
   step "Ready"
-  item "workspace provisioned at $PWD"
+  item "workspace provisioned at $PWD (path=$path, viewer=$viewer)"
   item "next: cd $TARGET && ./run.sh    (build + launch, from your terminal)"
 }
 
