@@ -1,12 +1,81 @@
-# macOS Setup (M5, OrbStack)
+# Setup
 
-How to build and run `fm-ros2` on an M5 MacBook Pro. This path is dev + build +
-sim + dataset only — no GPU, no hardware. Hardware and GPU work happen on Linux.
+How to build and run `fm-ros2`. Two paths share one imported workspace:
 
-## Why containers
+| Path | Default on | Runs | Best for |
+|------|-----------|------|----------|
+| **Native** (pixi + RoboStack) | macOS, Windows | ROS2 Humble on the host, no container | day-to-day dev on a Mac or Windows box |
+| **Container** (Docker + compose) | Linux | ROS2 Humble in a Linux arm64 container | CI, parity, Unitree hardware, GPU/Linux work |
 
-ROS2 Humble targets Ubuntu. On macOS we run it inside a Linux arm64 container via
-OrbStack. The workspace is bind-mounted, so host edits rebuild without reimaging.
+`install.sh` picks the path by OS and writes the choice to `.fm_ros2.json`;
+`run.sh` reads that file to dispatch. Override with `--native` / `--container`.
+Both paths are dev + build + sim + dataset on macOS — no GPU, no hardware. Hardware
+and GPU work happen on Linux.
+
+## Native Path (Recommended)
+
+On macOS and Windows, the native path runs ROS2 Humble directly on the host through
+[pixi](https://pixi.sh) and [RoboStack](https://robostack.github.io) — no container,
+no VNC. RoboStack ships prebuilt Humble binaries on the `robostack-humble` conda
+channel; `pixi.lock` pins the exact solve for `osx-arm64`, `win-64`, and `linux-64`
+from one `pixi.toml`.
+
+```bash
+git clone https://github.com/first-motive/fm-ros2.git fm_ros2
+cd fm_ros2
+./install.sh --native                 # bootstrap pixi, solve the env, install the viewer
+./run.sh                              # pixi run colcon build, then the launcher
+```
+
+`install.sh --native` bootstraps pixi (pinned via `PIXI_VERSION`), solves the env
+from `pixi.lock`, and installs the viewer (Foxglove via Homebrew cask on macOS /
+winget on Windows; rviz and none need nothing — rviz ships inside the pixi env).
+`run.sh` then runs `pixi run colcon build --symlink-install` on the host and opens
+`fm_tui` natively. rviz2 renders through its native RoboStack build; Foxglove Studio
+connects to the in-env bridge at `ws://localhost:8765`.
+
+On macOS (osx-arm64), 13 packages build natively — all of `fm_sim` and `fm_teleop`,
+plus `fm_tui`, `fm_sensors`, and `openarm_description`.
+
+On Windows, use the PowerShell wrappers — they ensure Git for Windows, then delegate
+to the same bash path through Git Bash:
+
+```powershell
+.\install.ps1 --native      # ensure Git Bash, then run install.sh --native
+.\run.ps1                    # dispatch through run.sh (native on Windows)
+```
+
+### Caveats
+
+| Caveat | What to do |
+|--------|-----------|
+| `rosdep` is unsupported inside a pixi env | Add ROS deps with `pixi add ros-humble-<pkg>`, not `rosdep`. |
+| Unitree interface externals (`unitree_api`, `unitree_go`, `unitree_hg`) do **not** build natively on macOS — `rosidl_generator_py` cannot find the env Python's dev component. Packages that depend on them (`fm_description`, some openarm configs) abort. | Use the container path for Unitree-dependent robots (e.g. G1). Everything else builds natively. |
+| `ros-humble-foxglove-bridge` has no `win-64` build on `robostack-humble` | Native Windows has no Foxglove path — Windows installs default to the rviz viewer. |
+| Native Linux is deferred | Linux stays on the container (the CI/parity default). |
+| The Windows path (`.ps1` wrappers → Git Bash) is exercised by the `windows-latest` CI job, but not yet on a physical Windows box | Treat Windows as CI-verified; a real-machine pass is still pending. |
+
+### Why pixi
+
+Native ROS2 on macOS and Windows was historically painful; pixi + RoboStack is now
+the mainstream answer:
+
+- **OSRF** made pixi the official ROS2 Windows install (Feb 2025) — conda-forge is
+  the exclusive binary source. ([announcement](https://discourse.openrobotics.org/t/upcoming-switch-of-windows-installation-to-pixi-conda/41916))
+- **prefix.dev** maintains first-class ROS2 support: a
+  [ROS2 tutorial](https://pixi.prefix.dev/latest/tutorials/ros2/), a robotics landing
+  page, and a ROS build backend.
+- **Peer-reviewed:** "Pixi: Unified Software Development and Distribution for Robotics
+  and AI" (arXiv [2511.04827](https://arxiv.org/abs/2511.04827), Nov 2025) — lockfile
+  reproducibility across `linux-64` / `osx-arm64` / `win-64`.
+- **RoboStack** [recommends pixi](https://robostack.github.io/GettingStarted.html)
+  over micromamba for new installs.
+
+## Container Path (Parity / CI)
+
+The container path is the CI/parity path and the default on Linux. ROS2 Humble
+targets Ubuntu; on macOS it runs inside a Linux arm64 container via OrbStack. The
+workspace is bind-mounted, so host edits rebuild without reimaging.
 
 ![macOS setup](diagrams/setup.svg)
 
@@ -26,7 +95,7 @@ Source: [`diagrams/setup.d2`](diagrams/setup.d2).
 git clone https://github.com/first-motive/fm-ros2.git fm_ros2
 cd fm_ros2
 vcs import < fm-ros2.repos     # pull the four public package repos into src/
-./scripts/setup-macos.sh
+./scripts/install/setup-macos.sh
 ```
 
 `setup-macos.sh` checks OrbStack, imports external deps (placeholder pins), and
@@ -54,14 +123,14 @@ Build and test (same commands CI runs):
 
 ```bash
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm ./scripts/verify-build.sh
+  run --rm fm ./scripts/ci/verify-build.sh
 ```
 
 Run the end-to-end smoke check:
 
 ```bash
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm ./scripts/smoke.sh
+  run --rm fm ./scripts/ci/smoke.sh
 ```
 
 Launch the graph (foxglove bridge + control):
@@ -88,7 +157,7 @@ ros2 run fm_sim_core sim_loop
 | Foxglove viz over ws | CUDA training |
 
 For GPU, hardware, or GUI tools, use the Linux native path
-(`scripts/setup-linux.sh` + `compose.linux.yaml`).
+(`scripts/install/setup-linux.sh` + `compose.linux.yaml`).
 
 ## Troubleshooting
 

@@ -28,11 +28,27 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
 cd fm_ros2 && ./run.sh
 ```
 
-`install.sh` is setup only (clone + import + viewer); `run.sh` builds the
+`install.sh` is setup only (clone + import + env + viewer); `run.sh` builds the
 workspace and opens the launcher. They are split because `run.sh` drives an
 interactive menu that a curl pipe cannot supply a terminal for, while `install.sh`
-is non-interactive and safe to pipe. Pick the overlay on `run.sh` with `--macos`
-or `--linux` (default: auto-detect).
+is non-interactive and safe to pipe.
+
+`install.sh` picks a run path by OS: macOS and Windows default to **native**
+(ROS2 Humble via pixi + RoboStack, no container), Linux defaults to the
+**container** (Docker + compose, also the CI/parity path). Override the path and
+viewer with flags; the choice is written to `.fm_ros2.json`, and `run.sh` reads it
+to dispatch.
+
+```bash
+curl ... | bash -s -- --native --viewer foxglove   # pixi/RoboStack, Foxglove
+curl ... | bash -s -- --container                  # Docker + compose
+```
+
+| Flag | Effect |
+|------|--------|
+| `--native` | native ROS2 via pixi + RoboStack (default: macOS/Windows) |
+| `--container` | Docker + compose (default: Linux; CI/parity elsewhere) |
+| `--viewer foxglove\|rviz\|none` | viewer to install (default: foxglove) |
 
 Pass `--learning` through the install pipe to also import the private learning
 overlay:
@@ -52,12 +68,13 @@ cd fm_ros2
 ```
 
 Clone by hand, then run `install.sh` from the checkout — same setup the curl
-pipe runs (vcs bootstrap, package + external import, macOS viewer), without
-piping to `bash`. Pass `--learning` to add the private overlay.
+pipe runs (vcs bootstrap, package + external import, env + viewer), without
+piping to `bash`. Pass `--learning` to add the private overlay, `--native` or
+`--container` to override the path.
 
 ```bash
-./run.sh --linux    # Linux overlay (GPU / hardware)
-./run.sh --macos    # macOS overlay (OrbStack, sim only)
+./run.sh --native      # force the native path (pixi/RoboStack)
+./run.sh --container    # force the container path (Docker + compose)
 ```
 
 </details>
@@ -65,21 +82,18 @@ piping to `bash`. Pass `--learning` to add the private overlay.
 ![launcher menu](docs/diagrams/menu.svg)
 
 Source: [`docs/diagrams/menu.d2`](docs/diagrams/menu.d2).
-**First run** (once, or after changing externals):
+`run.sh` builds the workspace on every invocation, so the first run needs no
+separate build step:
 
 ```bash
-# macOS (M5, OrbStack)
-./scripts/setup-macos.sh
-docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm colcon build --symlink-install
-
-# Linux (GPU / hardware) — swap the setup script and overlay
-./scripts/setup-linux.sh
-docker compose -f docker/compose.yaml -f docker/compose.linux.yaml \
-  run --rm fm colcon build --symlink-install
+./run.sh                # native: pixi run colcon build, then the launcher
+./run.sh --container    # container: compose build + up, then the launcher
 ```
 
-Then `./run.sh`, and connect Foxglove Studio to `ws://localhost:8765`.
+The native path builds and launches on the host (rviz2 renders natively; Foxglove
+Studio connects to the in-env bridge at `ws://localhost:8765`). The container path
+builds inside the dev container — see [SETUP.md](docs/SETUP.md) for its compose
+commands.
 
 [Setup](docs/SETUP.md) · [externals](docs/EXTERNALS.md) · [Foxglove](docs/FOXGLOVE.md)
 · [all guides](docs/README.md). Per-package detail in each `<package>/README.md`.
@@ -110,12 +124,14 @@ fm_ros2/                     local checkout dir (snake to match the packages; Gi
 ├── fm_ros2/                 workspace metapackage (depends on the 4 public group metas)
 ├── fm-ros2.repos            vcs manifest: the 4 public package repos -> src/
 ├── external.repos           vcs pins for vendored externals -> external/
+├── pixi.toml / pixi.lock    native ROS2 env: RoboStack channel, 3 platforms
 ├── docker/                  base image + compose overlays
 ├── .devcontainer/           VS Code dev container
 ├── .github/workflows/       CI: Linux build/test + macOS native smoke
-├── scripts/                 setup, import-externals, carve tooling
+├── scripts/                 tooling by role: install/ run/ ci/ dev/
 ├── docs/                    full-system docs + diagrams
-└── run.sh                   front door: build + open the launcher
+├── install.sh               provisioner: clone + import + env + viewer
+└── run.sh                   front door: dispatch native or container
 ```
 
 The four public package repos (each builds standalone, history preserved from the
@@ -139,20 +155,24 @@ via `fm-learning.repos` for team members with access — see
 | Linux (GPU) | dev · build · sim · hardware |
 | macOS M5 (OrbStack) | dev · build · sim · dataset |
 
-macOS runs Humble in a Linux arm64 container — no GPU, no hardware; MuJoCo runs native.
+macOS runs Humble natively via pixi + RoboStack (the container path stays available
+for parity) — no GPU, no hardware; MuJoCo runs native. Unitree-interface robots
+(e.g. G1) need the container — see [SETUP.md](docs/SETUP.md).
 
 ## CI
 
 [![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
-Four jobs per push and PR; each reproduces locally with the exact CI command
+Six jobs per push and PR; each reproduces locally with the exact CI command
 ([docs/CI.md](docs/CI.md)).
 
 | Job | Runner | Proves |
 |-----|--------|--------|
+| `selftest` | `ubuntu-latest` | `install.sh` + `run.sh` survive the piped curl path |
 | `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → four-robot headless smoke |
 | `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
-| `macos` | `macos-latest` (arm64) | host-native MuJoCo core — no Docker, no ROS2 |
+| `macos` | `macos-latest` (arm64) | host-native MuJoCo core + native install/run dispatch |
+| `windows` | `windows-latest` | native dispatch + `.ps1` wrappers delegate through Git Bash |
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 
 ## License & Ownership

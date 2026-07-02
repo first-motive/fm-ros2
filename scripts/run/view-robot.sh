@@ -4,19 +4,19 @@
 # pick one with --robot (default g1_d).
 #
 # Prerequisites (run once, or after changing externals / sources):
-#   ./scripts/import-externals.sh    # clone/import robot sources into external/
+#   ./scripts/install/import-externals.sh    # clone/import robot sources into external/
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
 #     run --rm fm colcon build --symlink-install
 #
 # Then:
-#   ./scripts/view-robot.sh                                  # g1_d wheeled G1-D (default)
-#   ./scripts/view-robot.sh --robot g1_d --variant g1_29dof_rev_1_0   # bipedal body
-#   ./scripts/view-robot.sh --robot so101
-#   ./scripts/view-robot.sh --robot axol                     # bimanual (two 7-DOF arms)
-#   ./scripts/view-robot.sh --robot openarm                  # right_arm
-#   ./scripts/view-robot.sh --robot openarm --variant left_arm
-#   ./scripts/view-robot.sh --robot openarm --variant default_bimanual
-#   ./scripts/view-robot.sh use_rviz:=true                   # needs an X display
+#   ./scripts/run/view-robot.sh                                  # g1_d wheeled G1-D (default)
+#   ./scripts/run/view-robot.sh --robot g1_d --variant g1_29dof_rev_1_0   # bipedal body
+#   ./scripts/run/view-robot.sh --robot so101
+#   ./scripts/run/view-robot.sh --robot axol                     # bimanual (two 7-DOF arms)
+#   ./scripts/run/view-robot.sh --robot openarm                  # right_arm
+#   ./scripts/run/view-robot.sh --robot openarm --variant left_arm
+#   ./scripts/run/view-robot.sh --robot openarm --variant default_bimanual
+#   ./scripts/run/view-robot.sh use_rviz:=true                   # needs an X display
 #
 # --robot accepts hyphen or underscore form (g1-d == g1_d). Any extra args are
 # passed straight through to `ros2 launch`.
@@ -26,7 +26,7 @@ usage() {
   cat <<'EOF'
 view-robot.sh — launch a robot URDF view in the macOS dev container
 
-Usage: ./scripts/view-robot.sh [--robot R] [-h] [ros2-launch-args...]
+Usage: ./scripts/run/view-robot.sh [--robot R] [-h] [ros2-launch-args...]
 
   --robot R    g1_d | so101 | openarm | axol (default g1_d)
   -h, --help   show this help
@@ -75,7 +75,7 @@ main() {
     return 1
   fi
 
-  cd "$(dirname "$0")/.."
+  cd "$(dirname "$0")/../.."
 
   # fm-ros2 consumes the published fm-app full-stack image and sources the compose
   # overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).

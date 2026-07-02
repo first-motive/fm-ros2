@@ -20,8 +20,8 @@
 #     exist; GitHub matches them by job id (see contexts_for).
 #
 # Usage:
-#   ./scripts/setup-branch-protection.sh            # dry-run: print plan only
-#   ./scripts/setup-branch-protection.sh --apply    # apply to every repo below
+#   ./scripts/dev/setup-branch-protection.sh            # dry-run: print plan only
+#   ./scripts/dev/setup-branch-protection.sh --apply    # apply to every repo below
 set -euo pipefail
 
 usage() {
@@ -29,9 +29,9 @@ usage() {
 setup-branch-protection.sh — apply branch protection to the First Motive repos
 
 Usage:
-  ./scripts/setup-branch-protection.sh            # dry-run: print plan only
-  ./scripts/setup-branch-protection.sh --apply    # apply to every repo
-  ./scripts/setup-branch-protection.sh -h|--help  # show this help
+  ./scripts/dev/setup-branch-protection.sh            # dry-run: print plan only
+  ./scripts/dev/setup-branch-protection.sh --apply    # apply to every repo
+  ./scripts/dev/setup-branch-protection.sh -h|--help  # show this help
 
   --apply      apply protection (default is a dry-run plan)
   -h, --help   show this help

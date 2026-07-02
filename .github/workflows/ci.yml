@@ -89,7 +89,7 @@ jobs:
       - name: Import externals
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
-            bash -lc './scripts/import-externals.sh'
+            bash -lc './scripts/install/import-externals.sh'
 
       - name: colcon build
         run: |
@@ -108,7 +108,7 @@ jobs:
                       colcon test --packages-select $fm_pkgs &&
                       colcon test-result --verbose'
 
-      # The headless three-robot smoke asserts (scripts/ci-smoke.sh) are run
+      # The headless three-robot smoke asserts (scripts/ci/ci-smoke.sh) are run
       # manually / locally for now — a ros2 launch in the assembled workspace can
       # hang teardown in CI. Tracked as a follow-up; build + test above is the
       # integration gate.
@@ -136,13 +136,57 @@ jobs:
 
       - uses: astral-sh/setup-uv@v7
 
+      # Install the pixi binary (no full env solve — run-install: false) so the
+      # smoke's pixi block runs on the runner instead of skipping: it checks the
+      # lockfile is consistent with pixi.toml and covers all three platforms. The
+      # heavy full-env materialization is deferred; the lock check validates the
+      # native env solves from one manifest.
+      - uses: prefix-dev/setup-pixi@v0.8.10
+        with:
+          run-install: false
+
       # The M5 daily driver runs the full stack in a Linux container (OrbStack),
       # which GitHub's macOS runners cannot host. This job covers the ROS-free
       # pieces the M5 runs natively on arm64 CPU — the MuJoCo stepper and the MJCF
-      # registry — plus a real native mujoco wheel step. uv provisions Python +
-      # deps; no Docker, no ROS2. Same script runs locally: ./scripts/ci-smoke-macos.sh
+      # registry — plus a real native mujoco wheel step — and now the native
+      # install/run dispatch (flags, profile routing) and the pixi lock check. uv
+      # provisions Python + deps; no Docker, no ROS2. Same script runs locally:
+      # ./scripts/ci/ci-smoke-macos.sh
       - name: Host-native sim core smoke
-        run: ./scripts/ci-smoke-macos.sh
+        run: ./scripts/ci/ci-smoke-macos.sh
+
+  windows:
+    name: native dispatch (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Install the pixi binary only (no full env solve — run-install: false) so the
+      # shared dispatch smoke can run the lock check on the Windows runner.
+      - uses: prefix-dev/setup-pixi@v0.8.10
+        with:
+          run-install: false
+
+      # Windows delegates to bash via Git for Windows (bundled on windows-latest).
+      # The shared dispatch smoke exercises install flag parsing, the OS-default
+      # profile (native on Windows), run.sh routing, and the pixi lock check — the
+      # same script the macOS job runs. No Docker, no ROS2 (Windows is native-only).
+      - name: Native dispatch smoke (Git Bash)
+        shell: bash
+        run: ./scripts/ci/native-dispatch.sh
+
+      # The .ps1 wrappers must parse, locate Git Bash, and delegate. FM_SELFTEST
+      # makes install.sh / run.sh stop after resolving, so this proves the wrapper
+      # hand-off without a real env solve or launch.
+      - name: PowerShell wrappers delegate to bash
+        shell: pwsh
+        env:
+          FM_SELFTEST: '1'
+        run: |
+          .\install.ps1 --native --viewer foxglove
+          if ($LASTEXITCODE -ne 0) { throw 'install.ps1 did not delegate cleanly' }
+          .\run.ps1 --native
+          if ($LASTEXITCODE -ne 0) { throw 'run.ps1 did not delegate cleanly' }
 
   installer:
     name: installer import path
@@ -167,6 +211,11 @@ jobs:
       # runs clean on Linux. Rewrite github.com to carry the App token so the vcs
       # import over HTTPS authenticates, then assert src/ came out populated.
       - name: Run installer
+        # Clone the branch under test (not the merged main) so the installer runs
+        # this ref's scripts against this ref's layout. head_ref is set on PR events,
+        # ref_name on push events — one of them names the branch either way.
+        env:
+          FM_REPO_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           git config --global \
             url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \

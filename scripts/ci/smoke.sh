@@ -6,7 +6,7 @@
 #   4. tear everything down
 # Exit 0 = green. Run from the macOS host with:
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-#     run --rm fm ./scripts/smoke.sh
+#     run --rm fm ./scripts/ci/smoke.sh
 set -euo pipefail
 
 usage() {
@@ -16,7 +16,7 @@ smoke.sh — end-to-end smoke check, headless inside the container
 Builds the workspace, launches the sim loop + foxglove bridge, asserts
 /joint_states publishes and the bridge port listens, then tears down.
 
-Usage: ./scripts/smoke.sh [-h]
+Usage: ./scripts/ci/smoke.sh [-h]
 
   -h, --help   show this help
 EOF
@@ -33,7 +33,7 @@ main() {
   esac
 
   local ROOT
-  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
   # ROS setup files reference unbound vars; relax `set -u` only across sourcing.

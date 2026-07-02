@@ -17,7 +17,7 @@ install-foxglove.sh — ensure Foxglove Studio is installed on macOS (idempotent
 Installs via the Homebrew cask when missing; warns and returns 0 on any
 failure (the viewer is optional). No-op off macOS.
 
-Usage: ./scripts/install-foxglove.sh [-h]
+Usage: ./scripts/install/install-foxglove.sh [-h]
 
   -h, --help   show this help
 EOF

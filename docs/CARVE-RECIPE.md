@@ -9,9 +9,9 @@ used for the polyrepo split (see
 
 | File | Role |
 |------|------|
-| [`scripts/carve-repo.sh`](../scripts/carve-repo.sh) | Drives one carve end to end: clone → heal history → strip → inject governance → commit → (optionally) create + push the remote |
-| [`scripts/carve-paths.py`](../scripts/carve-paths.py) | Emits the `git filter-repo` rename spec that heals every historical rename hop so history survives the carve |
-| [`scripts/carve-assets/<repo>/`](../scripts/carve-assets) | Per-repo seed files: `README.md`, `CLAUDE.md`, `CODEOWNERS`, `<repo>.repos`, `ci.yml`, `gitignore`, `description` |
+| [`scripts/dev/carve-repo.sh`](../scripts/dev/carve-repo.sh) | Drives one carve end to end: clone → heal history → strip → inject governance → commit → (optionally) create + push the remote |
+| [`scripts/dev/carve-paths.py`](../scripts/dev/carve-paths.py) | Emits the `git filter-repo` rename spec that heals every historical rename hop so history survives the carve |
+| [`scripts/dev/carve-assets/<repo>/`](../scripts/dev/carve-assets) | Per-repo seed files: `README.md`, `CLAUDE.md`, `CODEOWNERS`, `<repo>.repos`, `ci.yml`, `gitignore`, `description` |
 
 Prerequisite: `brew install git-filter-repo`.
 
@@ -40,14 +40,14 @@ already-renamed name.
 
 ```bash
 # Local carve only — inspect the result, no remote touched:
-scripts/carve-repo.sh fm-robot fm_robot
+scripts/dev/carve-repo.sh fm-robot fm_robot
 
 # Create the private remote and push:
-PUSH=1 scripts/carve-repo.sh fm-robot fm_robot
+PUSH=1 scripts/dev/carve-repo.sh fm-robot fm_robot
 
 # A group that drops sub-dirs carved into their own repos (fm-learning is a thin
 # metapackage over the fm-data and fm-policy repos):
-PUSH=1 scripts/carve-repo.sh fm-learning fm_learning \
+PUSH=1 scripts/dev/carve-repo.sh fm-learning fm_learning \
                              fm_learning/fm_data fm_learning/fm_policy
 ```
 

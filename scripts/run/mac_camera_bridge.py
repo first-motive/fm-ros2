@@ -7,7 +7,7 @@ host-side bridge opens the camera natively on macOS (AVFoundation) and re-serves
 plain MJPEG HTTP stream; the container reads it the same way it reads a phone IP-webcam:
 
     # On the Mac host (camera permission must be granted to the terminal app):
-    uv run --with opencv-python-headless python scripts/mac_camera_bridge.py --port 8090
+    uv run --with opencv-python-headless python scripts/run/mac_camera_bridge.py --port 8090
 
     # In the container / launch:
     camera_source:=http://host.docker.internal:8090/video

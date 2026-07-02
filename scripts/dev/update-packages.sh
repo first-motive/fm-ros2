@@ -13,7 +13,7 @@ update-packages.sh — sync the package repos into src/ from the .repos manifest
 Imports any missing public repo (plus the private learning overlay when
 fm-learning.repos is present), then pulls every repo to its tracked ref.
 
-Usage: ./scripts/update-packages.sh [-h]
+Usage: ./scripts/dev/update-packages.sh [-h]
 
   -h, --help   show this help
 EOF
@@ -25,7 +25,7 @@ main() {
   esac
 
   local ROOT
-  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
   # Resolve a vcs runner: prefer an installed `vcs`, else run it ephemerally via

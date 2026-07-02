@@ -28,16 +28,31 @@ the `fm_ros2` workspace metapackage.
 ```bash
 vcs import < fm-ros2.repos     # pull container infra into docker/ + the four package repos into src/
 vcs import src < fm-learning.repos # private overlay — team members with access
-./scripts/import-externals.sh      # vendor externals into external/
+./scripts/install/import-externals.sh      # vendor externals into external/
 ```
 
 ## Testing
+
+Container path (CI/parity, default on Linux):
 
 ```bash
 colcon build --symlink-install
 colcon test --packages-select $(colcon list --names-only | grep '^fm_')
 colcon test-result --verbose
 ```
+
+Native path (pixi + RoboStack, default on macOS/Windows):
+
+```bash
+pixi install                                   # solve the env from pixi.lock
+pixi run colcon build                          # build src/ + external/ on the host
+pixi run colcon test --packages-select $(colcon list --names-only | grep '^fm_')
+```
+
+`rosdep` is unsupported inside a pixi env — add ROS deps with `pixi add
+ros-humble-<pkg>` instead. Unitree-interface externals do not build natively on
+macOS, so Unitree-dependent robots (e.g. G1) need the container path. The container
+remains the CI/parity path — see [docs/SETUP.md](docs/SETUP.md).
 
 ## Layout
 

@@ -72,7 +72,7 @@ The normal public workspace flow is:
 git clone https://github.com/first-motive/fm-ros2.git fm_ros2
 cd fm_ros2
 vcs import src < fm-ros2.repos
-./scripts/import-externals.sh
+./scripts/install/import-externals.sh
 ./run.sh
 ```
 

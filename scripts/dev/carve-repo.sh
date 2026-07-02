@@ -9,7 +9,7 @@
 # workflow, commits, and (with PUSH=1) creates and pushes the remote.
 #
 # Usage:
-#   scripts/carve-repo.sh <repo-name> <subdir> [drop-subdir ...]
+#   scripts/dev/carve-repo.sh <repo-name> <subdir> [drop-subdir ...]
 #
 #     repo-name    kebab repo + package-domain, e.g. fm-robot
 #     subdir       monorepo path promoted to the new repo root, e.g. fm_robot
@@ -19,7 +19,7 @@
 #
 # Environment:
 #   SRC      monorepo path           (default: this repo's toplevel)
-#   ASSETS   per-repo asset dir      (default: scripts/carve-assets/<repo-name>)
+#   ASSETS   per-repo asset dir      (default: scripts/dev/carve-assets/<repo-name>)
 #            holds README.md, CLAUDE.md, CODEOWNERS, <repo-name>.repos, ci.yml,
 #            gitignore, description
 #   ORG      github org              (default: first-motive)
@@ -27,9 +27,9 @@
 #   PUSH     1 = create remote + push; 0 = local carve only (default: 0)
 #
 # Examples:
-#   scripts/carve-repo.sh fm-robot fm_robot                    # dry, local only
-#   PUSH=1 scripts/carve-repo.sh fm-robot fm_robot             # create + push
-#   PUSH=1 scripts/carve-repo.sh fm-learning fm_learning \
+#   scripts/dev/carve-repo.sh fm-robot fm_robot                    # dry, local only
+#   PUSH=1 scripts/dev/carve-repo.sh fm-robot fm_robot             # create + push
+#   PUSH=1 scripts/dev/carve-repo.sh fm-learning fm_learning \
 #                                fm_learning/fm_data fm_learning/fm_policy
 #
 set -euo pipefail
@@ -39,8 +39,8 @@ usage() {
 carve-repo.sh — carve one package group out of the monorepo into its own repo
 
 Usage:
-  scripts/carve-repo.sh <repo-name> <subdir> [drop-subdir ...]
-  scripts/carve-repo.sh -h|--help
+  scripts/dev/carve-repo.sh <repo-name> <subdir> [drop-subdir ...]
+  scripts/dev/carve-repo.sh -h|--help
 
   repo-name    kebab repo + package-domain, e.g. fm-robot
   subdir       monorepo path promoted to the new repo root, e.g. fm_robot
@@ -49,7 +49,7 @@ Usage:
 
 Environment:
   SRC      monorepo path           (default: this repo's toplevel)
-  ASSETS   per-repo asset dir      (default: scripts/carve-assets/<repo-name>)
+  ASSETS   per-repo asset dir      (default: scripts/dev/carve-assets/<repo-name>)
   ORG      github org              (default: first-motive)
   OUT      output dir for the carve (default: a fresh mktemp dir)
   PUSH     1 = create remote + push; 0 = local carve only (default: 0)
@@ -67,7 +67,7 @@ main() {
   local DROPS=("$@")
 
   local SRC="${SRC:-$(git rev-parse --show-toplevel)}"
-  local ASSETS="${ASSETS:-$SRC/scripts/carve-assets/$NAME}"
+  local ASSETS="${ASSETS:-$SRC/scripts/dev/carve-assets/$NAME}"
   local ORG="${ORG:-first-motive}"
 
   # Validate the names that reach the shell / gh CLI, so a stray value can't inject
@@ -98,7 +98,7 @@ main() {
   #    last move.
   local PATHS_SPEC
   PATHS_SPEC="$(mktemp)"
-  python3 "$SRC/scripts/carve-paths.py" "$SUBDIR" > "$PATHS_SPEC"
+  python3 "$SRC/scripts/dev/carve-paths.py" "$SUBDIR" > "$PATHS_SPEC"
   git filter-repo --force --paths-from-file "$PATHS_SPEC"
   git filter-repo --force --subdirectory-filter "$SUBDIR"
 

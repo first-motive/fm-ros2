@@ -7,6 +7,9 @@ MUJOCO_LOG.TXT
 # fm_tui viewer preference (written to the /ws mount on toggle; local only)
 .fm_tui.json
 
+# install profile: path (native|container) + viewer, written by install.sh
+.fm_ros2.json
+
 # Package repos pulled into the workspace (vcs import src < fm-ros2.repos)
 src/
 
@@ -19,10 +22,13 @@ fm-learning.repos
 # Vendored external sources (pulled via vcs import)
 external/
 
-# colcon build artifacts
-build/
-install/
-log/
+# colcon build artifacts (root-anchored so scripts/install/ is not caught)
+/build/
+/install/
+/log/
+
+# pixi native env (materialized from pixi.lock; the manifest + lock are tracked)
+.pixi/
 
 # Python
 __pycache__/
