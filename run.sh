@@ -64,6 +64,14 @@ main() {
   fi
   [[ -z "$path" ]] && path="$(os_default_path)"
 
+  # CI self-test hook: the dispatcher parsed and resolved a path over the curl|bash
+  # pipe — stop before exec'ing a path script (which the piped one-liner has not
+  # checked out). Proves the front door loads without the rest of the tree.
+  if [[ -n "${FM_SELFTEST:-}" ]]; then
+    echo "selftest ok: run.sh dispatch resolved (path=$path)"
+    return 0
+  fi
+
   case "$path" in
     native)
       exec ./scripts/run/native.sh "$@"
