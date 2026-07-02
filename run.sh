@@ -121,11 +121,36 @@ open_foxglove_when_ready() {
   item "Foxglove Studio: opens when a view starts (ws://localhost:8765)"
 }
 
+# Serve the macOS rviz view over VNC. rviz has no native macOS build and cannot
+# render over XQuartz's indirect GLX on Apple Silicon, so it renders inside the
+# container against Xvfb + software GL (llvmpipe); scripts/rviz-vnc.sh starts that
+# display and a noVNC bridge, and this opens the host browser at the container's
+# address. OrbStack routes the host to the container IP, so no published port is
+# needed. The launcher starts rviz itself on the shared DISPLAY (:99, set on its
+# exec) when the operator picks a robot description. macOS GUI path; reads COMPOSE
+# / SERVICE set by main (dynamic scope).
+open_rviz_vnc() {
+  "${COMPOSE[@]}" exec -d "$SERVICE" bash /ws/scripts/rviz-vnc.sh
+  local ip url i
+  ip=$("${COMPOSE[@]}" exec -T "$SERVICE" hostname -I 2>/dev/null | awk '{print $1}')
+  url="http://${ip:-localhost}:6080/vnc.html?autoconnect=1&resize=scale"
+  # Wait for noVNC to answer on the host before opening — up to ~30s, which covers
+  # a one-time in-container dep install on an image built before the VNC bits.
+  for ((i = 0; i < 60; i++)); do
+    curl -fsS -o /dev/null --max-time 2 "$url" 2>/dev/null && break
+    sleep 0.5
+  done
+  command -v open >/dev/null 2>&1 && open "$url" 2>/dev/null || true
+  item "rviz in browser: ${url}"
+  item "(blank until you pick a robot description — rviz starts on selection)"
+}
+
 main() {
   # OVERLAY / OPEN_FOXGLOVE / COMPOSE / SERVICE / HOST stay global (no `local`) so
   # the forked open_foxglove_when_ready watcher sees them.
   OVERLAY=""
   OPEN_FOXGLOVE=true  # auto-open Foxglove Studio on macOS; --no-foxglove disables
+  RVIZ_VNC=false      # set when the persisted viewer is rviz on the macOS overlay
 
   # Parse before loading lib so --help works offline, with no network fetch.
   while [[ $# -gt 0 ]]; do
@@ -155,10 +180,13 @@ main() {
   fi
 
   # Friendly host label, derived from whichever overlay won (flag or auto-detect).
+  # FM_HOST_OS carries the same fact into the container so the launcher can warn
+  # when rviz is chosen on macOS (no X display there).
   case "$OVERLAY" in
-    *macos*) HOST="macOS" ;;
-    *linux*) HOST="Linux" ;;
+    *macos*) HOST="macOS"; FM_HOST_OS=macos ;;
+    *linux*) HOST="Linux"; FM_HOST_OS=linux ;;
   esac
+  export FM_HOST_OS
 
   # CI self-test hook: lib loaded + overlay resolved — stop before any import,
   # container, or build. Lets the curl-path test exercise the piped lib fetch.
@@ -178,8 +206,26 @@ main() {
   fi
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$PWD"
+  # The launcher persists its viewer preference here. FM_WS mounts to /ws in the
+  # container, so the same file is $FM_WS/.fm_tui.json on the host and
+  # /ws/.fm_tui.json inside — the one path that survives a container teardown.
+  export FM_TUI_CONFIG=/ws/.fm_tui.json
   COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
   SERVICE=fm
+
+  # An rviz default needs no Foxglove auto-open, and on macOS it renders over VNC.
+  # Read the persisted preference from the host side of the mount; on rviz, skip
+  # the Foxglove watcher and (on macOS) flag the VNC path, started once the
+  # container is up (open_rviz_vnc needs a running container to exec into).
+  if [[ -f "$FM_WS/.fm_tui.json" ]]; then
+    local viewer
+    viewer=$(sed -n 's/.*"viewer"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+      "$FM_WS/.fm_tui.json" | head -1)
+    if [[ "$viewer" == rviz ]]; then
+      OPEN_FOXGLOVE=false
+      [[ "$OVERLAY" == docker/compose.macos.yaml ]] && RVIZ_VNC=true
+    fi
+  fi
 
   # macOS runs on OrbStack as the Docker provider. Install it if missing, then make
   # sure the daemon is up — both idempotent, and each prints its own status bullet.
@@ -208,13 +254,25 @@ main() {
   item "Foxglove Studio: ws://localhost:8765"
   item "teardown: ${COMPOSE[*]} down"
   open_foxglove_when_ready
+  # When rviz is the macOS default, bring up the in-container display + noVNC
+  # bridge and open the browser. The launcher then renders rviz on that display.
+  local launch_env=(-e COLORTERM -e TERM -e FM_TUI_CONFIG -e FM_HOST_OS)
+  if [[ "$RVIZ_VNC" == true ]]; then
+    open_rviz_vnc
+    # rviz launches on the Xvfb display with software GL (llvmpipe).
+    launch_env+=(-e DISPLAY=:99 -e LIBGL_ALWAYS_SOFTWARE=1)
+  fi
   # `exec` skips the image ENTRYPOINT, so route through it to source ROS + overlay.
   # The launcher is an ament_python console_script (installed under lib/fm_tui/, not
   # on PATH), so reach it via `ros2 run`, not by name.
   # Forward the host terminal's colour capability (COLORTERM/TERM) into the
   # container; without it the TUI falls back to 16-colour and the brand palette
   # quantises to grey/white. -e VAR passes the host value through when set.
-  exec "${COMPOSE[@]}" exec -e COLORTERM -e TERM "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
+  # FM_TUI_CONFIG / FM_HOST_OS carry the viewer preference path and host OS into
+  # the launcher.
+  exec "${COMPOSE[@]}" exec \
+    "${launch_env[@]}" \
+    "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
 }
 
 main "$@"
