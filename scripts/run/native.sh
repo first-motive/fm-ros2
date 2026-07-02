@@ -83,6 +83,12 @@ open_foxglove_when_ready() {
     # ~10 min budget (300 × 2s) — enough to navigate the menu and launch, then
     # give up so a quit without launching never leaves this polling forever.
     for ((i = 0; i < 300; i++)); do
+      # The V-toggle can change inside the TUI after this watcher forks — re-read
+      # it each pass and stand down the moment foxglove is no longer the choice,
+      # so a mid-session switch to rviz never pops Studio.
+      local now
+      now="$(read_viewer .fm_tui.json)"
+      [[ -n "$now" && "$now" != foxglove ]] && exit 0
       if bash -c 'exec 3<>/dev/tcp/127.0.0.1/8765' 2>/dev/null; then
         open "$url" 2>/dev/null || true
         exit 0
