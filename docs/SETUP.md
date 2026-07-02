@@ -37,6 +37,14 @@ connects to the in-env bridge at `ws://localhost:8765`.
 On macOS (osx-arm64), 13 packages build natively — all of `fm_sim` and `fm_teleop`,
 plus `fm_tui`, `fm_sensors`, and `openarm_description`.
 
+On Windows, use the PowerShell wrappers — they ensure Git for Windows, then delegate
+to the same bash path through Git Bash:
+
+```powershell
+.\install.ps1 --native      # ensure Git Bash, then run install.sh --native
+.\run.ps1                    # dispatch through run.sh (native on Windows)
+```
+
 ### Caveats
 
 | Caveat | What to do |
@@ -45,7 +53,7 @@ plus `fm_tui`, `fm_sensors`, and `openarm_description`.
 | Unitree interface externals (`unitree_api`, `unitree_go`, `unitree_hg`) do **not** build natively on macOS — `rosidl_generator_py` cannot find the env Python's dev component. Packages that depend on them (`fm_description`, some openarm configs) abort. | Use the container path for Unitree-dependent robots (e.g. G1). Everything else builds natively. |
 | `ros-humble-foxglove-bridge` has no `win-64` build on `robostack-humble` | Native Windows has no Foxglove path — Windows installs default to the rviz viewer. |
 | Native Linux is deferred | Linux stays on the container (the CI/parity default). |
-| Windows PowerShell wrappers (`install.ps1` / `run.ps1`) are not yet present | Windows support is planned; for now the bash path runs under Git for Windows. |
+| The Windows path (`.ps1` wrappers → Git Bash) is exercised by the `windows-latest` CI job, but not yet on a physical Windows box | Treat Windows as CI-verified; a real-machine pass is still pending. |
 
 ### Why pixi
 

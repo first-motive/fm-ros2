@@ -163,14 +163,16 @@ for parity) — no GPU, no hardware; MuJoCo runs native. Unitree-interface robot
 
 [![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
-Four jobs per push and PR; each reproduces locally with the exact CI command
+Six jobs per push and PR; each reproduces locally with the exact CI command
 ([docs/CI.md](docs/CI.md)).
 
 | Job | Runner | Proves |
 |-----|--------|--------|
+| `selftest` | `ubuntu-latest` | `install.sh` + `run.sh` survive the piped curl path |
 | `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → four-robot headless smoke |
 | `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
-| `macos` | `macos-latest` (arm64) | host-native MuJoCo core — no Docker, no ROS2 |
+| `macos` | `macos-latest` (arm64) | host-native MuJoCo core + native install/run dispatch |
+| `windows` | `windows-latest` | native dispatch + `.ps1` wrappers delegate through Git Bash |
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 
 ## License & Ownership
