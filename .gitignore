@@ -24,6 +24,9 @@ build/
 install/
 log/
 
+# pixi native env (materialized from pixi.lock; the manifest + lock are tracked)
+.pixi/
+
 # Python
 __pycache__/
 *.py[cod]
