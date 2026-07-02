@@ -78,8 +78,12 @@ main() {
     return 0
   fi
 
-  echo "==> building the workspace natively (pixi run colcon build) ..."
-  pixi run colcon build --symlink-install
+  # Use the pixi `build` task, not an inline colcon call — the task carries the
+  # FindPython cmake args that let interface packages (unitree_api and friends)
+  # build on osx-arm64. An inline build would hit the FindPython failure that
+  # aborts the whole workspace.
+  echo "==> building the workspace natively (pixi run build) ..."
+  pixi run build
 
   # Open Foxglove Studio when the viewer is foxglove — the in-env bridge binds
   # 8765 on the host, so Studio connects directly (no container port publish).

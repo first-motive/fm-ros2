@@ -18,6 +18,10 @@ cmake = "<4"
 # The DDS IDL generator is not pulled in by ros-humble-desktop, but the unitree_api
 # external needs it to build. rosdep is unsupported in pixi, so add it explicitly.
 ros-humble-rosidl-generator-dds-idl = "*"
+# MoveIt is not part of ros-humble-desktop, but fm_control and fm_teleop need it
+# (moveit_servo drives teleop). The metapackage lacks servo, so add both.
+ros-humble-moveit = ">=2.5.9,<3"
+ros-humble-moveit-servo = ">=2.5.9,<3"
 
 # foxglove-bridge is not built for win-64 on robostack-humble, so it is scoped to
 # the platforms that have it. Native Windows therefore has no foxglove path from
@@ -29,7 +33,10 @@ ros-humble-foxglove-bridge = "*"
 ros-humble-foxglove-bridge = "*"
 
 [tasks]
-# Build the full colcon workspace (src/ + external/) from the host.
-build = "colcon build --symlink-install"
+# Build the full colcon workspace (src/ + external/) from the host. Point CMake's
+# FindPython at the env interpreter — rosidl_generator_py (used by unitree_api and
+# other interface packages) cannot otherwise locate the conda Python's dev
+# component on osx-arm64, and the failure aborts the whole build.
+build = "colcon build --symlink-install --cmake-args -DPython_EXECUTABLE=$CONDA_PREFIX/bin/python -DPython3_EXECUTABLE=$CONDA_PREFIX/bin/python"
 # Run the fm_ package tests natively.
 test = { cmd = "colcon test --packages-select $(colcon list --names-only | grep '^fm_')", depends-on = ["build"] }
