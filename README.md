@@ -47,10 +47,13 @@ curl ... | bash -s -- --learning
 ```bash
 git clone https://github.com/first-motive/fm-ros2.git fm_ros2
 cd fm_ros2
-vcs import < fm-ros2.repos         # pull container infra into docker/ + the package repos into src/
-./scripts/import-externals.sh      # vendor externals into external/
+./install.sh                       # bootstrap vcs + import repos + externals + viewer
 ./run.sh                           # auto-detect overlay, open the launcher
 ```
+
+Clone by hand, then run `install.sh` from the checkout — same setup the curl
+pipe runs (vcs bootstrap, package + external import, macOS viewer), without
+piping to `bash`. Pass `--learning` to add the private overlay.
 
 ```bash
 ./run.sh --linux    # Linux overlay (GPU / hardware)
