@@ -9,23 +9,23 @@
 # Foxglove Studio on the host renders it at ws://localhost:8765.
 #
 # Prerequisites (run once, or after changing externals / sources):
-#   ./scripts/import-externals.sh
+#   ./scripts/install/import-externals.sh
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
 #     run --rm fm colcon build --symlink-install
 #
 # Then:
-#   ./scripts/sim.sh                                       # openarm right_arm, mujoco
-#   ./scripts/sim.sh --robot so101 --backend mock          # SO101, no sim
-#   ./scripts/sim.sh --robot g1_d --backend mujoco         # G1-D right arm in mujoco
-#   ./scripts/sim.sh --robot axol --backend mujoco         # Axol, both arms in mujoco
-#   ./scripts/sim.sh --variant default_bimanual            # both OpenArm arms
-#   ./scripts/sim.sh --backend gazebo                      # Linux/GPU overlay
-#   ./scripts/sim.sh --backend isaac                       # Isaac over ROS topics
+#   ./scripts/run/sim.sh                                       # openarm right_arm, mujoco
+#   ./scripts/run/sim.sh --robot so101 --backend mock          # SO101, no sim
+#   ./scripts/run/sim.sh --robot g1_d --backend mujoco         # G1-D right arm in mujoco
+#   ./scripts/run/sim.sh --robot axol --backend mujoco         # Axol, both arms in mujoco
+#   ./scripts/run/sim.sh --variant default_bimanual            # both OpenArm arms
+#   ./scripts/run/sim.sh --backend gazebo                      # Linux/GPU overlay
+#   ./scripts/run/sim.sh --backend isaac                       # Isaac over ROS topics
 #
 # Notes: the G1-D simulates its right arm only (the rest of the body holds);
 # its mujoco model is the bipedal g1_29dof (arm joints match, wired-not-validated).
 # G1-D has no `real` sim backend — the real arm runs through the arm_sdk bridge,
-# not a controller_manager (see scripts/teleop.sh + src/fm_control).
+# not a controller_manager (see scripts/run/teleop.sh + src/fm_control).
 #
 # --robot/--backend accept hyphen or underscore form. Extra args pass straight
 # through to `ros2 launch`.
@@ -35,7 +35,7 @@ usage() {
   cat <<'EOF'
 sim.sh — launch a robot in a ros2_control simulation backend
 
-Usage: ./scripts/sim.sh [--robot R] [--variant V] [--backend B] [--task-env E] [-h] [ros2-launch-args...]
+Usage: ./scripts/run/sim.sh [--robot R] [--variant V] [--backend B] [--task-env E] [-h] [ros2-launch-args...]
 
   --robot R      openarm | so101 | g1_d | axol (default openarm)
   --variant V    description variant (e.g. default_bimanual)
@@ -90,7 +90,7 @@ main() {
     gazebo|isaac|real) OVERLAY=docker/compose.linux.yaml ;;
   esac
 
-  cd "$(dirname "$0")/.."
+  cd "$(dirname "$0")/../.."
 
   # fm-ros2 consumes the published fm-app full-stack image and sources the compose
   # overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).

@@ -9,7 +9,7 @@ setup-macos.sh — macOS (M5) setup: verify OrbStack is the Docker provider, bui
 
 Dev + build + sim + dataset only — no GPU, no hardware on this path.
 
-Usage: ./scripts/setup-macos.sh [-h]
+Usage: ./scripts/install/setup-macos.sh [-h]
 
   -h, --help   show this help
 EOF
@@ -21,7 +21,7 @@ main() {
   esac
 
   local ROOT
-  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
   echo "==> Setting up Docker / OrbStack via fm-docker..."
@@ -42,11 +42,11 @@ main() {
 
   echo "==> Importing external dependencies (placeholder pins)..."
   if command -v vcs >/dev/null 2>&1; then
-    ./scripts/import-externals.sh
+    ./scripts/install/import-externals.sh
   else
     echo "    vcs not on host; import runs inside the container instead:"
     echo "      docker compose -f docker/compose.yaml -f docker/compose.macos.yaml run --rm fm \\"
-    echo "        ./scripts/import-externals.sh"
+    echo "        ./scripts/install/import-externals.sh"
   fi
 
   echo "==> Building base image (arm64)..."

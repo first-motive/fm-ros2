@@ -5,19 +5,19 @@
 # pieces the M5 runs natively on CPU. CI calls it on macos-latest, and it runs
 # locally the same way:
 #
-#   ./scripts/ci-smoke-macos.sh
+#   ./scripts/ci/ci-smoke-macos.sh
 #
 # Covers the deterministic host-native items: the ROS-free MuJoCo stepper logic,
 # the MJCF registry lookup, and a real native-arm64 MuJoCo wheel step. The
 # container build, colcon build + test, and the four-robot teleop asserts run in
-# the Linux job (scripts/ci-smoke.sh).
+# the Linux job (scripts/ci/ci-smoke.sh).
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
 ci-smoke-macos.sh — host-native macOS smoke: the ROS-free sim core on bare arm64
 
-Usage: ./scripts/ci-smoke-macos.sh [-h]
+Usage: ./scripts/ci/ci-smoke-macos.sh [-h]
 
   -h, --help   show this help
 
@@ -31,7 +31,7 @@ main() {
   esac
 
   local ROOT
-  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
   # The ROS-free packages aren't installed here — point Python at their sources.

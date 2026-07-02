@@ -3,7 +3,7 @@
 # external/lerobot. fm_ros2 owns its robotics deps, so lerobot is installed
 # host-native (like the mujoco env on the M5) rather than in the container.
 #
-# Order: run scripts/import-externals.sh first — this needs the vendored source.
+# Order: run scripts/install/import-externals.sh first — this needs the vendored source.
 # Idempotent: skips if ~/.venvs/lerobot already exists.
 #   --force  wipe and reinstall editable. Use it to migrate an old PyPI lerobot
 #            venv (uv pip install lerobot) to this editable source install.
@@ -13,10 +13,10 @@ usage() {
   cat <<'EOF'
 setup-lerobot.sh — create the lerobot env: editable install from external/lerobot
 
-Run scripts/import-externals.sh first (this needs the vendored source).
+Run scripts/install/import-externals.sh first (this needs the vendored source).
 Idempotent: skips if ~/.venvs/lerobot already exists.
 
-Usage: ./scripts/setup-lerobot.sh [--force] [-h]
+Usage: ./scripts/install/setup-lerobot.sh [--force] [-h]
 
   --force      wipe and reinstall editable (migrate an old PyPI lerobot venv)
   -h, --help   show this help
@@ -29,7 +29,7 @@ main() {
   esac
 
   local ROOT
-  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
   local VENV="$HOME/.venvs/lerobot"
@@ -45,7 +45,7 @@ main() {
 
   # The editable install points at the vendored source — fail loud if it is absent.
   if [ ! -d "$SRC" ]; then
-    echo "ERROR: $SRC missing. Run scripts/import-externals.sh first." >&2
+    echo "ERROR: $SRC missing. Run scripts/install/import-externals.sh first." >&2
     return 1
   fi
 

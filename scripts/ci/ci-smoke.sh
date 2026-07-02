@@ -3,7 +3,7 @@
 # container, after `colcon build` — CI calls it, and it runs locally the same way:
 #
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-#     run --rm fm ./scripts/ci-smoke.sh
+#     run --rm fm ./scripts/ci/ci-smoke.sh
 #
 # Each check is bounded (timed waits, not fixed sleeps) and prints PASS/FAIL. All
 # checks run; the script exits non-zero if any failed. These cover the deterministic,
@@ -19,7 +19,7 @@ ci-smoke.sh — headless smoke asserts for the four-robot teleop stack
 Runs inside the built container, after `colcon build`. Every check runs;
 the script exits non-zero if any failed.
 
-Usage: ./scripts/ci-smoke.sh [-h]
+Usage: ./scripts/ci/ci-smoke.sh [-h]
 
   -h, --help   show this help
 EOF
@@ -284,12 +284,12 @@ PY
   sleep 2
 }
 
-# Bring up the headless rviz VNC path (scripts/rviz-vnc.sh) and assert its two
+# Bring up the headless rviz VNC path (scripts/run/rviz-vnc.sh) and assert its two
 # halves: the noVNC HTTP port binds, and rviz renders on the virtual display with
 # software GL. This covers the container-side of the macOS rviz viewer; the host
 # browser-open in run.sh is not exercised here.
 assert_rviz_vnc() {
-  if ! bash "$ROOT/scripts/rviz-vnc.sh" >/tmp/rviz_vnc.log 2>&1; then
+  if ! bash "$ROOT/scripts/run/rviz-vnc.sh" >/tmp/rviz_vnc.log 2>&1; then
     fail "rviz-vnc: server did not start (see /tmp/rviz_vnc.log)"
     return
   fi
@@ -326,7 +326,7 @@ main() {
   esac
 
   local ROOT
-  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT" || return 1
 
   set +u

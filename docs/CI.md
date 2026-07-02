@@ -15,14 +15,14 @@ inheritance chain) and tags it `fm-ros2:ci`:
 ```bash
 docker pull ghcr.io/first-motive/fm-app:humble
 docker tag ghcr.io/first-motive/fm-app:humble fm-ros2:ci
-docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci bash -lc './scripts/import-externals.sh'
+docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci bash -lc './scripts/install/import-externals.sh'
 docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci \
   bash -lc 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'
 docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci \
   bash -lc 'source /opt/ros/humble/setup.bash && source install/setup.bash &&
             colcon test --packages-select $(colcon list --names-only | grep "^fm_") &&
             colcon test-result --verbose'
-docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci ./scripts/ci-smoke.sh
+docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci ./scripts/ci/ci-smoke.sh
 ```
 
 ## macOS (`macos-latest`, arm64)
@@ -33,5 +33,5 @@ ROS-free core the M5 runs directly on arm64 CPU — the MuJoCo stepper, the MJCF
 registry, and a real native mujoco step:
 
 ```bash
-./scripts/ci-smoke-macos.sh
+./scripts/ci/ci-smoke-macos.sh
 ```

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Build and test the workspace inside the base image. Same commands CI runs.
 # Usage:
-#   ./scripts/verify-build.sh            # run inside the container
+#   ./scripts/ci/verify-build.sh            # run inside the container
 #   docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-#     run --rm fm ./scripts/verify-build.sh    # from the macOS host
+#     run --rm fm ./scripts/ci/verify-build.sh    # from the macOS host
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
 verify-build.sh — build and test the workspace inside the base image (same as CI)
 
-Usage: ./scripts/verify-build.sh [-h]
+Usage: ./scripts/ci/verify-build.sh [-h]
 
   -h, --help   show this help
 EOF
@@ -22,7 +22,7 @@ main() {
   esac
 
   local ROOT
-  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
   # ROS setup files reference unbound vars; relax `set -u` only across sourcing.

@@ -34,14 +34,14 @@
 # real paths are plumbed but untested — no physical hardware yet.
 #
 # Prerequisites: build the workspace first (see sim.sh). The sim/real target must
-# be reachable — run ./scripts/sim.sh in another terminal, or wire the real arm.
+# be reachable — run ./scripts/run/sim.sh in another terminal, or wire the real arm.
 #
 # Then:
-#   ./scripts/teleop.sh                              # openarm, mujoco target, foxglove
-#   ./scripts/teleop.sh --robot so101 --backend mock # SO101 teleop
-#   ./scripts/teleop.sh --robot g1_d                 # G1-D right arm, mujoco
-#   ./scripts/teleop.sh --robot axol                 # Axol, one servo_node per arm
-#   ./scripts/teleop.sh --input joy                  # gamepad
+#   ./scripts/run/teleop.sh                              # openarm, mujoco target, foxglove
+#   ./scripts/run/teleop.sh --robot so101 --backend mock # SO101 teleop
+#   ./scripts/run/teleop.sh --robot g1_d                 # G1-D right arm, mujoco
+#   ./scripts/run/teleop.sh --robot axol                 # Axol, one servo_node per arm
+#   ./scripts/run/teleop.sh --input joy                  # gamepad
 #
 # Extra args pass straight through to `ros2 launch`.
 set -euo pipefail
@@ -50,7 +50,7 @@ usage() {
   cat <<'EOF'
 teleop.sh — jog a robot's arm interactively through MoveIt Servo
 
-Usage: ./scripts/teleop.sh [--robot R] [--variant V] [--backend B] [--input I] [-h] [ros2-launch-args...]
+Usage: ./scripts/run/teleop.sh [--robot R] [--variant V] [--backend B] [--input I] [-h] [ros2-launch-args...]
 
   --robot R      openarm | so101 | g1_d | axol (default openarm)
   --variant V    description variant
@@ -113,7 +113,7 @@ main() {
     gazebo|isaac|real) OVERLAY=docker/compose.linux.yaml ;;
   esac
 
-  cd "$(dirname "$0")/.."
+  cd "$(dirname "$0")/../.."
 
   # fm-ros2 consumes the published fm-app full-stack image and sources the compose
   # overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).

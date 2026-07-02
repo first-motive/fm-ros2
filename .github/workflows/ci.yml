@@ -89,7 +89,7 @@ jobs:
       - name: Import externals
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
-            bash -lc './scripts/import-externals.sh'
+            bash -lc './scripts/install/import-externals.sh'
 
       - name: colcon build
         run: |
@@ -108,7 +108,7 @@ jobs:
                       colcon test --packages-select $fm_pkgs &&
                       colcon test-result --verbose'
 
-      # The headless three-robot smoke asserts (scripts/ci-smoke.sh) are run
+      # The headless three-robot smoke asserts (scripts/ci/ci-smoke.sh) are run
       # manually / locally for now — a ros2 launch in the assembled workspace can
       # hang teardown in CI. Tracked as a follow-up; build + test above is the
       # integration gate.
@@ -140,9 +140,9 @@ jobs:
       # which GitHub's macOS runners cannot host. This job covers the ROS-free
       # pieces the M5 runs natively on arm64 CPU — the MuJoCo stepper and the MJCF
       # registry — plus a real native mujoco wheel step. uv provisions Python +
-      # deps; no Docker, no ROS2. Same script runs locally: ./scripts/ci-smoke-macos.sh
+      # deps; no Docker, no ROS2. Same script runs locally: ./scripts/ci/ci-smoke-macos.sh
       - name: Host-native sim core smoke
-        run: ./scripts/ci-smoke-macos.sh
+        run: ./scripts/ci/ci-smoke-macos.sh
 
   installer:
     name: installer import path

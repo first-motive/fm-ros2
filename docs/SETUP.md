@@ -26,7 +26,7 @@ Source: [`diagrams/setup.d2`](diagrams/setup.d2).
 git clone https://github.com/first-motive/fm-ros2.git fm_ros2
 cd fm_ros2
 vcs import < fm-ros2.repos     # pull the four public package repos into src/
-./scripts/setup-macos.sh
+./scripts/install/setup-macos.sh
 ```
 
 `setup-macos.sh` checks OrbStack, imports external deps (placeholder pins), and
@@ -54,14 +54,14 @@ Build and test (same commands CI runs):
 
 ```bash
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm ./scripts/verify-build.sh
+  run --rm fm ./scripts/ci/verify-build.sh
 ```
 
 Run the end-to-end smoke check:
 
 ```bash
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm ./scripts/smoke.sh
+  run --rm fm ./scripts/ci/smoke.sh
 ```
 
 Launch the graph (foxglove bridge + control):
@@ -88,7 +88,7 @@ ros2 run fm_sim_core sim_loop
 | Foxglove viz over ws | CUDA training |
 
 For GPU, hardware, or GUI tools, use the Linux native path
-(`scripts/setup-linux.sh` + `compose.linux.yaml`).
+(`scripts/install/setup-linux.sh` + `compose.linux.yaml`).
 
 ## Troubleshooting
 

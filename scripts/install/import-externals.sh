@@ -19,7 +19,7 @@ import-externals.sh — vendor external dependencies into external/ from externa
 Imports externals, marks all but the built repos COLCON_IGNORE, and reports
 versions. external/ is gitignored — a local working copy, not committed.
 
-Usage: ./scripts/import-externals.sh [-h] [--verbose]
+Usage: ./scripts/install/import-externals.sh [-h] [--verbose]
 
   -h, --help   show this help
   --verbose    also print the per-repo external version dump
@@ -67,7 +67,7 @@ main() {
   done
 
   local ROOT
-  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
   if ! command -v vcs >/dev/null 2>&1; then
@@ -152,7 +152,7 @@ main() {
     awk -v anchor="$mjcf_anchor" '
       { print }
       index($0, anchor) {
-        print "  <option gravity=\"0 0 0\" />  <!-- gravity comp (Servo has none); see scripts/import-externals.sh -->"
+        print "  <option gravity=\"0 0 0\" />  <!-- gravity comp (Servo has none); see scripts/install/import-externals.sh -->"
       }
     ' "$openarm_mjcf" > "$openarm_mjcf.tmp" && mv "$openarm_mjcf.tmp" "$openarm_mjcf"
     item "Patched OpenArm MuJoCo model with gravity compensation (option gravity=0)."

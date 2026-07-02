@@ -5,9 +5,9 @@ The dev container runs `foxglove_bridge`; Foxglove Studio on the host connects a
 use the helper to serve the port:
 
 ```bash
-./scripts/foxglove.sh           # shared stack (default)
-./scripts/foxglove.sh -t        # throwaway container, auto-cleans on exit
-./scripts/foxglove.sh -p 9000   # custom in-container bridge port
+./scripts/run/foxglove.sh           # shared stack (default)
+./scripts/run/foxglove.sh -t        # throwaway container, auto-cleans on exit
+./scripts/run/foxglove.sh -p 9000   # custom in-container bridge port
 ```
 
 | Mode | Command | Container | ROS graph |
@@ -20,7 +20,7 @@ sessions with no extra DDS config. Tear it down with
 `docker compose -f docker/compose.yaml -f docker/compose.macos.yaml down`. Throwaway
 runs an isolated bridge that cleans up on exit.
 
-To view a robot URDF in Foxglove, run `./scripts/view-robot.sh` (default G1-D;
+To view a robot URDF in Foxglove, run `./scripts/run/view-robot.sh` (default G1-D;
 `--robot so101`, `--robot axol`, or `--robot openarm` for the others) — it starts
 robot_state_publisher plus the bridge with meshes. See the
 [fm-robot repo](https://github.com/first-motive/fm-robot) (`fm_description`) for the
@@ -61,7 +61,7 @@ rviz2 → Xvfb :99 (llvmpipe GL) → x11vnc → noVNC :6080 → browser
 No host viewer install and no XQuartz. When `rviz` is the default on macOS,
 `run.sh`:
 
-1. runs [`scripts/rviz-vnc.sh`](../scripts/rviz-vnc.sh) in the container to start
+1. runs [`scripts/run/rviz-vnc.sh`](../scripts/run/rviz-vnc.sh) in the container to start
    Xvfb + x11vnc + noVNC,
 2. launches rviz on `DISPLAY=:99` with `LIBGL_ALWAYS_SOFTWARE=1`,
 3. opens the browser at `http://<container-ip>:6080/vnc.html`, and
@@ -90,9 +90,9 @@ For a live MuJoCo-backed SO101 scene, start the simulator with a task
 environment and then connect Foxglove Studio to the shared bridge:
 
 ```bash
-./scripts/sim.sh --robot so101 --backend mujoco --task-env pick_place
-./scripts/sim.sh --robot so101 --backend mujoco --task-env table_reach
-./scripts/sim.sh --robot so101 --backend mujoco --task-env bin_sort
+./scripts/run/sim.sh --robot so101 --backend mujoco --task-env pick_place
+./scripts/run/sim.sh --robot so101 --backend mujoco --task-env table_reach
+./scripts/run/sim.sh --robot so101 --backend mujoco --task-env bin_sort
 ```
 
 `sim.sh` prints the selected task environment and ensures Docker is running on

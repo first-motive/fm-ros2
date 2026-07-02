@@ -18,7 +18,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/foxglove.sh [-t] [-p PORT]
+Usage: scripts/run/foxglove.sh [-t] [-p PORT]
   -t        throwaway container (run --rm); default is the shared stack (up -d + exec)
   -p PORT   in-container bridge port (default 8765)
   -h        show this help
@@ -39,7 +39,7 @@ main() {
   done
 
   # Run from the repo root so the relative compose paths resolve.
-  cd "$(dirname "$0")/.."
+  cd "$(dirname "$0")/../.."
 
   # fm-ros2 consumes the published fm-app full-stack image and sources the compose
   # overlays from fm-docker (imported into docker/ on first run via fm-ros2.repos).

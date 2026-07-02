@@ -46,7 +46,7 @@ daemon — both idempotent. The Linux path skips this block — Docker runs nati
 Robot descriptions live outside the repo. Vendor them once before the first run:
 
 ```bash
-./scripts/import-externals.sh    # vendor robot sources into external/
+./scripts/install/import-externals.sh    # vendor robot sources into external/
 ```
 
 The launcher's robot list is empty until this runs.
@@ -147,21 +147,21 @@ is its validated path. Axol's mujoco model is authored in-repo (Almond Bot ships
 MJCF) and drives both arms.
 
 ```bash
-./scripts/sim.sh                              # openarm right_arm in MuJoCo (default)
-./scripts/sim.sh --robot so101 --backend mock # SO101, no sim
-./scripts/sim.sh --robot g1_d --backend mock  # G1-D right arm (body holds)
-./scripts/sim.sh --variant default_bimanual   # both OpenArm arms
-./scripts/sim.sh --robot axol --backend mujoco # Axol, both arms in MuJoCo
+./scripts/run/sim.sh                              # openarm right_arm in MuJoCo (default)
+./scripts/run/sim.sh --robot so101 --backend mock # SO101, no sim
+./scripts/run/sim.sh --robot g1_d --backend mock  # G1-D right arm (body holds)
+./scripts/run/sim.sh --variant default_bimanual   # both OpenArm arms
+./scripts/run/sim.sh --robot axol --backend mujoco # Axol, both arms in MuJoCo
 ```
 
 Teleop adds MoveIt Servo plus an input source. Run `sim.sh` in one terminal, then
 `teleop.sh` in another:
 
 ```bash
-./scripts/teleop.sh                            # openarm, Foxglove panel -> Servo
-./scripts/teleop.sh --robot so101 --backend mock
-./scripts/teleop.sh --robot g1_d               # G1-D right arm
-./scripts/teleop.sh --robot axol               # Axol, one servo_node per arm
+./scripts/run/teleop.sh                            # openarm, Foxglove panel -> Servo
+./scripts/run/teleop.sh --robot so101 --backend mock
+./scripts/run/teleop.sh --robot g1_d               # G1-D right arm
+./scripts/run/teleop.sh --robot axol               # Axol, one servo_node per arm
 ```
 
 In the Foxglove panel, pick the robot in the panel settings so the joint set and

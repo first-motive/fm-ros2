@@ -9,7 +9,7 @@ setup-linux.sh — Linux (native) setup: verify Docker + NVIDIA toolkit, build b
 
 Full hardware path — GPU, device passthrough, X11.
 
-Usage: ./scripts/setup-linux.sh [-h]
+Usage: ./scripts/install/setup-linux.sh [-h]
 
   -h, --help   show this help
 EOF
@@ -21,7 +21,7 @@ main() {
   esac
 
   local ROOT
-  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
   echo "==> Checking Docker..."
@@ -48,11 +48,11 @@ main() {
 
   echo "==> Importing external dependencies (placeholder pins)..."
   if command -v vcs >/dev/null 2>&1; then
-    ./scripts/import-externals.sh
+    ./scripts/install/import-externals.sh
   else
     echo "    vcs not on host; import runs inside the container instead:"
     echo "      docker compose -f docker/compose.yaml -f docker/compose.linux.yaml run --rm fm \\"
-    echo "        ./scripts/import-externals.sh"
+    echo "        ./scripts/install/import-externals.sh"
   fi
 
   echo "==> Building base image..."

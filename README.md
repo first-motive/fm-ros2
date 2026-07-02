@@ -69,12 +69,12 @@ Source: [`docs/diagrams/menu.d2`](docs/diagrams/menu.d2).
 
 ```bash
 # macOS (M5, OrbStack)
-./scripts/setup-macos.sh
+./scripts/install/setup-macos.sh
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
   run --rm fm colcon build --symlink-install
 
 # Linux (GPU / hardware) — swap the setup script and overlay
-./scripts/setup-linux.sh
+./scripts/install/setup-linux.sh
 docker compose -f docker/compose.yaml -f docker/compose.linux.yaml \
   run --rm fm colcon build --symlink-install
 ```
@@ -113,7 +113,7 @@ fm_ros2/                     local checkout dir (snake to match the packages; Gi
 ├── docker/                  base image + compose overlays
 ├── .devcontainer/           VS Code dev container
 ├── .github/workflows/       CI: Linux build/test + macOS native smoke
-├── scripts/                 setup, import-externals, carve tooling
+├── scripts/                 tooling by role: install/ run/ ci/ dev/
 ├── docs/                    full-system docs + diagrams
 └── run.sh                   front door: build + open the launcher
 ```

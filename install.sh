@@ -237,16 +237,16 @@ main() {
 
   # Vendor the external sources the build consumes into external/.
   step "Vendor Externals"
-  ./scripts/import-externals.sh
+  ./scripts/install/import-externals.sh
 
   # Install the macOS robot viewer so run.sh can auto-open it pre-connected to the
   # bridge. Best-effort and macOS-only (the script self-skips on Linux) — a failure
   # never blocks provisioning. No container exec here, so no terminal is needed.
   step "Install Viewer"
   item "Foxglove Studio (macOS; skipped on Linux) ..."
-  ./scripts/install-foxglove.sh
+  ./scripts/install/install-foxglove.sh
   # The macOS rviz viewer needs no host install — it renders in the container and
-  # streams to the browser over VNC (see scripts/rviz-vnc.sh). Deps are baked into
+  # streams to the browser over VNC (see scripts/run/rviz-vnc.sh). Deps are baked into
   # the fm-app image.
 
   # Setup ends here. run.sh builds and launches the interactive TUI, which needs a

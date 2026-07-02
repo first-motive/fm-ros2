@@ -5,8 +5,8 @@ than committed here. The setup scripts call the import step; run it standalone t
 refresh.
 
 ```bash
-./scripts/import-externals.sh        # vendor sources: vcs import external < external.repos
-./scripts/setup-lerobot.sh           # then: editable lerobot env from the vendored source
+./scripts/install/import-externals.sh        # vendor sources: vcs import external < external.repos
+./scripts/install/setup-lerobot.sh           # then: editable lerobot env from the vendored source
 ```
 
 Pins in `external.repos` are placeholders (LeRobot, OpenArm, Unitree, Axol) —

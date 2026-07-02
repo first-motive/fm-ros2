@@ -5,7 +5,7 @@
 # description, simulation, and teleop; autonomous is stubbed.
 #
 # It auto-detects the host OS to pick the compose overlay (macOS / Linux) and
-# reuses the shared-stack pattern from scripts/view-robot.sh: `up -d`, build the
+# reuses the shared-stack pattern from scripts/run/view-robot.sh: `up -d`, build the
 # workspace, then `exec` the launcher through the image entrypoint so ROS + the
 # workspace overlay are sourced.
 #
@@ -18,9 +18,9 @@
 # and console-script changes are always picked up. The build is incremental, so a
 # warm tree is quick. The package repos and externals are imported first, once:
 #   vcs import < fm-ros2.repos       # pull docker/ infra + the package repos into src/
-#   ./scripts/import-externals.sh    # vendor robot sources into external/
+#   ./scripts/install/import-externals.sh    # vendor robot sources into external/
 #
-# scripts/view-robot.sh, scripts/sim.sh, and scripts/teleop.sh coexist as the
+# scripts/run/view-robot.sh, scripts/run/sim.sh, and scripts/run/teleop.sh coexist as the
 # direct, scriptable paths to the same launches — use them when you want one
 # capability without the menu.
 #
@@ -123,14 +123,14 @@ open_foxglove_when_ready() {
 
 # Serve the macOS rviz view over VNC. rviz has no native macOS build and cannot
 # render over XQuartz's indirect GLX on Apple Silicon, so it renders inside the
-# container against Xvfb + software GL (llvmpipe); scripts/rviz-vnc.sh starts that
+# container against Xvfb + software GL (llvmpipe); scripts/run/rviz-vnc.sh starts that
 # display and a noVNC bridge, and this opens the host browser at the container's
 # address. OrbStack routes the host to the container IP, so no published port is
 # needed. The launcher starts rviz itself on the shared DISPLAY (:99, set on its
 # exec) when the operator picks a robot description. macOS GUI path; reads COMPOSE
 # / SERVICE set by main (dynamic scope).
 open_rviz_vnc() {
-  "${COMPOSE[@]}" exec -d "$SERVICE" bash /ws/scripts/rviz-vnc.sh
+  "${COMPOSE[@]}" exec -d "$SERVICE" bash /ws/scripts/run/rviz-vnc.sh
   local ip url i
   ip=$("${COMPOSE[@]}" exec -T "$SERVICE" hostname -I 2>/dev/null | awk '{print $1}')
   url="http://${ip:-localhost}:6080/vnc.html?autoconnect=1&resize=scale"
