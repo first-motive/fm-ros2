@@ -12,6 +12,7 @@
 #   ./scripts/view-robot.sh                                  # g1_d wheeled G1-D (default)
 #   ./scripts/view-robot.sh --robot g1_d --variant g1_29dof_rev_1_0   # bipedal body
 #   ./scripts/view-robot.sh --robot so101
+#   ./scripts/view-robot.sh --robot axol                     # bimanual (two 7-DOF arms)
 #   ./scripts/view-robot.sh --robot openarm                  # right_arm
 #   ./scripts/view-robot.sh --robot openarm --variant left_arm
 #   ./scripts/view-robot.sh --robot openarm --variant default_bimanual
@@ -27,7 +28,7 @@ view-robot.sh — launch a robot URDF view in the macOS dev container
 
 Usage: ./scripts/view-robot.sh [--robot R] [-h] [ros2-launch-args...]
 
-  --robot R    g1_d | so101 | openarm (default g1_d)
+  --robot R    g1_d | so101 | openarm | axol (default g1_d)
   -h, --help   show this help
 
 --robot accepts hyphen or underscore form (g1-d == g1_d). Extra args pass
@@ -63,7 +64,7 @@ main() {
   # Normalize hyphen -> underscore (g1-d -> g1_d).
   ROBOT="${ROBOT//-/_}"
 
-  local VALID_ROBOTS=(g1_d so101 openarm)
+  local VALID_ROBOTS=(g1_d so101 openarm axol)
   local ok=false r
   for r in "${VALID_ROBOTS[@]}"; do
     [[ "$ROBOT" == "$r" ]] && ok=true && break

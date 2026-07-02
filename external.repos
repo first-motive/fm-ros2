@@ -10,6 +10,16 @@
 #
 # Run:  ./scripts/import-externals.sh   (wraps the vcs import above)
 repositories:
+  axol:
+    # Almond Bot's Axol: a bimanual arm (2x 7-DOF, CAN over USB-C). Plain files,
+    # NOT a ROS package — the flat URDF (almond_axol/kinematics/urdf/axol.urdf) +
+    # STL meshes are file-vendored into fm_description's share (like the SO101 and
+    # G1), and an authored MJCF drives the mujoco backend. Joint names are
+    # {left,right}_{s1,s2,s3,e1,e2,w1,w2}_0; grippers are fixed (no DOF). The real
+    # CAN backend is deferred, so this is COLCON_IGNORE'd on every path. MIT.
+    type: git
+    url: https://github.com/almond-bot/axol.git
+    version: ca5de52e5938c6bb174782dd5d504f8d6ec07662  # main @ 2026-07-01; fork before patching
   lerobot:
     type: git
     url: https://github.com/huggingface/lerobot.git

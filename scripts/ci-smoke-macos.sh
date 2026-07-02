@@ -9,7 +9,7 @@
 #
 # Covers the deterministic host-native items: the ROS-free MuJoCo stepper logic,
 # the MJCF registry lookup, and a real native-arm64 MuJoCo wheel step. The
-# container build, colcon build + test, and the three-robot teleop asserts run in
+# container build, colcon build + test, and the four-robot teleop asserts run in
 # the Linux job (scripts/ci-smoke.sh).
 set -euo pipefail
 

@@ -88,14 +88,15 @@ backend → overlay              hosts the controller_manager
 ```
 
 The controllers, controller_manager, and `<ros2_control>` interfaces stay identical
-across backends — only the `<hardware>` System plugin changes. Three robots are wired
-through one registry (`fm_bringup.registry`); adding a fourth is one entry there.
+across backends — only the `<hardware>` System plugin changes. Four robots are wired
+through one registry (`fm_bringup.registry`); adding a fifth is one entry there.
 
 ```
 robot    arm DOF   Servo Cartesian              real backend
   openarm  7        full 6-DOF                   openarm_hardware (SocketCAN)
   g1_d     7        full 6-DOF (right arm)       arm_sdk bridge — NOT ros2_control
   so101    5        translation-only (orient. drifts)   feetech serial plugin
+  axol     7 + 7    full 6-DOF (both arms)       deferred — CAN over USB-C, not yet plumbed
 ```
 
 Two deliberate asymmetries:
@@ -110,17 +111,21 @@ Two deliberate asymmetries:
   The sim backends still use standard ros2_control plugins. The wheeled base is driven
   separately by a Twist → AGV node, not by Servo.
 
-Real backends for all three are plumbed but **untested** — no physical hardware yet.
-On the Mac, `mock` + `mujoco` validate; `gazebo`/`isaac` are wired-not-validated
-(Linux/GPU-gated). The G1-D's mujoco model is the bipedal `g1_29dof` (its arm joint
-names match; legs differ from the wheeled body), so G1 mujoco is wired-not-validated
-pending a wheeled-G1 MJCF — `mock` is its validated path.
+The openarm, g1_d, and so101 real backends are plumbed but **untested** — no physical
+hardware yet; Axol's real backend is **deferred** (its CAN driver has no ros2_control
+plugin yet, so only the sim backends are wired). On the Mac, `mock` + `mujoco`
+validate; `gazebo`/`isaac` are wired-not-validated (Linux/GPU-gated). The G1-D's mujoco
+model is the bipedal `g1_29dof` (its arm joint names match; legs differ from the
+wheeled body), so G1 mujoco is wired-not-validated pending a wheeled-G1 MJCF — `mock`
+is its validated path. Axol's mujoco model is authored in-repo (Almond Bot ships no
+MJCF) and drives both arms.
 
 ```bash
 ./scripts/sim.sh                              # openarm right_arm in MuJoCo (default)
 ./scripts/sim.sh --robot so101 --backend mock # SO101, no sim
 ./scripts/sim.sh --robot g1_d --backend mock  # G1-D right arm (body holds)
 ./scripts/sim.sh --variant default_bimanual   # both OpenArm arms
+./scripts/sim.sh --robot axol --backend mujoco # Axol, both arms in MuJoCo
 ```
 
 Teleop adds MoveIt Servo plus an input source. Run `sim.sh` in one terminal, then
@@ -130,6 +135,7 @@ Teleop adds MoveIt Servo plus an input source. Run `sim.sh` in one terminal, the
 ./scripts/teleop.sh                            # openarm, Foxglove panel -> Servo
 ./scripts/teleop.sh --robot so101 --backend mock
 ./scripts/teleop.sh --robot g1_d               # G1-D right arm
+./scripts/teleop.sh --robot axol               # Axol, one servo_node per arm
 ```
 
 In the Foxglove panel, pick the robot in the panel settings so the joint set and
