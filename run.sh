@@ -155,10 +155,13 @@ main() {
   fi
 
   # Friendly host label, derived from whichever overlay won (flag or auto-detect).
+  # FM_HOST_OS carries the same fact into the container so the launcher can warn
+  # when rviz is chosen on macOS (no X display there).
   case "$OVERLAY" in
-    *macos*) HOST="macOS" ;;
-    *linux*) HOST="Linux" ;;
+    *macos*) HOST="macOS"; FM_HOST_OS=macos ;;
+    *linux*) HOST="Linux"; FM_HOST_OS=linux ;;
   esac
+  export FM_HOST_OS
 
   # CI self-test hook: lib loaded + overlay resolved — stop before any import,
   # container, or build. Lets the curl-path test exercise the piped lib fetch.
@@ -178,8 +181,22 @@ main() {
   fi
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$PWD"
+  # The launcher persists its viewer preference here. FM_WS mounts to /ws in the
+  # container, so the same file is $FM_WS/.fm_tui.json on the host and
+  # /ws/.fm_tui.json inside — the one path that survives a container teardown.
+  export FM_TUI_CONFIG=/ws/.fm_tui.json
   COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
   SERVICE=fm
+
+  # An rviz default has no viewer on macOS (no X display) and needs no Foxglove
+  # auto-open anywhere. Read the persisted preference from the host side of the
+  # mount and skip the Foxglove watcher when rviz is the standing default.
+  if [[ -f "$FM_WS/.fm_tui.json" ]]; then
+    local viewer
+    viewer=$(sed -n 's/.*"viewer"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+      "$FM_WS/.fm_tui.json" | head -1)
+    [[ "$viewer" == rviz ]] && OPEN_FOXGLOVE=false
+  fi
 
   # macOS runs on OrbStack as the Docker provider. Install it if missing, then make
   # sure the daemon is up — both idempotent, and each prints its own status bullet.
@@ -214,7 +231,10 @@ main() {
   # Forward the host terminal's colour capability (COLORTERM/TERM) into the
   # container; without it the TUI falls back to 16-colour and the brand palette
   # quantises to grey/white. -e VAR passes the host value through when set.
-  exec "${COMPOSE[@]}" exec -e COLORTERM -e TERM "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
+  # FM_TUI_CONFIG / FM_HOST_OS carry the viewer preference path and host OS into
+  # the launcher; -e passes the host value the block above exported.
+  exec "${COMPOSE[@]}" exec -e COLORTERM -e TERM -e FM_TUI_CONFIG -e FM_HOST_OS \
+    "$SERVICE" /ros_entrypoint.sh ros2 run fm_tui fm_tui_launcher
 }
 
 main "$@"
