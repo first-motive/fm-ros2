@@ -284,6 +284,42 @@ PY
   sleep 2
 }
 
+# Bring up the headless rviz VNC path (scripts/rviz-vnc.sh) and assert its two
+# halves: the noVNC HTTP port binds, and rviz renders on the virtual display with
+# software GL. This covers the container-side of the macOS rviz viewer; the host
+# browser-open in run.sh is not exercised here.
+assert_rviz_vnc() {
+  if ! bash "$ROOT/scripts/rviz-vnc.sh" >/tmp/rviz_vnc.log 2>&1; then
+    fail "rviz-vnc: server did not start (see /tmp/rviz_vnc.log)"
+    return
+  fi
+  if ! (exec 3<>/dev/tcp/127.0.0.1/6080) 2>/dev/null; then
+    fail "rviz-vnc: noVNC not listening on 6080"
+    return
+  fi
+  exec 3>&- 2>/dev/null || true
+
+  # rviz renders on the Xvfb display; a broken GL/display path prints a known
+  # marker, so assert the process is alive and none of those markers appeared.
+  DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1 timeout 12 ros2 launch fm_description \
+    view_robot.launch.py robot:=axol variant:=bimanual use_rviz:=true \
+    use_foxglove:=false >/tmp/rviz_render.log 2>&1 &
+  local pid=$!
+  sleep 6
+  if grep -qE "could not connect to display|null not valid|No matching fbConfig" /tmp/rviz_render.log; then
+    fail "rviz-vnc: rviz failed to render on the virtual display"
+  elif pgrep -f "lib/rviz2/rviz2" >/dev/null 2>&1; then
+    pass "rviz-vnc: noVNC bound + rviz rendering on Xvfb"
+  else
+    fail "rviz-vnc: rviz not running after launch (see /tmp/rviz_render.log)"
+  fi
+  kill "$pid" 2>/dev/null || true
+  pkill -f "lib/rviz2/rviz2" 2>/dev/null || true
+  pkill -f "Xvfb :99" 2>/dev/null || true
+  pkill x11vnc 2>/dev/null || true
+  pkill -f "websockify.*6080" 2>/dev/null || true
+}
+
 main() {
   case "${1:-}" in
     -h|--help) usage; return 0 ;;
@@ -309,6 +345,9 @@ main() {
   assert_g1_hand_bridge
   assert_g1_hand_teleop
   assert_g1_base_teleop
+
+  echo "==> ci-smoke: headless rviz VNC viewer"
+  assert_rviz_vnc
 
   echo "==> ci-smoke: ${fails} failure(s)"
   [ "$fails" -eq 0 ]
