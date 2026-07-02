@@ -12,12 +12,19 @@ container, CI, scripts) and the full-system docs.
 
 ## Quick Start
 
-Provision in one command, then launch from your terminal. The package repos are
+Provision, then launch from your terminal. The package repos are
 private, so this needs git access to the `first-motive` org — see
 [docs/RUN.md](docs/RUN.md) for details.
 
+**Install** (setup only — clone + import + viewer):
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh | bash
+```
+
+**Run** (build the workspace + open the launcher):
+
+```bash
 cd fm_ros2 && ./run.sh
 ```
 
