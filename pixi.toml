@@ -22,15 +22,21 @@ ros-humble-rosidl-generator-dds-idl = "*"
 # (moveit_servo drives teleop). The metapackage lacks servo, so add both.
 ros-humble-moveit = ">=2.5.9,<3"
 ros-humble-moveit-servo = ">=2.5.9,<3"
+ros-humble-joint-state-publisher = ">=2.4.0,<3"
+ros-humble-ros2-control = ">=2.51.0,<3"
+ros-humble-ros2-controllers = ">=2.48.0,<3"
 
-# foxglove-bridge is not built for win-64 on robostack-humble, so it is scoped to
-# the platforms that have it. Native Windows therefore has no foxglove path from
-# RoboStack — Windows installs default to the rviz viewer (see docs).
+# foxglove-bridge and spacenav have no win-64 build on robostack-humble, so both
+# are scoped to the platforms that have them. Native Windows therefore has no
+# foxglove path (installs default to the rviz viewer — see docs) and no
+# SpaceMouse teleop source.
 [target.osx-arm64.dependencies]
 ros-humble-foxglove-bridge = "*"
+ros-humble-spacenav = ">=3.3.0,<4"
 
 [target.linux-64.dependencies]
 ros-humble-foxglove-bridge = "*"
+ros-humble-spacenav = ">=3.3.0,<4"
 
 [tasks]
 # Build the full colcon workspace (src/ + external/) from the host. Point CMake's
