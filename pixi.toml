@@ -40,3 +40,13 @@ ros-humble-foxglove-bridge = "*"
 build = "colcon build --symlink-install --cmake-args -DPython_EXECUTABLE=$CONDA_PREFIX/bin/python -DPython3_EXECUTABLE=$CONDA_PREFIX/bin/python"
 # Run the fm_ package tests natively.
 test = { cmd = "colcon test --packages-select $(colcon list --names-only | grep '^fm_')", depends-on = ["build"] }
+
+# Python runtime deps that colcon does not install (fm_tui's setup.py install_requires
+# plus mujoco for the sim). The container installs these via the image Dockerfile; on
+# the native path pixi is the package manager, so they live here. fm-tools is pinned
+# to the same SHA fm_tui declares.
+[pypi-dependencies]
+textual = "==0.74.0"
+rich = ">=15.0.0, <16"
+fm-tools = { git = "https://github.com/first-motive/fm-tools", rev = "5d9ef62f9449321730b8ebcacef7be3bc13448f5" }
+mujoco = ">=3.10.0, <4"
