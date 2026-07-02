@@ -4,6 +4,9 @@ plans/
 # MuJoCo runtime log (written to cwd on each sim run)
 MUJOCO_LOG.TXT
 
+# fm_tui viewer preference (written to the /ws mount on toggle; local only)
+.fm_tui.json
+
 # Package repos pulled into the workspace (vcs import src < fm-ros2.repos)
 src/
 
