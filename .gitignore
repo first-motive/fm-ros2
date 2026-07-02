@@ -19,10 +19,10 @@ fm-learning.repos
 # Vendored external sources (pulled via vcs import)
 external/
 
-# colcon build artifacts
-build/
-install/
-log/
+# colcon build artifacts (root-anchored so scripts/install/ is not caught)
+/build/
+/install/
+/log/
 
 # pixi native env (materialized from pixi.lock; the manifest + lock are tracked)
 .pixi/
