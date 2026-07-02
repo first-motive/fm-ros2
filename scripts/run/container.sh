@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Single front door for the fm_ros2 stack. Brings the dev container up and opens
-# the fm_tui launcher — an arrow-key menu that walks action -> robot -> variant
+# Container run path for the fm_ros2 stack, dispatched from ./run.sh. Brings the
+# dev container up and opens the fm_tui launcher — an arrow-key menu that walks
+# action -> robot -> variant
 # (-> backend for sim/teleop) and dispatches the launch. Wired actions: robot
 # description, simulation, and teleop; autonomous is stubbed.
 #
@@ -28,7 +29,8 @@
 # curl|bash never half-runs.
 set -euo pipefail
 
-cd "$(dirname "$0")"
+# Reach the repo root — this script now lives two levels down in scripts/run/.
+cd "$(dirname "$0")/../.."
 
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
 # run.sh and the TUIs share one source of brand colour. `step` draws a numbered
