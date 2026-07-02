@@ -164,7 +164,7 @@ natively; driving real Unitree hardware (e.g. G1) still needs the container — 
 
 [![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
-Six jobs per push and PR; each reproduces locally with the exact CI command
+Seven jobs per push and PR; each reproduces locally with the exact CI command
 ([docs/CI.md](docs/CI.md)).
 
 | Job | Runner | Proves |
@@ -173,6 +173,7 @@ Six jobs per push and PR; each reproduces locally with the exact CI command
 | `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → four-robot headless smoke |
 | `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
 | `macos` | `macos-latest` (arm64) | host-native MuJoCo core + native install/run dispatch |
+| `native` | `macos-latest` (arm64) | full pixi env + native build + launcher/launch runtime deps |
 | `windows` | `windows-latest` | native dispatch + `.ps1` wrappers delegate through Git Bash |
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 

@@ -188,6 +188,64 @@ jobs:
           .\run.ps1 --native
           if ($LASTEXITCODE -ne 0) { throw 'run.ps1 did not delegate cleanly' }
 
+  # The real native path, end to end: full pixi env from the lockfile, host colcon
+  # build, then the runtime smoke (launcher import + every registry launch target
+  # resolved via `ros2 launch --print`). The build alone cannot catch a missing
+  # runtime dep — colcon ignores install_requires and launch-time packages — so
+  # this is the job that fails when the env lacks textual, joint_state_publisher,
+  # or their kin. The env is cached on pixi.lock, so warm runs skip the solve.
+  native:
+    name: native env + launch smoke (macos arm64)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # The package repos are private — same short-lived App token as workspace.
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.FM_CI_APP_ID }}
+          private-key: ${{ secrets.FM_CI_APP_KEY }}
+          owner: first-motive
+
+      - name: Import package repos
+        run: |
+          git config --global \
+            url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
+            "https://github.com/"
+          # Clone the package repos straight from the manifest URLs — no vcstool.
+          mkdir -p src
+          while read -r url; do
+            name="$(basename "$url" .git)"
+            # fm-docker is shared container infra, not a colcon package — skip it.
+            [ "$name" = "fm-docker" ] && continue
+            echo "cloning $name"
+            git clone --depth 1 "$url" "src/${name//-/_}"
+          done < <(grep -oE 'https://github.com/[^ ]+\.git' fm-ros2.repos)
+
+      - uses: astral-sh/setup-uv@v7
+
+      # import-externals.sh shells out to vcs; provision vcstool the same way
+      # install.sh does (setuptools<81 keeps pkg_resources importable).
+      - name: Vendor externals
+        run: |
+          uv tool install --quiet vcstool --with "setuptools<81"
+          export PATH="$(uv tool dir --bin):$PATH"
+          ./scripts/install/import-externals.sh
+
+      # Full env install from pixi.lock (not run-install: false) — the point of
+      # this job is the real runtime env. Cached on the lockfile hash.
+      - uses: prefix-dev/setup-pixi@v0.8.10
+        with:
+          cache: true
+
+      - name: Build workspace (native)
+        run: pixi run build
+
+      - name: Launch smoke
+        run: ./scripts/ci/native-launch.sh
+
   installer:
     name: installer import path
     runs-on: ubuntu-latest
