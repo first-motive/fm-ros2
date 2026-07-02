@@ -67,6 +67,32 @@ graph:
 connect Foxglove Studio to  ws://localhost:8765
 ```
 
+## Viewer Default — `V` Toggle
+
+The launcher carries a standing viewer default, shown on a status line above the
+footer and flipped live with the `V` hotkey:
+
+```
+┏ MENU ─────────────────────────┓
+┃ ▸ Robot Description            ┃
+┃   Teleop                       ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+[V] VIEWER: foxglove
+[Q] QUIT   [ESC] BACK
+```
+
+Pressing `V` flips `foxglove ⇄ rviz`, updates the line, and writes the choice to
+`.fm_tui.json` immediately — no per-launch selection, and the default survives a
+quit and re-run. The viewer applies to **Robot Description** only; `sim` and
+`teleop` carry no rviz node, so the toggle is a no-op there (Foxglove always).
+
+rviz has no native macOS build. On a Mac it renders inside the container against
+a virtual X server with software GL (OrbStack exposes no GPU) and streams to the
+browser over VNC, so `run.sh` starts the display + noVNC bridge, opens the
+browser, and skips the Foxglove auto-open when rviz is the default — the toggle
+warns that Foxglove is the faster path. See [FOXGLOVE.md](FOXGLOVE.md) for the
+config file and the VNC flow.
+
 Tear the stack down when finished:
 
 ```bash
