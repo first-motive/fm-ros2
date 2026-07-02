@@ -26,32 +26,47 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # rosdep cannot supply it — carry it here so the G1 arm_sdk message types build.
 
 # ros2_control + simulation + MoveIt stack. One image serves every sim backend;
-# the compose overlay only swaps GPU/devices, never the controllers. All arm64 +
-# amd64 on the Humble apt mirror, so no source builds.
+# the compose overlay only swaps GPU/devices, never the controllers. The Gazebo
+# packages are Linux-only in practice here: the Humble arm64 mirror currently
+# resolves a broken ignition-sensors dependency chain on Jammy, so keep the Mac
+# daily-driver (MuJoCo) path buildable by installing Gazebo only on amd64.
 #   ros2-control / ros2-controllers / joint-trajectory-controller
 #                              — controller_manager + JTC + forward + broadcasters
 #   moveit / moveit-servo      — planning scene + Cartesian/joint jogging for teleop
 #   mujoco-ros2-control        — MuJoCo System plugin (Mac daily driver)
 #   gz-ros2-control            — Gazebo System plugin (Linux/GPU overlay; pulls gz-sim)
 #   topic-based-ros2-control   — topic bridge System for Isaac Sim
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
       ros-humble-ros2-control \
       ros-humble-ros2-controllers \
       ros-humble-joint-trajectory-controller \
       ros-humble-moveit \
       ros-humble-moveit-servo \
       ros-humble-mujoco-ros2-control \
-      ros-humble-gz-ros2-control \
-      ros-humble-topic-based-ros2-control \
-    && rm -rf /var/lib/apt/lists/*
+      ros-humble-topic-based-ros2-control; \
+    if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+      apt-get install -y --no-install-recommends ros-humble-gz-ros2-control; \
+    else \
+      echo "Skipping ros-humble-gz-ros2-control on $(dpkg --print-architecture)"; \
+    fi; \
+    rm -rf /var/lib/apt/lists/*
 
 # Gazebo ROS integration: spawn entities + bridge the sim clock for the gazebo
-# backend. Separate layer so the larger control/sim layer above stays cached.
-# Gazebo runs on the Linux/GPU overlay only; carried here to keep one shared image.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ros-humble-ros-gz-sim \
-      ros-humble-ros-gz-bridge \
-    && rm -rf /var/lib/apt/lists/*
+# backend. Keep it in a separate layer so the larger control/sim layer above
+# stays cached, and skip it on arm64 for the same Jammy dependency reason as
+# gz-ros2-control.
+RUN set -eux; \
+    if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+      apt-get update; \
+      apt-get install -y --no-install-recommends \
+        ros-humble-ros-gz-sim \
+        ros-humble-ros-gz-bridge; \
+      rm -rf /var/lib/apt/lists/*; \
+    else \
+      echo "Skipping ros-humble-ros-gz-* on $(dpkg --print-architecture)"; \
+    fi
 
 # Headless display for MuJoCo. mujoco_ros2_control opens a GLFW viewer, which needs
 # a display — absent in the headless macOS/OrbStack container. Xvfb gives it a

@@ -47,6 +47,10 @@ docker compose -f docker/compose.yaml -f docker/compose.macos.yaml exec -T fm_ro
   /ros_entrypoint.sh ros2 topic list | sort
 ```
 
+For the current macOS SO101 sim path, `./scripts/sim.sh --robot so101 --backend mujoco ...`
+already launches `foxglove_bridge`, so you do not need a separate
+`./scripts/foxglove.sh` process unless you want the bridge by itself.
+
 Useful topics for the 3D panel:
 
 - `/joint_states`

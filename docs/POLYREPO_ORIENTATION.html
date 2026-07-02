@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>First Motive Polyrepo Orientation</title>
+  <style>
+    :root {
+      --bg: #f6f3ec;
+      --card: #fffdf8;
+      --ink: #1f2933;
+      --muted: #5f6c76;
+      --line: #d9d0c3;
+      --accent: #915f2a;
+      --accent-soft: #f3e5d3;
+      --code: #2a2118;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, #efe1cb 0, rgba(239, 225, 203, 0) 28rem),
+        linear-gradient(180deg, #f9f6f0 0%, var(--bg) 100%);
+      line-height: 1.6;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 20px 72px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #312015 0%, #5d3b23 55%, #8a5b2e 100%);
+      color: #fffaf3;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 20px 50px rgba(49, 32, 21, 0.18);
+    }
+
+    .hero h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 58rem;
+      font-size: 1.05rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 12px 30px rgba(44, 33, 20, 0.06);
+    }
+
+    h2, h3 {
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      margin: 34px 0 14px;
+      font-size: 1.7rem;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 1.2rem;
+    }
+
+    p, li {
+      font-size: 1rem;
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.78rem;
+      color: #f6d8b6;
+      margin-bottom: 8px;
+    }
+
+    .callout {
+      background: var(--accent-soft);
+      border-left: 5px solid var(--accent);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin: 18px 0;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(44, 33, 20, 0.06);
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      background: #f6ecdf;
+      font-size: 0.92rem;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      background: #f2ebe2;
+      color: var(--code);
+      padding: 0.12rem 0.35rem;
+      border-radius: 6px;
+      font-size: 0.93em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 16px 18px;
+      overflow-x: auto;
+      border-radius: 16px;
+      background: #1c1a17;
+      color: #f8efe4;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+
+    ol, ul {
+      padding-left: 1.3rem;
+    }
+
+    .section {
+      margin-top: 28px;
+    }
+
+    .two-up {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    a {
+      color: #7b4915;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="eyebrow">First Motive / fm-polyrepo</div>
+      <h1>Where to read, how the repo is laid out, and how to run it</h1>
+      <p>
+        This workspace uses <code>fm-ros2</code> as the orchestrator and pulls the real layer repos
+        in underneath it. If you want to re-understand the polyrepo quickly, read the files in the
+        order below, then use the runbooks here for macOS simulation, Linux simulation, and training.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>Read These First</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>1. Polyrepo map</h3>
+          <p><code>fm-ros2/docs/POLYREPO.md</code></p>
+          <p class="muted">Best starting point for repo ownership, branch rules, training location, and data flows.</p>
+        </article>
+        <article class="card">
+          <h3>2. Workspace front door</h3>
+          <p><code>fm-ros2/docs/RUN.md</code></p>
+          <p class="muted">Explains <code>./run.sh</code>, overlays, backend selection, and the normal operator entrypoint.</p>
+        </article>
+        <article class="card">
+          <h3>3. Top-level shape</h3>
+          <p><code>fm-ros2/README.md</code></p>
+          <p class="muted">Good for quick layout, quick start, platform expectations, and the role of <code>src/</code> and <code>external/</code>.</p>
+        </article>
+        <article class="card">
+          <h3>4. Mac SO101 path</h3>
+          <p><code>fm-ros2/docs/SO101_MUJOCO_FOXGLOVE_LOCAL.md</code></p>
+          <p class="muted">The validated local Mac runbook for SO101 + MuJoCo + Foxglove.</p>
+        </article>
+      </div>
+      <div class="callout">
+        <strong>Shortest answer:</strong> if you only read one file to re-orient, read
+        <code>fm-ros2/docs/POLYREPO.md</code> first. That is the best “what lives where and why”
+        document in this checkout.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>What This Workspace Looks Like</h2>
+      <p>
+        Your current workspace root is <code>/Users/retief/Documents/git-work/fm-polyrepo</code>.
+        Inside it, <code>fm-ros2</code> is the orchestrator repo and the layer repos are already present
+        under <code>fm-ros2/src/</code>.
+      </p>
+      <pre><code>fm-polyrepo/
+  fm-ros2/
+    docs/
+    docker/
+    scripts/
+    external/
+    src/
+      fm-app/
+      fm-robot/
+      fm-sim/
+      fm-teleop/
+      fm-data/
+      fm-policy/
+      fm-learning/</code></pre>
+      <p class="muted">
+        The important mental model is: <code>fm-ros2</code> is not where most product code lives. It is the
+        workspace assembler, script hub, container entrypoint, and top-level docs repo.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>Repo Ownership Cheat Sheet</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Repo</th>
+            <th>Owns</th>
+            <th>Go there when changing</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>fm-ros2</code></td>
+            <td>Workspace orchestration</td>
+            <td>Top-level docs, Docker, <code>run.sh</code>, setup scripts, manifests, shared runbooks</td>
+          </tr>
+          <tr>
+            <td><code>fm-app</code></td>
+            <td>Application layer</td>
+            <td>Bringup, launcher flow, task-env launch composition, operator TUI</td>
+          </tr>
+          <tr>
+            <td><code>fm-robot</code></td>
+            <td>Robot layer</td>
+            <td>URDF/xacro, controllers, hardware interfaces, robot registry, Foxglove robot views</td>
+          </tr>
+          <tr>
+            <td><code>fm-sim</code></td>
+            <td>Simulation layer</td>
+            <td>MuJoCo and other sim backends, MJCF assets, model lookup, sim-specific launch support</td>
+          </tr>
+          <tr>
+            <td><code>fm-teleop</code></td>
+            <td>Teleoperation layer</td>
+            <td>Foxglove teleop panel, leader arm, input adapters, retargeting, vision teleop</td>
+          </tr>
+          <tr>
+            <td><code>fm-data</code></td>
+            <td>Data layer</td>
+            <td>Episode export/replay, viewer app, recorders, dataset tooling</td>
+          </tr>
+          <tr>
+            <td><code>fm-policy</code></td>
+            <td>Policy/training layer</td>
+            <td>LIBERO environments, training scripts, experiment orchestration, summaries</td>
+          </tr>
+          <tr>
+            <td><code>fm-learning</code></td>
+            <td>Thin learning metapackage</td>
+            <td>Grouping <code>fm-data</code> and <code>fm-policy</code>, not core runtime logic</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>How To Use The Repo Day To Day</h2>
+      <div class="two-up">
+        <article class="card">
+          <h3>Normal entrypoints</h3>
+          <ul>
+            <li><code>./run.sh</code> is the front door.</li>
+            <li><code>./scripts/sim.sh</code> launches one robot/backend directly.</li>
+            <li><code>./scripts/teleop.sh</code> adds Servo + an input path.</li>
+            <li><code>./scripts/view-robot.sh</code> is for robot description viewing only.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Important directories</h3>
+          <ul>
+            <li><code>src/</code> contains the actual layer repos.</li>
+            <li><code>external/</code> contains vendored robot and learning dependencies.</li>
+            <li><code>scripts/</code> contains the operational helpers you actually run.</li>
+            <li><code>docs/</code> contains the cross-repo orientation docs.</li>
+          </ul>
+        </article>
+      </div>
+      <div class="callout">
+        Make code changes in the smallest owning repo possible. Use <code>fm-ros2</code> for orchestration
+        and runbooks, not for new robot/sim/training feature code unless the change truly belongs there.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Exact Steps: Run a Simulation on a Mac</h2>
+      <p>
+        The validated local Mac path in this workspace is SO101 in MuJoCo with Foxglove on top.
+        This is the daily-driver simulation path for macOS.
+      </p>
+      <ol>
+        <li>Open a terminal and go to the orchestrator root.</li>
+      </ol>
+      <pre><code>cd /Users/retief/Documents/git-work/fm-polyrepo/fm-ros2</code></pre>
+      <ol start="2">
+        <li>Make sure OrbStack is installed and running, and Foxglove Studio is installed on the Mac.</li>
+        <li>If you need a fresh one-time build, run:</li>
+      </ol>
+      <pre><code>docker compose -f docker/compose.yaml -f docker/compose.macos.yaml build
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml run --rm fm_ros2 ./scripts/import-externals.sh
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml run --rm fm_ros2 colcon build --symlink-install</code></pre>
+      <ol start="4">
+        <li>Launch the validated SO101 scene:</li>
+      </ol>
+      <pre><code>./scripts/sim.sh --robot so101 --backend mujoco --task-env pick_place</code></pre>
+      <ol start="5">
+        <li>Open Foxglove Studio and connect to <code>ws://localhost:8765</code>.</li>
+        <li>In a 3D panel, add:</li>
+      </ol>
+      <pre><code>/tf
+/tf_static
+/robot_description
+/joint_states
+/task_env_markers</code></pre>
+      <ol start="7">
+        <li>Set the fixed frame to <code>base_link</code>.</li>
+        <li>You should now see the SO101 arm, the table/props, and live joint updates.</li>
+      </ol>
+      <p><strong>Other verified task environments:</strong></p>
+      <pre><code>./scripts/sim.sh --robot so101 --backend mujoco --task-env table_reach
+./scripts/sim.sh --robot so101 --backend mujoco --task-env bin_sort</code></pre>
+      <p><strong>Quick verification from another terminal:</strong></p>
+      <pre><code>cd /Users/retief/Documents/git-work/fm-polyrepo/fm-ros2
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml exec -T fm_ros2 /ros_entrypoint.sh ros2 topic list | sort
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml exec -T fm_ros2 /ros_entrypoint.sh ros2 control list_controllers</code></pre>
+      <p><strong>Stop the stack:</strong></p>
+      <pre><code>docker compose -f docker/compose.yaml -f docker/compose.macos.yaml down</code></pre>
+      <div class="callout">
+        On macOS, the validated sim backends are <code>mock</code> and <code>mujoco</code>. This path is for
+        dev, build, sim, and dataset work. It is not the GPU or real hardware path.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Exact Steps: Run Simulation on Linux</h2>
+      <p>
+        Linux is the full native path for GPU, real hardware, and Linux-only sim backends. The setup script
+        checks Docker, warns if NVIDIA container runtime is missing, opens local X11 access, imports externals,
+        and builds the Linux image.
+      </p>
+      <ol>
+        <li>Go to the orchestrator root:</li>
+      </ol>
+      <pre><code>cd /path/to/fm-polyrepo/fm-ros2</code></pre>
+      <ol start="2">
+        <li>Run the Linux setup helper:</li>
+      </ol>
+      <pre><code>./scripts/setup-linux.sh</code></pre>
+      <ol start="3">
+        <li>Build the workspace in the Linux overlay:</li>
+      </ol>
+      <pre><code>docker compose -f docker/compose.yaml -f docker/compose.linux.yaml \
+  run --rm fm_ros2 colcon build --symlink-install</code></pre>
+      <ol start="4">
+        <li>Launch through the front door if you want the menu flow:</li>
+      </ol>
+      <pre><code>./run.sh --linux</code></pre>
+      <ol start="5">
+        <li>Or launch a Linux-native simulator directly.</li>
+      </ol>
+      <pre><code>./scripts/sim.sh --robot so101 --backend gazebo --task-env pick_place
+# or
+./scripts/sim.sh --robot so101 --backend isaac --task-env pick_place</code></pre>
+      <p>
+        <strong>Important:</strong> in the checked-in script logic, <code>sim.sh</code> maps
+        <code>mock</code> and <code>mujoco</code> to the macOS compose overlay, while
+        <code>gazebo</code>, <code>isaac</code>, and <code>real</code> map to the Linux overlay.
+        So the Linux-native backend choices are the GPU path.
+      </p>
+      <p><strong>Bring the shared stack down when finished:</strong></p>
+      <pre><code>docker compose -f docker/compose.yaml -f docker/compose.linux.yaml down</code></pre>
+      <div class="callout">
+        If you want the same operator experience as on the Mac, use <code>./run.sh --linux</code> and connect
+        Foxglove to <code>ws://localhost:8765</code>. If you want GPU-backed simulation or hardware, stay on Linux.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Exact Steps: Do VLA Training</h2>
+      <p>
+        In this workspace, the concrete training path lives in <code>src/fm-policy</code>. The main training
+        package is <code>fm_policy_train</code>, and the best deeper runbook is
+        <code>src/fm-policy/docs/libero_5090_pipeline_runbook.md</code>.
+      </p>
+      <p>
+        The operational mental model is: data and episodes live in <code>fm-data</code>, training lives in
+        <code>fm-policy</code>, and <code>fm-learning</code> groups them. For actual GPU training, use Linux.
+      </p>
+      <ol>
+        <li>Go to the training repo inside this workspace:</li>
+      </ol>
+      <pre><code>cd /Users/retief/Documents/git-work/fm-polyrepo/fm-ros2/src/fm-policy</code></pre>
+      <ol start="2">
+        <li>Set up the reference LIBERO environment if you want compatibility checks:</li>
+      </ol>
+      <pre><code>fm_policy_train/scripts/setup_libero_env.sh --profile ref_py38</code></pre>
+      <ol start="3">
+        <li>Set up the real RTX 5090 training environment on Linux for actual training runs:</li>
+      </ol>
+      <pre><code>fm_policy_train/scripts/setup_libero_env.sh --profile rtx5090</code></pre>
+      <ol start="4">
+        <li>Download the LIBERO spatial dataset:</li>
+      </ol>
+      <pre><code>conda run -n libero_ref_py38 python \
+  fm_policy_train/scripts/download_libero_data.py \
+  --suite libero_spatial</code></pre>
+      <ol start="5">
+        <li>Run a small smoke pass first:</li>
+      </ol>
+      <pre><code>conda run -n libero_5090_cuda python \
+  fm_policy_train/scripts/run_libero_experiments.py \
+  --profile rtx5090 \
+  --alignment-mode forward_probe \
+  --run-budget smoke \
+  --seeds 42 \
+  --output-root runs/libero_smoke</code></pre>
+      <ol start="6">
+        <li>Then run the benchmark-style pass:</li>
+      </ol>
+      <pre><code>conda run -n libero_5090_cuda python \
+  fm_policy_train/scripts/run_libero_experiments.py \
+  --profile rtx5090 \
+  --alignment-mode lifelong_benchmark \
+  --run-budget benchmark \
+  --seeds 42,1337,90210 \
+  --output-root runs/libero_5090_batch96_workers4</code></pre>
+      <ol start="7">
+        <li>Summarize the finished run:</li>
+      </ol>
+      <pre><code>conda run -n libero_5090_cuda python \
+  fm_policy_train/scripts/summarize_libero_run.py \
+  --run-root runs/libero_5090_batch96_workers4/libero_spatial/bc_transformer_policy/rtx5090</code></pre>
+      <p><strong>What the current training scripts assume:</strong></p>
+      <ul>
+        <li><code>external/libero/LIBERO</code> is where the LIBERO repo is cloned and installed editable.</li>
+        <li><code>datasets/libero_spatial</code> holds the downloaded HDF5 datasets.</li>
+        <li><code>runs/...</code> holds training outputs and checkpoints.</li>
+        <li><code>fm_policy_train/config/libero_hardware.yaml</code> holds the hardware knobs.</li>
+      </ul>
+      <div class="callout">
+        For this repo, “VLA training” practically means starting in <code>fm-policy</code> and following the
+        LIBERO pipeline. Read <code>src/fm-policy/fm_policy_train/README.md</code> first, then
+        <code>src/fm-policy/docs/libero_5090_pipeline_runbook.md</code> for the deeper operator playbook.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Recommended Reading Order For Future You</h2>
+      <ol>
+        <li><code>fm-ros2/docs/POLYREPO.md</code></li>
+        <li><code>fm-ros2/docs/RUN.md</code></li>
+        <li><code>fm-ros2/docs/ARCHITECTURE.md</code></li>
+        <li><code>fm-ros2/docs/SO101_MUJOCO_FOXGLOVE_LOCAL.md</code></li>
+        <li><code>fm-ros2/src/fm-policy/fm_policy_train/README.md</code></li>
+        <li><code>fm-ros2/src/fm-policy/docs/libero_5090_pipeline_runbook.md</code></li>
+      </ol>
+    </section>
+  </div>
+</body>
+</html>

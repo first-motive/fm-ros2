@@ -12,6 +12,7 @@ Guides and references for the fm_ros2 workspace. Start at the root
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System context, component layers, runtime data flow, hardware abstraction, deployment |
 | [CI.md](CI.md) | The exact commands each CI job runs, reproducible locally per platform |
 | [FOXGLOVE.md](FOXGLOVE.md) | `foxglove_bridge` helper modes, robot viewing, teardown |
+| [SO101_MUJOCO_FOXGLOVE_LOCAL.md](SO101_MUJOCO_FOXGLOVE_LOCAL.md) | Verified Mac runbook for viewing a LeRobot SO101 MuJoCo scene in Foxglove |
 | [EXTERNALS.md](EXTERNALS.md) | Vendoring robot sources, the LeRobot editable env |
 | [POLYREPO.md](POLYREPO.md) | Where to work in the split org, branch rules, training flow, and LeRobot episode flow |
 
