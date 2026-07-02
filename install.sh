@@ -37,6 +37,9 @@ export GIT_CONFIG_COUNT=1 \
 export PYTHONWARNINGS='ignore:pkg_resources is deprecated:UserWarning'
 
 REPO_URL="https://github.com/first-motive/fm-ros2.git"
+# Branch/tag to clone (default: the repo's default branch). CI sets FM_REPO_REF to
+# the PR branch so the installer tests the ref under review, not the merged main.
+REPO_REF="${FM_REPO_REF:-}"
 TARGET="fm_ros2"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm_ros2"
 
@@ -246,7 +249,7 @@ main() {
       || item "could not fast-forward (local changes or divergence) — keeping your tree"
   else
     item "cloning into $TARGET/ ..."
-    git clone --depth 1 "$REPO_URL" "$TARGET"
+    git clone --depth 1 ${REPO_REF:+--branch "$REPO_REF"} "$REPO_URL" "$TARGET"
   fi
   cd "$TARGET"
 

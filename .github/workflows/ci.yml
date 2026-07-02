@@ -211,6 +211,11 @@ jobs:
       # runs clean on Linux. Rewrite github.com to carry the App token so the vcs
       # import over HTTPS authenticates, then assert src/ came out populated.
       - name: Run installer
+        # On a PR, clone the branch under review (not the merged main) so the
+        # installer tests this ref's scripts against this ref's layout. Empty on
+        # push events -> install.sh clones the default branch.
+        env:
+          FM_REPO_REF: ${{ github.head_ref }}
         run: |
           git config --global \
             url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
