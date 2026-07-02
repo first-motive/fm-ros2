@@ -11,7 +11,7 @@ the launch.
 
 | Path | Runs | Build + launch |
 |------|------|----------------|
-| **native** | ROS2 on the host via pixi | `pixi run colcon build`, then `fm_tui` natively — rviz2 renders natively, no VNC |
+| **native** | ROS2 on the host via pixi | `pixi run build`, then `fm_tui` natively — rviz2 renders natively, no VNC |
 | **container** | ROS2 in a Linux arm64 container | compose build + up, launcher inside the container — rviz over VNC on macOS |
 
 The path is set at install time by OS (macOS/Windows → native, Linux → container)

@@ -18,18 +18,48 @@ cmake = "<4"
 # The DDS IDL generator is not pulled in by ros-humble-desktop, but the unitree_api
 # external needs it to build. rosdep is unsupported in pixi, so add it explicitly.
 ros-humble-rosidl-generator-dds-idl = "*"
+# MoveIt is not part of ros-humble-desktop, but fm_control and fm_teleop need it
+# (moveit_servo drives teleop). The metapackage lacks servo, so add both.
+ros-humble-moveit = ">=2.5.9,<3"
+ros-humble-moveit-servo = ">=2.5.9,<3"
+ros-humble-joint-state-publisher = ">=2.4.0,<3"
+ros-humble-ros2-control = ">=2.51.0,<3"
+ros-humble-ros2-controllers = ">=2.48.0,<3"
 
-# foxglove-bridge is not built for win-64 on robostack-humble, so it is scoped to
-# the platforms that have it. Native Windows therefore has no foxglove path from
-# RoboStack — Windows installs default to the rviz viewer (see docs).
+# foxglove-bridge and spacenav have no win-64 build on robostack-humble, so both
+# are scoped to the platforms that have them. Native Windows therefore has no
+# foxglove path (installs default to the rviz viewer — see docs) and no
+# SpaceMouse teleop source.
 [target.osx-arm64.dependencies]
 ros-humble-foxglove-bridge = "*"
+ros-humble-spacenav = ">=3.3.0,<4"
 
 [target.linux-64.dependencies]
 ros-humble-foxglove-bridge = "*"
+ros-humble-spacenav = ">=3.3.0,<4"
 
-[tasks]
-# Build the full colcon workspace (src/ + external/) from the host.
-build = "colcon build --symlink-install"
+# Build the full colcon workspace (src/ + external/) from the host. Point CMake's
+# FindPython at the env interpreter — rosidl_generator_py (used by unitree_api and
+# other interface packages) cannot otherwise locate the conda Python's dev
+# component on osx-arm64, and the failure aborts the whole build. PYTHONWARNINGS
+# silences setuptools' per-package "Unknown distribution option: 'tests_require'"
+# spam (same pattern install.sh uses for the pkg_resources warning) until the
+# package repos drop the deprecated tests_require from their setup.py.
+[tasks.build]
+cmd = "colcon build --symlink-install --cmake-args -DPython_EXECUTABLE=$CONDA_PREFIX/bin/python -DPython3_EXECUTABLE=$CONDA_PREFIX/bin/python"
+env = { PYTHONWARNINGS = "ignore:Unknown distribution option:UserWarning" }
+
 # Run the fm_ package tests natively.
-test = { cmd = "colcon test --packages-select $(colcon list --names-only | grep '^fm_')", depends-on = ["build"] }
+[tasks.test]
+cmd = "colcon test --packages-select $(colcon list --names-only | grep '^fm_')"
+depends-on = ["build"]
+
+# Python runtime deps that colcon does not install (fm_tui's setup.py install_requires
+# plus mujoco for the sim). The container installs these via the image Dockerfile; on
+# the native path pixi is the package manager, so they live here. fm-tools is pinned
+# to the same SHA fm_tui declares.
+[pypi-dependencies]
+textual = "==0.74.0"
+rich = ">=15.0.0, <16"
+fm-tools = { git = "https://github.com/first-motive/fm-tools", rev = "5d9ef62f9449321730b8ebcacef7be3bc13448f5" }
+mujoco = ">=3.10.0, <4"

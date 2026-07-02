@@ -86,7 +86,7 @@ Source: [`docs/diagrams/menu.d2`](docs/diagrams/menu.d2).
 separate build step:
 
 ```bash
-./run.sh                # native: pixi run colcon build, then the launcher
+./run.sh                # native: pixi run build, then the launcher
 ./run.sh --container    # container: compose build + up, then the launcher
 ```
 
@@ -156,14 +156,15 @@ via `fm-learning.repos` for team members with access — see
 | macOS M5 (OrbStack) | dev · build · sim · dataset |
 
 macOS runs Humble natively via pixi + RoboStack (the container path stays available
-for parity) — no GPU, no hardware; MuJoCo runs native. Unitree-interface robots
-(e.g. G1) need the container — see [SETUP.md](docs/SETUP.md).
+for parity) — no GPU, no hardware; MuJoCo runs native. The full workspace builds
+natively; driving real Unitree hardware (e.g. G1) still needs the container — see
+[SETUP.md](docs/SETUP.md).
 
 ## CI
 
 [![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
-Six jobs per push and PR; each reproduces locally with the exact CI command
+Seven jobs per push and PR; each reproduces locally with the exact CI command
 ([docs/CI.md](docs/CI.md)).
 
 | Job | Runner | Proves |
@@ -172,6 +173,7 @@ Six jobs per push and PR; each reproduces locally with the exact CI command
 | `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → four-robot headless smoke |
 | `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
 | `macos` | `macos-latest` (arm64) | host-native MuJoCo core + native install/run dispatch |
+| `native` | `macos-latest` (arm64) | full pixi env + native build + launcher/launch runtime deps |
 | `windows` | `windows-latest` | native dispatch + `.ps1` wrappers delegate through Git Bash |
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 

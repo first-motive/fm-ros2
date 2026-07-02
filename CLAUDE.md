@@ -45,14 +45,18 @@ Native path (pixi + RoboStack, default on macOS/Windows):
 
 ```bash
 pixi install                                   # solve the env from pixi.lock
-pixi run colcon build                          # build src/ + external/ on the host
-pixi run colcon test --packages-select $(colcon list --names-only | grep '^fm_')
+pixi run build                                 # build src/ + external/ on the host
+pixi run test                                  # colcon test on the fm_ packages
 ```
 
-`rosdep` is unsupported inside a pixi env — add ROS deps with `pixi add
-ros-humble-<pkg>` instead. Unitree-interface externals do not build natively on
-macOS, so Unitree-dependent robots (e.g. G1) need the container path. The container
-remains the CI/parity path — see [docs/SETUP.md](docs/SETUP.md).
+Use the `build` task, not a bare `pixi run colcon build` — it carries the
+`-DPython_EXECUTABLE` cmake arg that lets `rosidl_generator_py` find the env Python
+(without it, interface packages fail and abort the whole build). `rosdep` is
+unsupported inside a pixi env — add ROS deps with `pixi add ros-humble-<pkg>`
+instead (this is how MoveIt and the DDS IDL generator land in the env). The full
+workspace builds natively on macOS; driving real Unitree hardware still needs the
+Linux container. The container remains the CI/parity path — see
+[docs/SETUP.md](docs/SETUP.md).
 
 ## Layout
 

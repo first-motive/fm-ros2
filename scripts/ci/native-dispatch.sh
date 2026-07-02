@@ -21,18 +21,25 @@ main() {
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
-  # Save and restore any real profile so a run never clobbers .fm_ros2.json. EXIT
+  # Save and restore any real profile so a run never clobbers .fm_ros2.json or the
+  # launcher's .fm_tui.json (the V-toggle, which outranks the profile in the native
+  # viewer resolution — it must be absent for the profile asserts below). EXIT
   # (not RETURN) because set -e aborts skip the RETURN trap — a failed assert must
   # still restore. Globals (not local) so the trap sees them after main returns.
   PROFILE_PATH="$ROOT/.fm_ros2.json"
-  PROFILE_BAK=""
-  PROFILE_EXISTED=0
+  TUI_PATH="$ROOT/.fm_tui.json"
+  PROFILE_BAK=""; PROFILE_EXISTED=0
+  TUI_BAK=""; TUI_EXISTED=0
   if [[ -f "$PROFILE_PATH" ]]; then PROFILE_BAK="$(cat "$PROFILE_PATH")"; PROFILE_EXISTED=1; fi
+  if [[ -f "$TUI_PATH" ]]; then TUI_BAK="$(cat "$TUI_PATH")"; TUI_EXISTED=1; fi
   restore_profile() {
     if [[ "$PROFILE_EXISTED" == 1 ]]; then printf '%s' "$PROFILE_BAK" > "$PROFILE_PATH"
     else rm -f "$PROFILE_PATH"; fi
+    if [[ "$TUI_EXISTED" == 1 ]]; then printf '%s' "$TUI_BAK" > "$TUI_PATH"
+    else rm -f "$TUI_PATH"; fi
   }
   trap restore_profile EXIT
+  rm -f "$TUI_PATH"
 
   echo "==> install flags + OS-default profile routing (FM_SELFTEST)"
   # The OS default resolves to native on macOS and Windows; flags + viewer
@@ -55,6 +62,10 @@ main() {
   FM_SELFTEST=1 ./run.sh --container | grep -q 'run.sh dispatch resolved (path=container'
   # The native run path itself resolves the viewer from the profile.
   FM_SELFTEST=1 ./scripts/run/native.sh | grep -q 'native run resolved (viewer=rviz'
+  # The launcher's V-toggle (.fm_tui.json) outranks the install profile.
+  printf '{"viewer":"none"}\n' > "$TUI_PATH"
+  FM_SELFTEST=1 ./scripts/run/native.sh | grep -q 'native run resolved (viewer=none'
+  rm -f "$TUI_PATH"
   printf '{"path":"bogus","viewer":"rviz"}\n' > "$PROFILE_PATH"
   if ./run.sh >/dev/null 2>&1; then
     echo "FAIL: run.sh accepted an unknown path" >&2; return 1

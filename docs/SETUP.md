@@ -24,18 +24,20 @@ from one `pixi.toml`.
 git clone https://github.com/first-motive/fm-ros2.git fm_ros2
 cd fm_ros2
 ./install.sh --native                 # bootstrap pixi, solve the env, install the viewer
-./run.sh                              # pixi run colcon build, then the launcher
+./run.sh                              # pixi run build, then the launcher
 ```
 
 `install.sh --native` bootstraps pixi (pinned via `PIXI_VERSION`), solves the env
 from `pixi.lock`, and installs the viewer (Foxglove via Homebrew cask on macOS /
 winget on Windows; rviz and none need nothing — rviz ships inside the pixi env).
-`run.sh` then runs `pixi run colcon build --symlink-install` on the host and opens
+`run.sh` then runs the `build` task (`pixi run build`) on the host and opens
 `fm_tui` natively. rviz2 renders through its native RoboStack build; Foxglove Studio
 connects to the in-env bridge at `ws://localhost:8765`.
 
-On macOS (osx-arm64), 13 packages build natively — all of `fm_sim` and `fm_teleop`,
-plus `fm_tui`, `fm_sensors`, and `openarm_description`.
+On macOS (osx-arm64), the full workspace builds natively — all 25 packages, including
+the `unitree_*` interface externals and the MoveIt-dependent `fm_control` / `fm_teleop`.
+The `build` task passes `-DPython_EXECUTABLE` so `rosidl_generator_py` finds the env
+Python; MoveIt and its servo package are added to the env (see `pixi.toml`).
 
 On Windows, use the PowerShell wrappers — they ensure Git for Windows, then delegate
 to the same bash path through Git Bash:
@@ -49,8 +51,8 @@ to the same bash path through Git Bash:
 
 | Caveat | What to do |
 |--------|-----------|
-| `rosdep` is unsupported inside a pixi env | Add ROS deps with `pixi add ros-humble-<pkg>`, not `rosdep`. |
-| Unitree interface externals (`unitree_api`, `unitree_go`, `unitree_hg`) do **not** build natively on macOS — `rosidl_generator_py` cannot find the env Python's dev component. Packages that depend on them (`fm_description`, some openarm configs) abort. | Use the container path for Unitree-dependent robots (e.g. G1). Everything else builds natively. |
+| `rosdep` is unsupported inside a pixi env | Add ROS deps with `pixi add ros-humble-<pkg>`, not `rosdep`. When a package fails with "could not find <pkg>", add it to `pixi.toml`. |
+| Real Unitree hardware needs Linux SocketCAN | The Unitree message packages build + run natively for sim, but driving a physical Unitree robot (e.g. G1) still needs the Linux container. |
 | `ros-humble-foxglove-bridge` has no `win-64` build on `robostack-humble` | Native Windows has no Foxglove path — Windows installs default to the rviz viewer. |
 | Native Linux is deferred | Linux stays on the container (the CI/parity default). |
 | The Windows path (`.ps1` wrappers → Git Bash) is exercised by the `windows-latest` CI job, but not yet on a physical Windows box | Treat Windows as CI-verified; a real-machine pass is still pending. |
