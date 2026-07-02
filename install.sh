@@ -245,6 +245,9 @@ main() {
   step "Install Viewer"
   item "Foxglove Studio (macOS; skipped on Linux) ..."
   ./scripts/install-foxglove.sh
+  # The macOS rviz viewer needs no host install — it renders in the container and
+  # streams to the browser over VNC (see scripts/rviz-vnc.sh). Deps are baked into
+  # the fm-app image.
 
   # Setup ends here. run.sh builds and launches the interactive TUI, which needs a
   # controlling terminal — so it is the user's next step, not a curl|bash handoff.
