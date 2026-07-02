@@ -245,10 +245,22 @@ main() {
   # upstream: --ff-only refuses on local commits, divergence, or a dirty tree, so it
   # never resets their work. A refusal is fine — warn and carry on with their tree.
   step "Clone fm-ros2"
-  if [[ -d "$TARGET/.git" ]]; then
+  if [[ -f fm-ros2.repos && -d .git ]]; then
+    # ./install.sh from inside a checkout: this tree IS the workspace — nothing
+    # to clone. No pull either: the running script belongs to this tree, and
+    # fetching under it mid-run invites skew. Probe manifest + .git, not -d
+    # "$TARGET" — the fm_ros2/ visible at the root here is the workspace
+    # metapackage dir, not a clone.
+    item "already inside an fm_ros2 checkout — using this tree"
+    TARGET="."
+  elif [[ -d "$TARGET/.git" ]]; then
     item "reusing existing $TARGET/ — fast-forwarding to upstream ..."
     git -C "$TARGET" pull --ff-only \
       || item "could not fast-forward (local changes or divergence) — keeping your tree"
+  elif [[ -e "$TARGET" ]]; then
+    # A non-git fm_ros2/ in the way — fail with a plain message, not git's fatal.
+    echo "error: ./$TARGET exists but is not a git checkout — move it aside and re-run." >&2
+    return 1
   else
     item "cloning into $TARGET/ ..."
     # --quiet: the item line above already narrates this; git's clone progress is
@@ -318,7 +330,10 @@ main() {
   # controlling terminal — so it is the user's next step, not a curl|bash handoff.
   step "Ready"
   item "workspace provisioned at $PWD (path=$path, viewer=$viewer)"
-  item "next: cd $TARGET && ./run.sh    (build + launch, from your terminal)"
+  # In-tree re-run: the user is already in the workspace, so drop the cd hint.
+  local next="cd $TARGET && ./run.sh"
+  if [[ "$TARGET" == "." ]]; then next="./run.sh"; fi
+  item "next: $next    (build + launch, from your terminal)"
 }
 
 main "$@"
