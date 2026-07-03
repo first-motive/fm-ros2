@@ -40,6 +40,14 @@ through the same script contract, sharing the `~/fm_ros2` workspace and the
 `.fm_ros2.json` / `.fm_tui.json` profiles, so the app and the terminal stay in
 sync. It is operator-first; the terminal paths remain the reference for dev and CI.
 
+```bash
+./run.sh --app          # build + launch FM Desktop from this workspace (macOS)
+```
+
+`run.sh --app` clones and builds the app on first use, then opens it against this
+workspace — no separate install. See [docs/RUN.md](docs/RUN.md#app-front-door) for
+the full setup and how the two front doors bootstrap each other.
+
 `install.sh` picks a run path by OS: macOS and Windows default to **native**
 (ROS2 Humble via pixi + RoboStack, no container), Linux defaults to the
 **container** (Docker + compose, also the CI/parity path). Override the path and
