@@ -5,7 +5,7 @@
 Data layer for First Motive's ROS2 stack. Records robot episodes and packages
 them into datasets — the capture half of the learning loop.
 
-Part of First Motive's ROS2 (Humble) stack. Builds standalone here; assembled
+Part of First Motive's ROS2 stack. Builds standalone here; assembled
 with the other six package repos by
 [`fm-ros2`](https://github.com/first-motive/fm-ros2).
 

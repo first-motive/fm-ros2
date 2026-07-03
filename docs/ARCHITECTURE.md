@@ -1,6 +1,6 @@
 # Architecture
 
-`fm-ros2` is the **orchestrator** for First Motive's ROS2 (Humble) robot stack.
+`fm-ros2` is the **orchestrator** for First Motive's ROS2 robot stack.
 It assembles four public per-package repos into one colcon workspace — plus a
 private learning overlay for team members with access — holds the shared tooling
 (Docker, dev container, CI, scripts), and carries the full-system view. It holds

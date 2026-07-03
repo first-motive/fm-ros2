@@ -5,7 +5,7 @@
 Policy layer for First Motive's ROS2 stack. Trains policies on recorded datasets
 and serves them back to the running stack — the learning half of the loop.
 
-Part of First Motive's ROS2 (Humble) stack. Builds standalone here; assembled
+Part of First Motive's ROS2 stack. Builds standalone here; assembled
 with the other six package repos by
 [`fm-ros2`](https://github.com/first-motive/fm-ros2).
 

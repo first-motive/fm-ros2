@@ -6,7 +6,7 @@ system design.
 
 ## Purpose
 
-`fm-ros2` is the orchestrator for First Motive's ROS2 (Humble) robot stack. The
+`fm-ros2` is the orchestrator for First Motive's ROS2 robot stack. The
 public packages live in four per-package repos under the `first-motive` org; a
 private learning overlay (`fm-data`, `fm-policy`, `fm-learning`) plugs in on top
 via `fm-learning.repos` for team members with access. This repo assembles them

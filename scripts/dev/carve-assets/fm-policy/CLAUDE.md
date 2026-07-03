@@ -5,7 +5,7 @@ Guidance for Claude Code and Codex working in the `fm-policy` repo. See the
 
 ## Purpose
 
-First Motive policy layer: training and serving the learned policies. Part of First Motive's ROS2 (Humble) stack — one of seven package
+First Motive policy layer: training and serving the learned policies. Part of First Motive's ROS2 stack — one of seven package
 repos assembled by [`fm-ros2`](https://github.com/first-motive/fm-ros2).
 
 ## Conventions

@@ -5,7 +5,7 @@ Guidance for Claude Code and Codex working in the `fm-data` repo. See the
 
 ## Purpose
 
-First Motive data layer: dataset tooling and episode recording. Part of First Motive's ROS2 (Humble) stack — one of seven package
+First Motive data layer: dataset tooling and episode recording. Part of First Motive's ROS2 stack — one of seven package
 repos assembled by [`fm-ros2`](https://github.com/first-motive/fm-ros2).
 
 ## Conventions

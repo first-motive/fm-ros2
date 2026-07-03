@@ -6,7 +6,7 @@ Robot layer for First Motive's ROS2 stack. Groups the URDF description, the
 `ros2_control` controllers, and the sensor drivers — the packages that describe
 and drive the physical robot.
 
-Part of First Motive's ROS2 (Humble) stack. Builds standalone here; assembled
+Part of First Motive's ROS2 stack. Builds standalone here; assembled
 with the other six package repos by
 [`fm-ros2`](https://github.com/first-motive/fm-ros2).
 
