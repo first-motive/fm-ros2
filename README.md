@@ -172,7 +172,7 @@ via `fm-learning.repos` for team members with access — see
 
 macOS runs Humble natively via pixi + RoboStack (the container path stays available
 for parity) — no GPU, no hardware; MuJoCo runs native. The full workspace builds
-natively; driving real Unitree hardware (e.g. G1) still needs the container — see
+natively; driving real Unitree hardware still needs the container — see
 [SETUP.md](docs/SETUP.md).
 
 ## CI

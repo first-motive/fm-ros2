@@ -9,7 +9,7 @@
 #     run --rm fm colcon build --symlink-install
 #
 # Then:
-#   ./scripts/run/view-robot.sh                                  # g1_d wheeled G1-D (default)
+#   ./scripts/run/view-robot.sh                                  # g1_d wheeled Unitree (default)
 #   ./scripts/run/view-robot.sh --robot g1_d --variant g1_29dof_rev_1_0   # bipedal body
 #   ./scripts/run/view-robot.sh --robot so101
 #   ./scripts/run/view-robot.sh --robot axol                     # bimanual (two 7-DOF arms)

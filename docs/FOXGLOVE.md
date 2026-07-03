@@ -20,7 +20,7 @@ sessions with no extra DDS config. Tear it down with
 `docker compose -f docker/compose.yaml -f docker/compose.macos.yaml down`. Throwaway
 runs an isolated bridge that cleans up on exit.
 
-To view a robot URDF in Foxglove, run `./scripts/run/view-robot.sh` (default G1-D;
+To view a robot URDF in Foxglove, run `./scripts/run/view-robot.sh` (default Unitree;
 `--robot so101`, `--robot axol`, or `--robot openarm` for the others) — it starts
 robot_state_publisher plus the bridge with meshes. See the
 [fm-robot repo](https://github.com/first-motive/fm-robot) (`fm_description`) for the

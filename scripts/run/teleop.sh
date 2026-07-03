@@ -27,10 +27,10 @@
 #   axol     7+7-DOF  full 6-DOF Cartesian (both arms, one servo_node each)
 #
 # Real backends differ by robot: OpenArm + SO101 use a ros2_control hardware plugin
-# (openarm SocketCAN, SO101 feetech serial); the G1-D has no such plugin — its real
+# (openarm SocketCAN, SO101 feetech serial); the Unitree has no such plugin — its real
 # arm runs through the Servo->arm_sdk bridge (fm_control/g1_arm_sdk_bridge), and
 # the wheeled base is driven separately by a Twist->AGV node. Axol's real CAN backend
-# is deferred (no ros2_control plugin yet), so it is sim-only. The OpenArm/SO101/G1-D
+# is deferred (no ros2_control plugin yet), so it is sim-only. The OpenArm/SO101/Unitree
 # real paths are plumbed but untested — no physical hardware yet.
 #
 # Prerequisites: build the workspace first (see sim.sh). The sim/real target must
@@ -39,7 +39,7 @@
 # Then:
 #   ./scripts/run/teleop.sh                              # openarm, mujoco target, foxglove
 #   ./scripts/run/teleop.sh --robot so101 --backend mock # SO101 teleop
-#   ./scripts/run/teleop.sh --robot g1_d                 # G1-D right arm, mujoco
+#   ./scripts/run/teleop.sh --robot g1_d                 # Unitree right arm, mujoco
 #   ./scripts/run/teleop.sh --robot axol                 # Axol, one servo_node per arm
 #   ./scripts/run/teleop.sh --input joy                  # gamepad
 #

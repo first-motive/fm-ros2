@@ -203,8 +203,8 @@ Two deliberate asymmetries:
   surface; Cartesian runs through Servo's inverse Jacobian, which least-squares the
   under-actuated twist — translation tracks, orientation drifts on the unreachable
   axis.
-- **The G1-D `real` arm is a bridge, not a ros2_control plugin.** No hardware
-  interface exists for the G1 upstream, so the real arm is driven by a Servo →
+- **The Unitree `real` arm is a bridge, not a ros2_control plugin.** No hardware
+  interface exists for the Unitree upstream, so the real arm is driven by a Servo →
   `unitree_hg/LowCmd` bridge on `rt/arm_sdk` (50 Hz, engagement weight on motor 29).
   The sim backends still use standard ros2_control plugins. The wheeled base is driven
   separately by a Twist → AGV node, not by Servo.
@@ -212,16 +212,16 @@ Two deliberate asymmetries:
 The openarm, g1_d, and so101 real backends are plumbed but **untested** — no physical
 hardware yet; Axol's real backend is **deferred** (its CAN driver has no ros2_control
 plugin yet, so only the sim backends are wired). On the Mac, `mock` + `mujoco`
-validate; `gazebo`/`isaac` are wired-not-validated (Linux/GPU-gated). The G1-D's mujoco
+validate; `gazebo`/`isaac` are wired-not-validated (Linux/GPU-gated). The Unitree's mujoco
 model is the bipedal `g1_29dof` (its arm joint names match; legs differ from the
-wheeled body), so G1 mujoco is wired-not-validated pending a wheeled-G1 MJCF — `mock`
+wheeled body), so Unitree mujoco is wired-not-validated pending a wheeled Unitree MJCF — `mock`
 is its validated path. Axol's mujoco model is authored in-repo (Almond Bot ships no
 MJCF) and drives both arms.
 
 ```bash
 ./scripts/run/sim.sh                              # openarm right_arm in MuJoCo (default)
 ./scripts/run/sim.sh --robot so101 --backend mock # SO101, no sim
-./scripts/run/sim.sh --robot g1_d --backend mock  # G1-D right arm (body holds)
+./scripts/run/sim.sh --robot g1_d --backend mock  # Unitree right arm (body holds)
 ./scripts/run/sim.sh --variant default_bimanual   # both OpenArm arms
 ./scripts/run/sim.sh --robot axol --backend mujoco # Axol, both arms in MuJoCo
 ```
@@ -232,7 +232,7 @@ Teleop adds MoveIt Servo plus an input source. Run `sim.sh` in one terminal, the
 ```bash
 ./scripts/run/teleop.sh                            # openarm, Foxglove panel -> Servo
 ./scripts/run/teleop.sh --robot so101 --backend mock
-./scripts/run/teleop.sh --robot g1_d               # G1-D right arm
+./scripts/run/teleop.sh --robot g1_d               # Unitree right arm
 ./scripts/run/teleop.sh --robot axol               # Axol, one servo_node per arm
 ```
 

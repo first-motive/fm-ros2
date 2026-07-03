@@ -16,15 +16,15 @@
 # Then:
 #   ./scripts/run/sim.sh                                       # openarm right_arm, mujoco
 #   ./scripts/run/sim.sh --robot so101 --backend mock          # SO101, no sim
-#   ./scripts/run/sim.sh --robot g1_d --backend mujoco         # G1-D right arm in mujoco
+#   ./scripts/run/sim.sh --robot g1_d --backend mujoco         # Unitree right arm in mujoco
 #   ./scripts/run/sim.sh --robot axol --backend mujoco         # Axol, both arms in mujoco
 #   ./scripts/run/sim.sh --variant default_bimanual            # both OpenArm arms
 #   ./scripts/run/sim.sh --backend gazebo                      # Linux/GPU overlay
 #   ./scripts/run/sim.sh --backend isaac                       # Isaac over ROS topics
 #
-# Notes: the G1-D simulates its right arm only (the rest of the body holds);
+# Notes: the Unitree simulates its right arm only (the rest of the body holds);
 # its mujoco model is the bipedal g1_29dof (arm joints match, wired-not-validated).
-# G1-D has no `real` sim backend — the real arm runs through the arm_sdk bridge,
+# Unitree has no `real` sim backend — the real arm runs through the arm_sdk bridge,
 # not a controller_manager (see scripts/run/teleop.sh + src/fm_control).
 #
 # --robot/--backend accept hyphen or underscore form. Extra args pass straight

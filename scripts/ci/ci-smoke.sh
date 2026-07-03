@@ -8,7 +8,7 @@
 # Each check is bounded (timed waits, not fixed sleeps) and prints PASS/FAIL. All
 # checks run; the script exits non-zero if any failed. These cover the deterministic,
 # no-GPU, no-hardware items of the test plan: mock controller bringup per robot, the
-# G1 arm_sdk bridge, and the G1 base AGV command. The mujoco-render, Linux/GPU, and
+# Unitree arm_sdk bridge, and the Unitree base AGV command. The mujoco-render, Linux/GPU, and
 # real-hardware items stay manual.
 set -uo pipefail  # not -e: run every check, aggregate failures at the end
 
@@ -91,7 +91,7 @@ assert_mock_controllers() {
   teardown "$pid"
 }
 
-# Assert the G1 arm_sdk bridge turns both arms' JointTrajectory streams into one LowCmd:
+# Assert the Unitree arm_sdk bridge turns both arms' JointTrajectory streams into one LowCmd:
 # each commanded joint lands on its motor index (right 22..28, left 15..21) and the
 # engagement weight rides motor 29.
 assert_g1_arm_bridge() {
@@ -125,15 +125,15 @@ except Exception as exc:
     sys.exit(1)
 PY
   then
-    pass "g1 arm_sdk bridge: R elbow->motor[25]=0.5, L elbow->motor[18]=-0.3, weight->motor[29]>0"
+    pass "unitree arm_sdk bridge: R elbow->motor[25]=0.5, L elbow->motor[18]=-0.3, weight->motor[29]>0"
   else
-    fail "g1 arm_sdk bridge: LowCmd mapping wrong or absent"
+    fail "unitree arm_sdk bridge: LowCmd mapping wrong or absent"
     tail -5 /tmp/bridge.log || true
   fi
   sleep 2
 }
 
-# Assert the G1 sim diff-drive base: a /cmd_vel Twist reaches g1_base_controller (via the
+# Assert the Unitree sim diff-drive base: a /cmd_vel Twist reaches g1_base_controller (via the
 # cmd_vel_unstamped -> /cmd_vel remap) and the open-loop odometry tracks vx + vyaw.
 assert_g1_base_diff_drive() {
   ros2 launch fm_bringup sim.launch.py \
@@ -171,15 +171,15 @@ except Exception as exc:
     sys.exit(1)
 PY
   then
-    pass "g1 base diff-drive: /cmd_vel -> g1_base_controller odom tracks vx=0.3, vyaw=0.5"
+    pass "unitree base diff-drive: /cmd_vel -> g1_base_controller odom tracks vx=0.3, vyaw=0.5"
   else
-    fail "g1 base diff-drive: controller inactive or odom did not track /cmd_vel"
+    fail "unitree base diff-drive: controller inactive or odom did not track /cmd_vel"
     tail -8 "/tmp/g1_base.log" || true
   fi
   teardown "$pid"
 }
 
-# Assert the G1 Dex3 hand bridge turns a hand JointTrajectory into a HandCmd: the
+# Assert the Unitree Dex3 hand bridge turns a hand JointTrajectory into a HandCmd: the
 # commanded finger lands on its motor index with the packed enable mode (0x10 | id).
 assert_g1_hand_bridge() {
   ros2 run fm_control g1_hand_sdk_bridge \
@@ -208,15 +208,15 @@ except Exception as exc:
     sys.exit(1)
 PY
   then
-    pass "g1 hand bridge: thumb_2->motor[2].q=0.8, mode=0x12, 7 motors"
+    pass "unitree hand bridge: thumb_2->motor[2].q=0.8, mode=0x12, 7 motors"
   else
-    fail "g1 hand bridge: HandCmd mapping wrong or absent"
+    fail "unitree hand bridge: HandCmd mapping wrong or absent"
     tail -5 /tmp/hand.log || true
   fi
   sleep 2
 }
 
-# Assert the G1 hand teleop turns a named preset into a full 7-joint hand trajectory:
+# Assert the Unitree hand teleop turns a named preset into a full 7-joint hand trajectory:
 # "close" on the left hand publishes all 7 finger joints with thumb_2 at its flexed limit.
 assert_g1_hand_teleop() {
   ros2 run fm_teleop_device g1_hand_teleop >/tmp/hand_teleop.log 2>&1 &
@@ -244,15 +244,15 @@ except Exception as exc:
     sys.exit(1)
 PY
   then
-    pass "g1 hand teleop: close preset -> 7-joint trajectory, thumb_2 flexed"
+    pass "unitree hand teleop: close preset -> 7-joint trajectory, thumb_2 flexed"
   else
-    fail "g1 hand teleop: preset did not map to a full hand trajectory"
+    fail "unitree hand teleop: preset did not map to a full hand trajectory"
     tail -5 /tmp/hand_teleop.log || true
   fi
   sleep 2
 }
 
-# Assert the G1 base teleop turns a Twist into the AGV Move request (api_id 1001).
+# Assert the Unitree base teleop turns a Twist into the AGV Move request (api_id 1001).
 assert_g1_base_teleop() {
   ros2 run fm_control g1_base_teleop \
     --ros-args -p output_topic:=/ci_agv >/tmp/base.log 2>&1 &
@@ -276,9 +276,9 @@ except Exception as exc:
     sys.exit(1)
 PY
   then
-    pass "g1 base teleop: Twist->AGV Move request (api_id 1001)"
+    pass "unitree base teleop: Twist->AGV Move request (api_id 1001)"
   else
-    fail "g1 base teleop: AGV request wrong or absent"
+    fail "unitree base teleop: AGV request wrong or absent"
     tail -5 /tmp/base.log || true
   fi
   sleep 2

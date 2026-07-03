@@ -57,7 +57,7 @@ to the same bash path through Git Bash:
 | Caveat | What to do |
 |--------|-----------|
 | `rosdep` is unsupported inside a pixi env | Add ROS deps with `pixi add ros-humble-<pkg>`, not `rosdep`. When a package fails with "could not find <pkg>", add it to `pixi.toml`. |
-| Real Unitree hardware needs Linux SocketCAN | The Unitree message packages build + run natively for sim, but driving a physical Unitree robot (e.g. G1) still needs the Linux container. |
+| Real Unitree hardware needs Linux SocketCAN | The Unitree message packages build + run natively for sim, but driving a physical Unitree robot still needs the Linux container. |
 | `ros-humble-foxglove-bridge` has no `win-64` build on `robostack-humble` | Native Windows has no Foxglove path — Windows installs default to the rviz viewer. |
 | Native Linux is deferred | Linux stays on the container (the CI/parity default). |
 | The Windows path (`.ps1` wrappers → Git Bash) is exercised by the `windows-latest` CI job, but not yet on a physical Windows box | Treat Windows as CI-verified; a real-machine pass is still pending. |

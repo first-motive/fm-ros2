@@ -62,14 +62,14 @@ main() {
   #   openarm_description  — xacro needs $(find openarm_description) + package://
   #   openarm_ros2         — bringup + bimanual MoveIt config (launch/config only)
   #   unitree_ros2         — the unitree_hg/go/api DDS message packages; unitree_hg
-  #                          carries LowCmd, which the G1 arm_sdk bridge publishes
+  #                          carries LowCmd, which the Unitree arm_sdk bridge publishes
   # Everything else is file-vendored, reference-only, or Linux-only, so it gets a
   # COLCON_IGNORE marker:
   #   lerobot, so_arm, openarm_mujoco   file-vendored (URDF/MJCF/assets, not built)
   #   ros2_so_arm                       reference for the SO101 MoveIt config values
   #   unitree_sdk2, unitree_mujoco      reference for the arm_sdk loop + DDS sim
   #   feetech_ros2_driver, openarm_can  Linux + real-hardware backends only
-  #   unitree_ros                       G1 description (flat URDF + meshes, file-vendored)
+  #   unitree_ros                       Unitree description (flat URDF + meshes, file-vendored)
   #   axol                              Axol description (flat URDF + STL, file-vendored).
   #                                     Its COLCON_IGNORE also stops colcon descending into
   #                                     the repo's nested cli/*/setup.py, which otherwise
