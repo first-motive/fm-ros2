@@ -12,6 +12,11 @@ How to build and run `fm-ros2`. Two paths share one imported workspace:
 Both paths are dev + build + sim + dataset on macOS — no GPU, no hardware. Hardware
 and GPU work happen on Linux.
 
+Both paths are also drivable from **FM Desktop**, the native macOS app
+([first-motive/fm-desktop](https://github.com/first-motive/fm-desktop)): it runs
+the same `install.sh` and reads and writes the same `.fm_ros2.json` this page
+describes, so the app and the command-line paths share one workspace.
+
 ## Native Path (Recommended)
 
 On macOS and Windows, the native path runs ROS2 Humble directly on the host through

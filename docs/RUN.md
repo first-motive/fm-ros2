@@ -7,6 +7,12 @@ Either way it builds the workspace and opens the **fm_tui launcher** — an arro
 menu that walks action → robot → variant (→ backend for sim/teleop) and dispatches
 the launch.
 
+`run.sh` is the terminal front door. **FM Desktop** — the native macOS app at
+[first-motive/fm-desktop](https://github.com/first-motive/fm-desktop) — is the
+graphical alternative: it drives this same contract (the registry, the profiles,
+the native/container path) without a terminal. Both share the `~/fm_ros2`
+workspace, so a launch behaves the same from either.
+
 ## Native vs Container
 
 | Path | Runs | Build + launch |
