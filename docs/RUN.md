@@ -11,7 +11,8 @@ the launch.
 [first-motive/fm-desktop](https://github.com/first-motive/fm-desktop) — is the
 graphical alternative: it drives this same contract (the registry, the profiles,
 the native/container path) without a terminal. Both share the `~/fm_ros2`
-workspace, so a launch behaves the same from either.
+workspace, so a launch behaves the same from either. Build and open it from this
+workspace with `./run.sh --app` (see [App Front Door](#app-front-door)).
 
 ## Native vs Container
 
@@ -41,6 +42,7 @@ the workspace overlay before launching.
 ./run.sh                # route by profile (or OS default), build, open the launcher
 ./run.sh --native       # force the native path (pixi/RoboStack)
 ./run.sh --container    # force the container path (Docker + compose)
+./run.sh --app          # build + launch FM Desktop, the native macOS app
 ```
 
 | Flag | Path | When |
@@ -48,6 +50,7 @@ the workspace overlay before launching.
 | (none) | profile in `.fm_ros2.json`, else OS default | normal use |
 | `--native` | pixi/RoboStack on the host | macOS/Windows dev |
 | `--container` | Docker + compose | Linux, CI/parity, Unitree robots |
+| `--app` | FM Desktop macOS app | prefer a GUI over the terminal launcher (macOS) |
 
 The OS default maps `Darwin` / Windows → native and `Linux` → container. Remaining
 args forward to the chosen path script (`scripts/run/native.sh` or
@@ -67,6 +70,38 @@ selects `docker/compose.macos.yaml`; unflagged, it auto-detects from `uname -s`.
 **Windows has no container path** — OrbStack is macOS-only. `run.sh` refuses
 `--container` on Windows and points WSL2 users at the Linux container path from a
 WSL2 shell.
+
+## App Front Door
+
+`./run.sh --app` builds and launches **FM Desktop**, the native macOS app, as a
+graphical alternative to the `fm_tui` launcher. It dispatches to
+`scripts/run/app.sh`, which:
+
+1. **Finds the app checkout** — `$FM_DESKTOP_DIR`, else a sibling `../fm-desktop`,
+   else `~/fm-desktop`. If none exists, it clones `first-motive/fm-desktop` into
+   `~/fm-desktop`.
+2. **Builds the bundle** from source via the app's `scripts/package-app.sh`.
+3. **Opens** `FM Desktop.app`, which adopts this workspace at `~/fm_ros2`.
+
+The app lives in its own repo — deliberately outside this workspace's `.repos`
+manifests — so `install.sh` never touches it. A locally built app carries no
+Gatekeeper quarantine, so it runs unsigned: no Apple Developer ID needed for a team
+that already clones this repo. macOS only; needs the Xcode Command Line Tools
+(`xcode-select --install`).
+
+Setup from scratch, workspace-first:
+
+```bash
+git clone https://github.com/first-motive/fm-ros2.git fm_ros2
+cd fm_ros2
+./install.sh            # assemble the workspace (native/container by OS)
+./run.sh --app          # clone + build fm-desktop, launch it, adopt this workspace
+```
+
+The reverse direction also works: starting from the app (its dmg or checkout),
+FM Desktop's onboarding runs this repo's `install.sh` to create the workspace. Each
+front door can bootstrap the other. Signed, downloadable builds for teammates who do
+not clone this repo are tracked in fm-desktop's issues.
 
 ## macOS: OrbStack Bootstrap
 
