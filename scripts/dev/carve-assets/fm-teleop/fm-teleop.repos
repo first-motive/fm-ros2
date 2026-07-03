@@ -1,4 +1,0 @@
-# vcs import < fm-teleop.repos   (run from the workspace root)
-#
-# No git externals — Python/npm deps resolve via rosdep + npm.
-repositories: {}

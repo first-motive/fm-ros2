@@ -16,8 +16,8 @@ src/
 # Shared container infra, imported from fm-docker (vcs import < fm-ros2.repos)
 docker/
 
-# Private learning-stack overlay manifest — kept out of the public repo
-fm-learning.repos
+# Private overlay manifest — kept out of the public repo
+private-overlay.repos
 
 # Vendored external sources (pulled via vcs import)
 external/

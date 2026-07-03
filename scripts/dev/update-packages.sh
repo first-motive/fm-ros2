@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sync the public First Motive package repos into src/ from fm-ros2.repos, plus
-# the private learning stack from fm-learning.repos when that overlay is present.
+# the private overlay from private-overlay.repos when that manifest is present.
 # Imports any missing repo, then pulls every repo to its tracked ref (main).
 # src/ is gitignored; each src/fm_* is its own clone with its own remote —
 # commit and push package changes from inside that repo, not from here.
@@ -10,8 +10,8 @@ usage() {
   cat <<'EOF'
 update-packages.sh — sync the package repos into src/ from the .repos manifests
 
-Imports any missing public repo (plus the private learning overlay when
-fm-learning.repos is present), then pulls every repo to its tracked ref.
+Imports any missing public repo (plus the private overlay when
+private-overlay.repos is present), then pulls every repo to its tracked ref.
 
 Usage: ./scripts/dev/update-packages.sh [-h]
 
@@ -48,11 +48,11 @@ main() {
   echo "==> Importing missing package repos into src/ ..."
   "${VCS[@]}" import src < fm-ros2.repos
 
-  # Private learning-stack overlay: imported only when the gitignored manifest is
-  # present (team members with access). Public clones skip it silently.
-  if [[ -f fm-learning.repos ]]; then
-    echo "==> Importing private learning overlay into src/ ..."
-    "${VCS[@]}" import src < fm-learning.repos
+  # Private overlay: imported only when the gitignored manifest is present (team
+  # members with access). Public clones skip it silently.
+  if [[ -f private-overlay.repos ]]; then
+    echo "==> Importing private overlay into src/ ..."
+    "${VCS[@]}" import src < private-overlay.repos
   fi
 
   # vcs pull fast-forwards every clone already in src/ to its tracked ref.

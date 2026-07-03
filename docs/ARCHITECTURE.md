@@ -20,8 +20,8 @@ The design follows a few systems-engineering principles, made explicit in
 - **Layered separation** — perception/policy, motion control, and hardware are
   distinct repos with one-directional dependencies.
 - **Polyrepo, one workspace** — each layer is its own repo under the
-  `first-motive` org, carved from the original monorepo with history preserved
-  (see [CARVE-RECIPE.md](CARVE-RECIPE.md)). `fm-ros2` assembles them via `vcs`.
+  `first-motive` org, carved from the original monorepo with history preserved.
+  `fm-ros2` assembles them via `vcs`.
 
 ## System Overview
 
@@ -81,8 +81,7 @@ Source: [`diagrams/repomap.d2`](diagrams/repomap.d2).
 | [fm-sim](https://github.com/first-motive/fm-sim) | `fm_sim_core`, `fm_sim_backends`, `fm_sim_models`, `fm_sim` | ament_cmake | Headless dev loop, backend hosts, MJCF registry |
 | [fm-teleop](https://github.com/first-motive/fm-teleop) | `fm_teleop_*` | ament_python | Servo wiring + pluggable input adapters |
 
-The private learning overlay (`fm-data`, `fm-policy`, `fm-learning`) adds the data
-engine and policy layer on top — see
+A private learning overlay adds the data engine and policy layer on top — see
 [Learning Stack](#learning-stack-private-overlay).
 
 `fm_ros2` (this repo) is the workspace metapackage: it exec-depends on every public
@@ -189,10 +188,9 @@ opens the `fm_tui` launcher. The `openarm_hardware` and `openarm_can` packages a
 
 ## Learning Stack (private overlay)
 
-The learning loop is a private overlay (`fm-data`, `fm-policy`, `fm-learning`),
-imported on top of the public workspace via `fm-learning.repos` by team members
-with access. It is not part of the public stack. Structurally it follows the
-standard imitation-learning shape:
+The learning loop is a private overlay, imported on top of the public workspace
+by team members with access. It is not part of the public stack. Structurally it
+follows the standard imitation-learning shape:
 
 ![learning loop](diagrams/learning.svg)
 

@@ -8,8 +8,8 @@ system design.
 
 `fm-ros2` is the orchestrator for First Motive's ROS2 robot stack. The
 public packages live in four per-package repos under the `first-motive` org; a
-private learning overlay (`fm-data`, `fm-policy`, `fm-learning`) plugs in on top
-via `fm-learning.repos` for team members with access. This repo assembles them
+private learning overlay plugs in on top for team members with access. This repo
+assembles them
 into one colcon workspace via `vcs` and holds the shared tooling (Docker, dev
 container, CI, scripts) and full-system docs. It carries no package source — only
 the `fm_ros2` workspace metapackage.
@@ -27,7 +27,7 @@ the `fm_ros2` workspace metapackage.
 
 ```bash
 vcs import < fm-ros2.repos     # pull container infra into docker/ + the four package repos into src/
-vcs import src < fm-learning.repos # private overlay — team members with access
+vcs import src < private-overlay.repos # private overlay — team members with access
 ./scripts/install/import-externals.sh      # vendor externals into external/
 ```
 
@@ -66,13 +66,11 @@ source. `vcs import < fm-ros2.repos` pulls the four public package repos into
 `src/`, where `colcon build` recurses and finds every package regardless of
 nesting depth. The `fm_ros2` metapackage depends on the four public group
 metapackages (`fm_robot`, `fm_app`, `fm_sim`, `fm_teleop`), each of which pulls its
-own sub-packages transitively. The private `fm-learning.repos` overlay adds
-`fm_learning` (with `fm_data` + `fm_policy`); colcon builds it too once imported.
-Local checkout dirs are snake_case (`fm_ros2`, `src/fm_robot`) to match the
-package names; the GitHub repo slugs they clone from stay kebab (`fm-ros2`,
-`fm-robot`), and the `.repos` manifest filenames follow the slug. The carve-out
-recipe that produced the repos lives in
-[docs/CARVE-RECIPE.md](docs/CARVE-RECIPE.md).
+own sub-packages transitively. The private `private-overlay.repos` overlay adds
+the learning packages; colcon builds them too once imported. Local checkout dirs
+are snake_case (`fm_ros2`, `src/fm_robot`) to match the package names; the GitHub
+repo slugs they clone from stay kebab (`fm-ros2`, `fm-robot`), and the `.repos`
+manifest filenames follow the slug.
 
 ## Diagrams
 
