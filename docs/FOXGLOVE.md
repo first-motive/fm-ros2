@@ -26,6 +26,66 @@ robot_state_publisher plus the bridge with meshes. See the
 [fm-robot repo](https://github.com/first-motive/fm-robot) (`fm_description`) for the
 robot table, variants, and caveats.
 
+## Joint Control
+
+Every robot description opens with a joint-control surface seeded at the robot's
+home pose, so movable joints move smoothly — no flicker, no bent humanoid.
+
+- **Foxglove**: the imported layout (`fm_description/foxglove/<robot>_view.json`)
+  is a 3D panel beside the **First Motive Joint State Publisher** panel. The panel
+  reads `/robot_description`, draws one slider per movable joint seeded from the
+  live `/joint_states`, and publishes `sensor_msgs/JointState` on `/joint_command`.
+  The launch runs `joint_state_publisher` as the sole `/joint_states` publisher,
+  subscribed to `/joint_command` via `source_list` — the panel feeds it, never
+  races it. Two publishers on `/joint_states` flip the robot between poses; this
+  keeps one consistent stream.
+- **rviz**: `joint_state_publisher_gui` carries its own slider window (rviz has no
+  joint panel of its own). `view_robot.launch.py` picks it automatically on the
+  rviz path — `use_jsp_gui` defaults to `auto` and follows the viewer, so **every**
+  entryway (TUI, CLI, `run.sh`, FM Desktop) gets rviz joint control from the viewer
+  choice alone, no per-frontend flag. The launch keeps exactly one `/joint_states`
+  publisher either way. Force it with `use_jsp_gui:=true|false` if needed.
+
+### Installing the Panel
+
+The Joint State Publisher panel ships in the same `fm-teleop` extension as the
+teleop panel. Build and install it once:
+
+```bash
+cd src/fm_teleop/fm_teleop_panel
+npm install
+npm run local-install   # builds + installs into the local Foxglove Studio
+```
+
+`npm run package` produces a `.foxe` to hand to other operators; drag it onto
+Foxglove Studio (Settings → Extensions) to install without the toolchain. Foxglove
+loads extensions at startup, so quit fully (Cmd+Q) and reopen to pick up a new or
+updated build.
+
+### Re-importing a Layout
+
+The `*_view.json` layouts carry the 3D-plus-joint-panel split, so a fresh import
+lands with joint control already in place: Foxglove Studio → Layouts → import
+`fm_description/foxglove/<robot>_view.json`. An already-imported copy keeps the
+previous layout until you re-import. The layouts reference the panel by its
+Foxglove type `firstmotive.fm-teleop.First Motive Joint State Publisher`. That
+type is `<publisher>.<name>.<panel name>`, where Foxglove normalizes the
+publisher — `toLowerCase()` then strip non-word chars — so `first-motive` in
+`package.json` becomes `firstmotive` here (the `-` is dropped). If the panel shows
+as unknown after import, confirm the extension is installed and that this type
+still matches the installed extension id (its dir under
+`~/.foxglove-studio/extensions/`), updating the type in each `*_view.json` if it
+differs.
+
+### Never Run a Standalone jsp Against the Sim
+
+The joint-control panel and `use_jsp_gui` are for the description-view path only.
+On the sim path (`sim.launch.py`), `joint_state_broadcaster` publishes
+`/joint_states` from the controllers. A second publisher — a manual
+`joint_state_publisher`, `joint_state_publisher_gui`, or this panel pointed at
+`/joint_states` — fights the broadcaster and the robot flips between poses. Drive
+sim joints through the controllers (or the teleop panel), never a standalone jsp.
+
 ## Viewer Preference — Foxglove vs rviz
 
 The `fm_tui` launcher remembers which viewer to start for **Robot Description**.
