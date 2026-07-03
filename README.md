@@ -33,6 +33,13 @@ workspace and opens the launcher. They are split because `run.sh` drives an
 interactive menu that a curl pipe cannot supply a terminal for, while `install.sh`
 is non-interactive and safe to pipe.
 
+Prefer a GUI? **FM Desktop** — a native macOS app at
+[first-motive/fm-desktop](https://github.com/first-motive/fm-desktop) — is a third
+front door beside the two above. It installs, runs, and observes the same stack
+through the same script contract, sharing the `~/fm_ros2` workspace and the
+`.fm_ros2.json` / `.fm_tui.json` profiles, so the app and the terminal stay in
+sync. It is operator-first; the terminal paths remain the reference for dev and CI.
+
 `install.sh` picks a run path by OS: macOS and Windows default to **native**
 (ROS2 Humble via pixi + RoboStack, no container), Linux defaults to the
 **container** (Docker + compose, also the CI/parity path). Override the path and
