@@ -1,0 +1,23 @@
+name: repo-hygiene
+
+# Fails if a tracked file matches a disallowed pattern. Patterns are held
+# base64-encoded so this file does not restate them.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tracked files against disallowed patterns
+        run: |
+          PATTERN="$(printf '%s' 'Zm0tZGF0YXxmbS1wb2xpY3l8Zm0tbGVhcm5pbmd8Zm0tYWlcYnxmbV92bHRh' | base64 -d)"
+          if git grep -InE "$PATTERN" -- . ':!.github/workflows/repo-hygiene.yml'; then
+            echo "::error::a tracked file matches a disallowed pattern"
+            exit 1
+          fi
+          echo "ok"
