@@ -80,3 +80,8 @@ colcon build --symlink-install
 colcon test --packages-select $(colcon list --names-only | grep '^fm_')
 colcon test-result --verbose
 ```
+
+## Onboarding
+
+New here? The [First Motive org profile](https://github.com/first-motive#get-started)
+has the one-curl setup and the `fm update` sync habit.

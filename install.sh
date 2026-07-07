@@ -107,8 +107,9 @@ Setup only. To build and launch, run ./run.sh from a terminal afterwards.
 Usage: ./install.sh [install|uninstall] [options]
 
   install      clone + import + set up the selected path and viewer (default)
-  uninstall    tear down the compose stack and clear the fm-tools lib cache
-               (the workspace clone and pulled images are left in place)
+  uninstall    remove what install added: the private team extras (members —
+               First Motive app, fm CLI, AI harness), the compose stack, and the
+               fm-tools lib cache. The workspace clone and pulled images stay.
 
 Path (where the stack runs):
   --native            native ROS2 via pixi + RoboStack (default on macOS/Windows)
@@ -119,6 +120,10 @@ Viewer:
 
 Options:
   --learning          also import the private learning overlay (private-overlay.repos)
+  --no-desktop        skip the First Motive app in the team-extras step (members)
+  --no-ai             skip the AI harness in the team-extras step (members)
+  --purge             uninstall only: also drop clean imported repos under src/
+                      and external/ (dirty checkouts are kept)
   --dry-run           print what would happen, change nothing (uninstall)
   -h, --help          show this help
 
@@ -143,13 +148,26 @@ EOF
 # Tear down the running stack and clear the fm-tools lib cache. Removes only what
 # this bootstrap owns transiently — never the cloned workspace (the user's work)
 # or pulled images (shared, re-pullable).
-do_uninstall() {
-  local dry="$1"
+do_uninstall() {  # dry no_desktop no_ai purge
+  local dry="$1" no_desktop="${2:-false}" no_ai="${3:-false}" purge="${4:-0}"
+  # Forwarded flags for the team-setup uninstall.
+  local -a xf=()
+  [[ "$no_desktop" == true ]] && xf+=(--no-desktop)
+  [[ "$no_ai" == true ]] && xf+=(--no-ai)
+  [[ "$purge" == 1 ]] && xf+=(--purge)
+
   if [[ "$dry" == 1 ]]; then
+    say "would remove the private team extras for members (First Motive app, fm CLI, AI harness)"
     say "would tear down the compose stack (docker compose down)"
     say "would remove the fm-tools lib cache ($CACHE_DIR)"
+    [[ "$purge" == 1 ]] && say "would purge clean imported repos under src/ and external/ (dirty ones kept)"
     return 0
   fi
+
+  # Remove the private team extras first (members only; silent for the rest).
+  # bash 3.2 (macOS) needs the empty-array guard under set -u.
+  maybe_uninstall_team_extras ${xf[@]+"${xf[@]}"}
+
   if [[ -f docker/compose.yaml ]]; then
     # One overlay is enough to address the compose project for teardown; pick
     # whichever this host has. Best-effort — a stack that is already down is fine.
@@ -167,7 +185,16 @@ do_uninstall() {
   fi
   say "removing the fm-tools lib cache ($CACHE_DIR) ..."
   rm -rf "$CACHE_DIR"
-  say "uninstall complete — workspace clone and pulled images left in place."
+
+  # --purge additionally drops the clean imported repos so a reinstall re-imports
+  # fresh; dirty checkouts are kept. Without it, the imported src/external stay.
+  if [[ "$purge" == 1 ]]; then
+    say "purging clean imported repos under src/ and external/ ..."
+    purge_workspace_repos
+    say "uninstall complete — imported repos purged (dirty ones kept); the fm_ros2 clone and pulled images are left in place."
+  else
+    say "uninstall complete — workspace clone and pulled images left in place (use --purge to also drop imported repos)."
+  fi
 }
 
 # vcs (vcstool) drives the imports. Prefer one already on PATH; otherwise install
@@ -192,8 +219,79 @@ ensure_vcs() {
   esac
 }
 
+# The org-membership gate: gh present, authenticated, and able to read the
+# private config repo. Only a member passes. Non-members skip the team extras.
+team_member() {
+  command -v gh >/dev/null 2>&1 || return 1
+  gh auth status >/dev/null 2>&1 || return 1
+  gh api repos/first-motive/.github-private >/dev/null 2>&1 || return 1
+}
+
+# Fetch the auth-gated team-setup.sh over gh's authenticated API and run it with
+# the given args (subcommand + flags) — no extra clone, no token handling.
+fetch_run_team_setup() {  # args...
+  gh api repos/first-motive/.github-private/contents/internal/team-setup.sh \
+    --jq '.content' | base64 --decode | bash -s -- "$@"
+}
+
+# Offer the private team stack — the First Motive app and the AI harness — once
+# the public workspace is assembled. Everything private lives behind the auth-gated
+# setup script in the private .github-private repo; this public installer names no
+# private repo beyond fetching that one script through gh, which only resolves for
+# an authenticated org member. A non-member probes false and skips silently. The
+# desktop app runs this same installer to provision the workspace and exports
+# FM_DESKTOP_BOOTSTRAP=1 so team-setup skips re-installing the app from under it.
+maybe_install_team_extras() {  # forwarded flags...
+  team_member || return 0
+  step "Team Extras"
+  item "org access detected — installing the private team stack:"
+  item "  • First Motive (native macOS app)   skip with --no-desktop"
+  item "  • AI skills + harness      skip with --no-ai"
+  item "  (non-members never reach this step; the public workspace is already done)"
+  # A failure leaves the public workspace intact; team extras are additive.
+  if ! fetch_run_team_setup "$@"; then
+    item "team-extras step did not complete — the public workspace is ready regardless"
+  fi
+  return 0
+}
+
+# Mirror of the install path for teardown: remove the private team extras through
+# the same auth-gated script (uninstall subcommand). Members only; silent for the
+# rest. --purge is forwarded so a purge run also drops the private clones.
+maybe_uninstall_team_extras() {  # forwarded flags...
+  team_member || return 0
+  say "org access detected — removing the private team extras (First Motive, fm CLI, AI harness) ..."
+  if ! fetch_run_team_setup uninstall "$@"; then
+    say "team-extras removal did not complete — continuing with the rest of the teardown"
+  fi
+  return 0
+}
+
+# --purge: remove the vcs-imported repos under src/ and external/ that are clean,
+# so a reinstall re-imports them fresh. A dirty checkout is kept and reported —
+# never delete uncommitted work. The fm_ros2 clone itself is left in place.
+purge_workspace_repos() {
+  local base d kept=0
+  for base in src external; do
+    [[ -d "$base" ]] || continue
+    for d in "$base"/*/; do
+      [[ -d "$d.git" ]] || continue
+      if [[ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ]]; then
+        say "keeping $d — uncommitted changes (not purged)"
+        kept=1
+      else
+        say "purging $d"
+        rm -rf "$d"
+      fi
+    done
+  done
+  [[ "$kept" == 1 ]] && say "some repos kept due to local changes — commit or stash, then re-run with --purge"
+  return 0
+}
+
 main() {
   local cmd=install learning=false dry=0 path="" viewer=foxglove
+  local no_desktop=false no_ai=false purge=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       install|uninstall) cmd="$1"; shift ;;
@@ -201,6 +299,9 @@ main() {
       --container) path=container; shift ;;
       --viewer) viewer="${2:?--viewer needs a value}"; shift 2 ;;
       --learning) learning=true; shift ;;
+      --no-desktop) no_desktop=true; shift ;;
+      --no-ai) no_ai=true; shift ;;
+      --purge) purge=1; shift ;;
       --dry-run) dry=1; shift ;;
       -h|--help) usage; return 0 ;;
       *)
@@ -227,17 +328,17 @@ main() {
     esac
   fi
 
-  if [[ "$cmd" == uninstall ]]; then
-    do_uninstall "$dry"
-    return $?
+  # CI self-test hook: arg parse + profile resolution survived the curl|bash pipe —
+  # stop before any clone, import, or teardown (covers install AND uninstall). Lets
+  # the curl-path test prove the script loads and flag/default routing works, no auth.
+  if [[ -n "${FM_SELFTEST:-}" ]]; then
+    echo "selftest ok: install.sh parsed under curl|bash (cmd=$cmd, path=$path, viewer=$viewer, no_desktop=$no_desktop, no_ai=$no_ai, purge=$purge)"
+    return 0
   fi
 
-  # CI self-test hook: arg parse + profile resolution survived the curl|bash pipe —
-  # stop before any clone or import. Lets the curl-path test prove the script loads
-  # and the flag/default routing works, no auth.
-  if [[ -n "${FM_SELFTEST:-}" ]]; then
-    echo "selftest ok: install.sh parsed under curl|bash (path=$path, viewer=$viewer)"
-    return 0
+  if [[ "$cmd" == uninstall ]]; then
+    do_uninstall "$dry" "$no_desktop" "$no_ai" "$purge"
+    return $?
   fi
 
   # Clone on first run, reuse an existing checkout on re-run — never clobber a tree
@@ -325,6 +426,15 @@ main() {
   fi
 
   write_profile "$path" "$viewer"
+
+  # Team members with org access get the private extras layered on top; everyone
+  # else stops at the provisioned public workspace above. Forward the skip flags.
+  local -a extra_flags=()
+  [[ "$no_desktop" == true ]] && extra_flags+=(--no-desktop)
+  [[ "$no_ai" == true ]] && extra_flags+=(--no-ai)
+  # bash 3.2 (macOS) errors on "${arr[@]}" for an empty array under set -u — guard
+  # the expansion so an unflagged run passes no args instead of tripping unbound.
+  maybe_install_team_extras ${extra_flags[@]+"${extra_flags[@]}"}
 
   # Setup ends here. run.sh builds and launches the interactive TUI, which needs a
   # controlling terminal — so it is the user's next step, not a curl|bash handoff.

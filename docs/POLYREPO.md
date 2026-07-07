@@ -54,17 +54,32 @@ If a change spans more than one layer, split it into repo-native commits and PRs
 
 ## Workspace Shape
 
-The normal public workspace flow is:
+`fm-ros2` is the single entryway. The one-curl installer clones the workspace,
+imports every manifest, and sets up the viewer:
 
 ```bash
-git clone https://github.com/first-motive/fm-ros2.git fm_ros2
-cd fm_ros2
-vcs import src < fm-ros2.repos
-./scripts/install/import-externals.sh
-./run.sh
+curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh | bash
+cd fm_ros2 && ./run.sh
 ```
 
-That gives you:
+Under the hood that is the manifest import — run it directly inside an existing
+checkout if you prefer:
+
+```bash
+vcs import < fm-ros2.repos                 # container infra + public packages
+./scripts/install/import-externals.sh      # vendored externals
+```
+
+Keep the workspace current with the shared `fm` CLI rather than pulling each
+repo by hand — `fm update` fast-forwards every clean repo and skips the dirty
+ones, and `scripts/update.sh` re-runs the manifest imports:
+
+```bash
+fm status     # which repos are behind
+fm update     # converge the clean ones
+```
+
+The import gives you:
 
 ```text
 fm_ros2/

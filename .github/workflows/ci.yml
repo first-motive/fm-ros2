@@ -35,6 +35,21 @@ jobs:
           done
           echo "bootstrap self-test OK"
 
+      # update.sh is an in-tree tool (not curl-piped), and install.sh grows an
+      # uninstall path — smoke both under FM_SELFTEST so a parse or flag-routing
+      # break is caught here, before a real convergence or teardown runs. Each
+      # stops after resolving, before any git/vcs/docker side effect.
+      - name: update.sh + uninstall survive FM_SELFTEST
+        run: |
+          set -euo pipefail
+          echo "== scripts/update.sh =="
+          FM_SELFTEST=1 bash scripts/update.sh | tee /dev/stderr | grep -q "selftest ok" \
+            || { echo "FAIL: update.sh did not reach 'selftest ok'"; exit 1; }
+          echo "== install.sh uninstall =="
+          FM_SELFTEST=1 bash install.sh uninstall --purge | tee /dev/stderr | grep -q "selftest ok" \
+            || { echo "FAIL: install.sh uninstall did not reach 'selftest ok'"; exit 1; }
+          echo "update + uninstall self-test OK"
+
   workspace:
     name: build + test + smoke (humble)
     runs-on: ubuntu-latest
