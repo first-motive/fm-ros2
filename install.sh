@@ -108,7 +108,7 @@ Usage: ./install.sh [install|uninstall] [options]
 
   install      clone + import + set up the selected path and viewer (default)
   uninstall    remove what install added: the private team extras (members —
-               First Motive app, fm CLI, fm-ai), the compose stack, and the
+               First Motive app, fm CLI, AI harness), the compose stack, and the
                fm-tools lib cache. The workspace clone and pulled images stay.
 
 Path (where the stack runs):
@@ -121,7 +121,7 @@ Viewer:
 Options:
   --learning          also import the private learning overlay (private-overlay.repos)
   --no-desktop        skip the First Motive app in the team-extras step (members)
-  --no-ai             skip the fm-ai harness in the team-extras step (members)
+  --no-ai             skip the AI harness in the team-extras step (members)
   --purge             uninstall only: also drop clean imported repos under src/
                       and external/ (dirty checkouts are kept)
   --dry-run           print what would happen, change nothing (uninstall)
@@ -157,7 +157,7 @@ do_uninstall() {  # dry no_desktop no_ai purge
   [[ "$purge" == 1 ]] && xf+=(--purge)
 
   if [[ "$dry" == 1 ]]; then
-    say "would remove the private team extras for members (First Motive app, fm CLI, fm-ai)"
+    say "would remove the private team extras for members (First Motive app, fm CLI, AI harness)"
     say "would tear down the compose stack (docker compose down)"
     say "would remove the fm-tools lib cache ($CACHE_DIR)"
     [[ "$purge" == 1 ]] && say "would purge clean imported repos under src/ and external/ (dirty ones kept)"
@@ -219,14 +219,6 @@ ensure_vcs() {
   esac
 }
 
-# Offer the private team stack — the First Motive app and the fm-ai harness — once
-# the public workspace is assembled. Everything private lives behind an auth-gated
-# setup script in the private .github-private repo; this public installer names no
-# private repo beyond fetching that one script through gh, which only resolves for
-# an authenticated org member. A machine without gh, without auth, or without org
-# access probes false and skips silently, keeping just the public workspace. The
-# desktop app runs this same installer to provision the workspace and exports
-# FM_DESKTOP_BOOTSTRAP=1 so team-setup skips re-installing the app from under it.
 # The org-membership gate: gh present, authenticated, and able to read the
 # private config repo. Only a member passes. Non-members skip the team extras.
 team_member() {
@@ -242,7 +234,7 @@ fetch_run_team_setup() {  # args...
     --jq '.content' | base64 --decode | bash -s -- "$@"
 }
 
-# Offer the private team stack — the First Motive app and the fm-ai harness — once
+# Offer the private team stack — the First Motive app and the AI harness — once
 # the public workspace is assembled. Everything private lives behind the auth-gated
 # setup script in the private .github-private repo; this public installer names no
 # private repo beyond fetching that one script through gh, which only resolves for
@@ -254,7 +246,7 @@ maybe_install_team_extras() {  # forwarded flags...
   step "Team Extras"
   item "org access detected — installing the private team stack:"
   item "  • First Motive (native macOS app)   skip with --no-desktop"
-  item "  • fm-ai (AI skills + harness)      skip with --no-ai"
+  item "  • AI skills + harness      skip with --no-ai"
   item "  (non-members never reach this step; the public workspace is already done)"
   # A failure leaves the public workspace intact; team extras are additive.
   if ! fetch_run_team_setup "$@"; then
@@ -268,7 +260,7 @@ maybe_install_team_extras() {  # forwarded flags...
 # rest. --purge is forwarded so a purge run also drops the private clones.
 maybe_uninstall_team_extras() {  # forwarded flags...
   team_member || return 0
-  say "org access detected — removing the private team extras (First Motive, fm CLI, fm-ai) ..."
+  say "org access detected — removing the private team extras (First Motive, fm CLI, AI harness) ..."
   if ! fetch_run_team_setup uninstall "$@"; then
     say "team-extras removal did not complete — continuing with the rest of the teardown"
   fi
