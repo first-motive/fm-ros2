@@ -10,6 +10,12 @@ MUJOCO_LOG.TXT
 # install profile: path (native|container) + viewer, written by install.sh
 .fm_ros2.json
 
+# Local teleop capture recordings (rosbag + CSV/JSONL; large, never committed)
+data/
+
+# Personal, always-loaded project instructions (local file, not committed)
+CLAUDE.local.md
+
 # Package repos pulled into the workspace (vcs import src < fm-ros2.repos)
 src/
 

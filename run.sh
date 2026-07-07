@@ -26,7 +26,7 @@ run.sh — dispatch the fm_ros2 launch to the native or container path
 Usage: ./run.sh [--native|--container|--app] [path-specific args...] [-h|--help]
 
   --native      force the native path (pixi/RoboStack); passes on --no-foxglove
-  --container   force the container path (Docker); passes on --macos/--linux/--no-foxglove
+  --container   force the container path (Docker); passes on --macos/--linux/--foxglove/--no-webgui
   --app         build + launch FM Desktop, the native macOS app (macOS only)
   -h, --help    show this help
 
