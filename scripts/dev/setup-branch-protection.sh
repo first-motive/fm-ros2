@@ -41,9 +41,8 @@ EOF
 OWNER="first-motive"
 BRANCH="main"
 
-# Every repo that goes public. The private learning overlay (fm-data, fm-policy,
-# fm-learning) stays private; add it here only if those repos are ever made
-# public too.
+# Every repo that goes public. The private overlay repos stay private; add them
+# here only if they are ever made public too.
 REPOS=(
   fm-ros2
   fm-robot

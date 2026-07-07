@@ -119,7 +119,7 @@ Viewer:
   --viewer VIEWER     foxglove (default) | rviz | none
 
 Options:
-  --learning          also import the private learning overlay (fm-learning.repos)
+  --learning          also import the private learning overlay (private-overlay.repos)
   --no-desktop        skip the First Motive app in the team-extras step (members)
   --no-ai             skip the fm-ai harness in the team-extras step (members)
   --purge             uninstall only: also drop clean imported repos under src/
@@ -395,11 +395,11 @@ main() {
     return 1
   fi
 
-  # Optional private learning overlay (fm-data + fm-policy + fm-learning).
+  # Optional private learning overlay.
   if [[ "$learning" == true ]]; then
     item "importing the learning overlay into src/ ..."
-    if ! spin "importing learning overlay" vcs import src < fm-learning.repos; then
-      echo "error: failed to import the learning overlay (fm-learning.repos)." >&2
+    if ! spin "importing learning overlay" vcs import src < private-overlay.repos; then
+      echo "error: failed to import the learning overlay (private-overlay.repos)." >&2
       echo "       This needs access to the private learning repos. Check your auth." >&2
       return 1
     fi

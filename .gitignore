@@ -10,14 +10,20 @@ MUJOCO_LOG.TXT
 # install profile: path (native|container) + viewer, written by install.sh
 .fm_ros2.json
 
+# Local teleop capture recordings (rosbag + CSV/JSONL; large, never committed)
+data/
+
+# Personal, always-loaded project instructions (local file, not committed)
+CLAUDE.local.md
+
 # Package repos pulled into the workspace (vcs import src < fm-ros2.repos)
 src/
 
 # Shared container infra, imported from fm-docker (vcs import < fm-ros2.repos)
 docker/
 
-# Private learning-stack overlay manifest — kept out of the public repo
-fm-learning.repos
+# Private overlay manifest — kept out of the public repo
+private-overlay.repos
 
 # Vendored external sources (pulled via vcs import)
 external/

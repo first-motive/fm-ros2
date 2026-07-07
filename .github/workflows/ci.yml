@@ -156,7 +156,7 @@ jobs:
       # lockfile is consistent with pixi.toml and covers all three platforms. The
       # heavy full-env materialization is deferred; the lock check validates the
       # native env solves from one manifest.
-      - uses: prefix-dev/setup-pixi@v0.8.10
+      - uses: prefix-dev/setup-pixi@v0.10.0
         with:
           run-install: false
 
@@ -178,7 +178,7 @@ jobs:
 
       # Install the pixi binary only (no full env solve — run-install: false) so the
       # shared dispatch smoke can run the lock check on the Windows runner.
-      - uses: prefix-dev/setup-pixi@v0.8.10
+      - uses: prefix-dev/setup-pixi@v0.10.0
         with:
           run-install: false
 
@@ -251,7 +251,7 @@ jobs:
 
       # Full env install from pixi.lock (not run-install: false) — the point of
       # this job is the real runtime env. Cached on the lockfile hash.
-      - uses: prefix-dev/setup-pixi@v0.8.10
+      - uses: prefix-dev/setup-pixi@v0.10.0
         with:
           cache: true
 

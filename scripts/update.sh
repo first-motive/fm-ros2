@@ -105,7 +105,7 @@ main() {
     echo "plan:"
     echo "  1. pull fm_ros2 (--ff-only; skipped if this tree is dirty)"
     echo "  2. vcs import < fm-ros2.repos            (packages)"
-    echo "  3. vcs import src < fm-learning.repos (learning overlay, if present)"
+    echo "  3. vcs import src < private-overlay.repos (learning overlay, if present)"
     echo "  4. ./scripts/install/import-externals.sh  (externals)"
     echo "  5. report dirty sub-repos left untouched"
     return 0
@@ -116,10 +116,10 @@ main() {
   if [[ "$dry" == 1 ]]; then
     item "[dry-run] would pull fm_ros2 (--ff-only) unless this tree is dirty"
     item "[dry-run] would vcs import < fm-ros2.repos"
-    if [[ -f fm-learning.repos ]]; then
-      item "[dry-run] would vcs import src < fm-learning.repos"
+    if [[ -f private-overlay.repos ]]; then
+      item "[dry-run] would vcs import src < private-overlay.repos"
     else
-      item "[dry-run] fm-learning.repos absent — would skip the learning overlay"
+      item "[dry-run] private-overlay.repos absent — would skip the learning overlay"
     fi
     item "[dry-run] would run ./scripts/install/import-externals.sh"
     item "[dry-run] would report dirty sub-repos left untouched"
@@ -152,15 +152,15 @@ main() {
 
   # Optional private learning overlay — absent for members without access, so
   # skip quietly when the manifest is not present.
-  if [[ -f fm-learning.repos ]]; then
+  if [[ -f private-overlay.repos ]]; then
     item "re-importing the learning overlay into src/ ..."
-    if ! spin "re-importing learning overlay" vcs import src < fm-learning.repos; then
-      echo "error: failed to import the learning overlay (fm-learning.repos)." >&2
+    if ! spin "re-importing learning overlay" vcs import src < private-overlay.repos; then
+      echo "error: failed to import the learning overlay (private-overlay.repos)." >&2
       echo "       This needs access to the private learning repos. Check your auth." >&2
       return 1
     fi
   else
-    item "no fm-learning.repos — skipping the learning overlay"
+    item "no private-overlay.repos — skipping the learning overlay"
   fi
 
   # Re-import externals — delegate to the externals importer, do not duplicate it.

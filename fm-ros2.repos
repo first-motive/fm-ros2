@@ -2,10 +2,10 @@
 #
 # Public-workspace assembly: pulls the shared container infra into docker/ and the
 # four public First Motive package repos into src/, each tracking main. Paths are
-# relative to the workspace root, so import from the root (no `src` argument). The
-# private learning stack (fm-learning, fm-data, fm-policy) lives in the
-# fm-learning.repos overlay — team members import it on top of this manifest; see
-# that file and docs/ARCHITECTURE.md. Externals (lerobot, OpenArm, Unitree, ...)
+# relative to the workspace root, so import from the root (no `src` argument). A
+# private learning overlay lives in a separate manifest — team members with
+# access import it on top of this one; see docs/ARCHITECTURE.md. Externals
+# (lerobot, OpenArm, Unitree, ...)
 # are vendored separately into external/ by scripts/import-externals.sh, which
 # reads external.repos and COLCON_IGNOREs the file-only sources.
 repositories:

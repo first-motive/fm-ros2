@@ -150,7 +150,7 @@ fm_ros2/                     local checkout dir (snake to match the packages; Gi
 ```
 
 The four public package repos (each builds standalone, history preserved from the
-split — see [docs/CARVE-RECIPE.md](docs/CARVE-RECIPE.md)):
+split):
 
 | Repo | Layer | Packages |
 |------|-------|----------|
@@ -159,8 +159,7 @@ split — see [docs/CARVE-RECIPE.md](docs/CARVE-RECIPE.md)):
 | [fm-teleop](https://github.com/first-motive/fm-teleop) | teleop | `fm_teleop_core` · `device` · `leader` · `vr` · `vision` · `panel` |
 | [fm-app](https://github.com/first-motive/fm-app) | application | `fm_bringup` · `fm_tui` |
 
-A private learning overlay (`fm-data`, `fm-policy`, `fm-learning`) plugs in on top
-via `fm-learning.repos` for team members with access — see
+A private learning overlay plugs in on top for team members with access — see
 [Learning Stack](docs/ARCHITECTURE.md#learning-stack-private-overlay).
 
 ## Platforms
