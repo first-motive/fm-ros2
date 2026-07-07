@@ -13,7 +13,8 @@
 #   ./run.sh                  # auto-detect overlay, build, open the launcher
 #   ./run.sh --linux          # force the Linux overlay (GPU / hardware)
 #   ./run.sh --macos          # force the macOS overlay (OrbStack, sim only)
-#   ./run.sh --no-foxglove    # skip auto-opening Foxglove Studio (macOS)
+#   ./run.sh --foxglove       # also open Foxglove Studio (macOS; 3D arm is in the web GUI)
+#   ./run.sh --no-webgui      # skip auto-opening the vision control GUI (macOS)
 #
 # Every run rebuilds the workspace (colcon) before opening the launcher, so source
 # and console-script changes are always picked up. The build is incremental, so a
@@ -80,47 +81,62 @@ usage() {
   cat <<'EOF'
 run.sh — bring the fm_ros2 stack up and open the fm_tui launcher
 
-Usage: ./run.sh [--macos|--linux] [--no-foxglove] [-h|--help]
+Usage: ./run.sh [--macos|--linux] [--foxglove] [--no-webgui] [-h|--help]
 
   --macos | --linux   force the compose overlay (default: auto-detect)
-  --no-foxglove       skip auto-opening Foxglove Studio (macOS)
+  --foxglove          also open Foxglove Studio (the 3D arm is already in the web GUI)
+  --no-webgui         skip auto-opening the vision control GUI (macOS)
   -h, --help          show this help
 EOF
 }
 
-# Open Foxglove Studio on the host once a view is actually launched from the TUI —
-# not while the menu is still open. The bridge runs inside the container and binds
-# 8765 only on launch, but the macOS overlay publishes 8765 to the host at `up -d`,
-# so the host port answers before the bridge is up — a false signal. So poll the
-# port FROM INSIDE the container, where a listener exists only when foxglove_bridge
-# is running, and open Studio (pre-connected) the moment it binds. The watcher is
-# forked before the launcher `exec` so it outlives this shell, and bounded so a
-# quit (or a non-Foxglove view) leaves nothing polling. macOS GUI path only —
-# skipped on Linux/CI/headless and with --no-foxglove; never blocks the launcher.
-# Reads OVERLAY / OPEN_FOXGLOVE / COMPOSE / SERVICE set by main (dynamic scope).
-open_foxglove_when_ready() {
-  [[ "$OPEN_FOXGLOVE" == true ]] || return 0
+# Open the host views once a view is actually launched from the TUI — not while the
+# menu is still open. The bridge runs inside the container and binds 8765 only on
+# launch, but the macOS overlay publishes 8765 to the host at `up -d`, so the host
+# port answers before the bridge is up — a false signal. So poll the port FROM INSIDE
+# the container, where a listener exists only when foxglove_bridge is running, and
+# open the moment it binds. The watcher is forked before the launcher `exec` so it
+# outlives this shell, and bounded so a quit (or a non-bridge view) leaves nothing
+# polling. macOS GUI path only — skipped on Linux/CI/headless; never blocks the
+# launcher. Opens two surfaces: the vision control GUI (a local web page — camera +
+# engage/reset/record + the self-rendered 3D arm) and, opt-in via --foxglove,
+# Foxglove Studio. The web GUI needs no app install (default browser); Foxglove needs
+# the desktop app. Reads OVERLAY / OPEN_FOXGLOVE / OPEN_WEBGUI / COMPOSE / SERVICE /
+# FM_WS set by main (dynamic scope).
+open_views_when_ready() {
+  [[ "$OPEN_FOXGLOVE" == true || "$OPEN_WEBGUI" == true ]] || return 0
   [[ "$OVERLAY" == docker/compose.macos.yaml ]] || return 0
   command -v open >/dev/null 2>&1 || return 0
-  if [[ ! -d "/Applications/Foxglove.app" ]]; then
-    item "Foxglove Studio not installed — run ./install.sh or: brew install --cask foxglove"
-    return 0
+  local fg_url="foxglove://open?ds=foxglove-websocket&ds.url=ws://localhost:8765"
+  local gui_path="$FM_WS/src/fm-teleop/fm_teleop_vision/webgui/index.html"
+  local open_fg=false open_gui=false
+  if [[ "$OPEN_FOXGLOVE" == true ]]; then
+    if [[ -d "/Applications/Foxglove.app" ]]; then
+      open_fg=true
+    else
+      item "Foxglove Studio not installed — run ./install.sh or: brew install --cask foxglove"
+    fi
   fi
-  local url="foxglove://open?ds=foxglove-websocket&ds.url=ws://localhost:8765"
+  if [[ "$OPEN_WEBGUI" == true && -f "$gui_path" ]]; then
+    open_gui=true
+  fi
+  [[ "$open_fg" == true || "$open_gui" == true ]] || return 0
   (
     # ~10 min budget (300 × 2s) — enough to navigate the menu and launch, then
     # give up so a quit without launching never leaves this polling forever.
     for ((i = 0; i < 300; i++)); do
       if "${COMPOSE[@]}" exec -T "$SERVICE" \
            bash -c 'exec 3<>/dev/tcp/127.0.0.1/8765' 2>/dev/null; then
-        open "$url" 2>/dev/null || true
+        if [[ "$open_gui" == true ]]; then open "file://$gui_path" 2>/dev/null || true; fi
+        if [[ "$open_fg" == true ]]; then open "$fg_url" 2>/dev/null || true; fi
         exit 0
       fi
       sleep 2
     done
   ) &
   disown 2>/dev/null || true
-  item "Foxglove Studio: opens when a view starts (ws://localhost:8765)"
+  if [[ "$open_gui" == true ]]; then item "Vision control GUI: opens when a view starts (ws://localhost:8765)"; fi
+  if [[ "$open_fg" == true ]]; then item "Foxglove Studio (3D arm): opens when a view starts"; fi
 }
 
 # Serve the macOS rviz view over VNC. rviz has no native macOS build and cannot
@@ -148,10 +164,11 @@ open_rviz_vnc() {
 }
 
 main() {
-  # OVERLAY / OPEN_FOXGLOVE / COMPOSE / SERVICE / HOST stay global (no `local`) so
-  # the forked open_foxglove_when_ready watcher sees them.
+  # OVERLAY / OPEN_FOXGLOVE / OPEN_WEBGUI / COMPOSE / SERVICE / HOST / FM_WS stay global
+  # (no `local`) so the forked open_views_when_ready watcher sees them.
   OVERLAY=""
-  OPEN_FOXGLOVE=true  # auto-open Foxglove Studio on macOS; --no-foxglove disables
+  OPEN_FOXGLOVE=false # the 3D arm now lives in the web GUI; opt in with --foxglove to also open it
+  OPEN_WEBGUI=true    # auto-open the vision control GUI on macOS; --no-webgui disables
   RVIZ_VNC=false      # set when the persisted viewer is rviz on the macOS overlay
 
   # Parse before loading lib so --help works offline, with no network fetch.
@@ -159,7 +176,8 @@ main() {
     case "$1" in
       --macos) OVERLAY=docker/compose.macos.yaml; shift ;;
       --linux) OVERLAY=docker/compose.linux.yaml; shift ;;
-      --no-foxglove) OPEN_FOXGLOVE=false; shift ;;
+      --foxglove) OPEN_FOXGLOVE=true; shift ;;
+      --no-webgui) OPEN_WEBGUI=false; shift ;;
       -h|--help) usage; return 0 ;;
       *)
         echo "error: unknown argument '$1'" >&2
@@ -215,9 +233,9 @@ main() {
   COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
   SERVICE=fm
 
-  # An rviz default needs no Foxglove auto-open, and on macOS it renders over VNC.
-  # Read the persisted preference from the host side of the mount; on rviz, skip
-  # the Foxglove watcher and (on macOS) flag the VNC path, started once the
+  # An rviz default needs no web-GUI / Foxglove auto-open, and on macOS it renders
+  # over VNC. Read the persisted preference from the host side of the mount; on rviz,
+  # skip both host-view watchers and (on macOS) flag the VNC path, started once the
   # container is up (open_rviz_vnc needs a running container to exec into).
   if [[ -f "$FM_WS/.fm_tui.json" ]]; then
     local viewer
@@ -225,6 +243,7 @@ main() {
       "$FM_WS/.fm_tui.json" | head -1)
     if [[ "$viewer" == rviz ]]; then
       OPEN_FOXGLOVE=false
+      OPEN_WEBGUI=false
       [[ "$OVERLAY" == docker/compose.macos.yaml ]] && RVIZ_VNC=true
     fi
   fi
@@ -253,9 +272,12 @@ main() {
   "${COMPOSE[@]}" exec -T "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
 
   step "Launcher"
-  item "Foxglove Studio: ws://localhost:8765"
+  # The web GUI now carries everything: camera, controls, AND the 3D arm (self-rendered
+  # with three.js over the same bridge). Foxglove is no longer required; pass --foxglove
+  # to also open Foxglove Studio, or import foxglove/arm_3d.json there.
+  item "Vision control GUI (camera + 3D arm + engage/reset/record): opens in your browser"
   item "teardown: ${COMPOSE[*]} down"
-  open_foxglove_when_ready
+  open_views_when_ready
   # When rviz is the macOS default, bring up the in-container display + noVNC
   # bridge and open the browser. The launcher then renders rviz on that display.
   local launch_env=(-e COLORTERM -e TERM -e FM_TUI_CONFIG -e FM_HOST_OS)
