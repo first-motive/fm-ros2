@@ -119,7 +119,7 @@ Viewer:
 
 Options:
   --learning          also import the private learning overlay (fm-learning.repos)
-  --no-desktop        skip the FM Desktop app in the team-extras step (members)
+  --no-desktop        skip the First Motive app in the team-extras step (members)
   --no-ai             skip the fm-ai harness in the team-extras step (members)
   --dry-run           print what would happen, change nothing (uninstall)
   -h, --help          show this help
@@ -194,7 +194,7 @@ ensure_vcs() {
   esac
 }
 
-# Offer the private team stack — the FM Desktop app and the fm-ai harness — once
+# Offer the private team stack — the First Motive app and the fm-ai harness — once
 # the public workspace is assembled. Everything private lives behind an auth-gated
 # setup script in the private .github-private repo; this public installer names no
 # private repo beyond fetching that one script through gh, which only resolves for
@@ -210,7 +210,7 @@ maybe_install_team_extras() {  # forwarded flags...
 
   step "Team Extras"
   item "org access detected — installing the private team stack:"
-  item "  • FM Desktop (native macOS app)   skip with --no-desktop"
+  item "  • First Motive (native macOS app)   skip with --no-desktop"
   item "  • fm-ai (AI skills + harness)      skip with --no-ai"
   item "  (non-members never reach this step; the public workspace is already done)"
   # Fetch the auth-gated setup script over gh's authenticated API and run it —

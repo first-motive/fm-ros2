@@ -7,7 +7,7 @@ Either way it builds the workspace and opens the **fm_tui launcher** — an arro
 menu that walks action → robot → variant (→ backend for sim/teleop) and dispatches
 the launch.
 
-`run.sh` is the terminal front door. **FM Desktop** — the native macOS app at
+`run.sh` is the terminal front door. **First Motive** — the native macOS app at
 [first-motive/fm-desktop](https://github.com/first-motive/fm-desktop) — is the
 graphical alternative: it drives this same contract (the registry, the profiles,
 the native/container path) without a terminal. Both share the `~/fm_ros2`
@@ -42,7 +42,7 @@ the workspace overlay before launching.
 ./run.sh                # route by profile (or OS default), build, open the launcher
 ./run.sh --native       # force the native path (pixi/RoboStack)
 ./run.sh --container    # force the container path (Docker + compose)
-./run.sh --app          # build + launch FM Desktop, the native macOS app
+./run.sh --app          # build + launch First Motive, the native macOS app
 ```
 
 | Flag | Path | When |
@@ -50,7 +50,7 @@ the workspace overlay before launching.
 | (none) | profile in `.fm_ros2.json`, else OS default | normal use |
 | `--native` | pixi/RoboStack on the host | macOS/Windows dev |
 | `--container` | Docker + compose | Linux, CI/parity, Unitree robots |
-| `--app` | FM Desktop macOS app | prefer a GUI over the terminal launcher (macOS) |
+| `--app` | First Motive macOS app | prefer a GUI over the terminal launcher (macOS) |
 
 The OS default maps `Darwin` / Windows → native and `Linux` → container. Remaining
 args forward to the chosen path script (`scripts/run/native.sh` or
@@ -73,7 +73,7 @@ WSL2 shell.
 
 ## App Front Door
 
-`./run.sh --app` builds and launches **FM Desktop**, the native macOS app, as a
+`./run.sh --app` builds and launches **First Motive**, the native macOS app, as a
 graphical alternative to the `fm_tui` launcher. It dispatches to
 `scripts/run/app.sh`, which:
 
@@ -81,7 +81,7 @@ graphical alternative to the `fm_tui` launcher. It dispatches to
    else `~/fm-desktop`. If none exists, it clones `first-motive/fm-desktop` into
    `~/fm-desktop`.
 2. **Builds the bundle** from source via the app's `scripts/package-app.sh`.
-3. **Opens** `FM Desktop.app`, which adopts this workspace at `~/fm_ros2`.
+3. **Opens** `First Motive.app`, which adopts this workspace at `~/fm_ros2`.
 
 The app lives in its own repo — deliberately outside this workspace's `.repos`
 manifests — so `install.sh` never touches it. A locally built app carries no
@@ -99,7 +99,7 @@ cd fm_ros2
 ```
 
 The reverse direction also works: starting from the app (its dmg or checkout),
-FM Desktop's onboarding runs this repo's `install.sh` to create the workspace. Each
+First Motive's onboarding runs this repo's `install.sh` to create the workspace. Each
 front door can bootstrap the other. Signed, downloadable builds for teammates who do
 not clone this repo are tracked in fm-desktop's issues.
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# App run path for the fm_ros2 stack — build and launch FM Desktop, the native
+# App run path for the fm_ros2 stack — build and launch First Motive, the native
 # macOS app, dispatched from ./run.sh --app.
 #
-# FM Desktop lives in its own repo (first-motive/fm-desktop), deliberately outside
+# First Motive lives in its own repo (first-motive/fm-desktop), deliberately outside
 # this workspace's .repos manifests. This path finds that checkout (or clones it),
 # builds the .app bundle from source, and opens it. A locally built app carries no
 # Gatekeeper quarantine, so it runs unsigned — no Developer ID needed for the team
@@ -19,7 +19,7 @@ WORKSPACE="$PWD"
 
 usage() {
   cat <<'EOF'
-app.sh — build + launch FM Desktop, the native macOS app (dispatched by run.sh --app)
+app.sh — build + launch First Motive, the native macOS app (dispatched by run.sh --app)
 
 Usage: ./scripts/run/app.sh [-h]
 
@@ -31,7 +31,7 @@ The checkout is resolved as: $FM_DESKTOP_DIR, else a sibling ../fm-desktop, else
 EOF
 }
 
-# Where FM Desktop's checkout lives: an explicit override, a sibling of this repo,
+# Where First Motive's checkout lives: an explicit override, a sibling of this repo,
 # ~/fm-desktop, else a clone target of ~/fm-desktop.
 resolve_desktop_dir() {
   if [ -n "${FM_DESKTOP_DIR:-}" ]; then echo "$FM_DESKTOP_DIR"; return; fi
@@ -46,7 +46,7 @@ main() {
   case "${1:-}" in -h | --help) usage; return 0 ;; esac
 
   if [ "$(uname -s)" != Darwin ]; then
-    echo "error: FM Desktop is a macOS app — --app is macOS only." >&2
+    echo "error: First Motive is a macOS app — --app is macOS only." >&2
     echo "       Use ./run.sh (native/container) for the terminal launcher." >&2
     return 1
   fi
@@ -70,13 +70,13 @@ main() {
     git clone https://github.com/first-motive/fm-desktop.git "$dir"
   fi
 
-  echo "==> Building FM Desktop from $dir (first build takes ~30s)"
+  echo "==> Building First Motive from $dir (first build takes ~30s)"
   "$dir/scripts/package-app.sh" >/dev/null
 
-  local app="$dir/dist/FM Desktop.app"
+  local app="$dir/dist/First Motive.app"
   echo "==> Launching $app"
   open "$app"
-  echo "FM Desktop launched — it adopts this workspace ($WORKSPACE)."
+  echo "First Motive launched — it adopts this workspace ($WORKSPACE)."
 }
 
 main "$@"

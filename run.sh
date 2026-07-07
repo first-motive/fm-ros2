@@ -6,7 +6,7 @@
 #   ./run.sh                 # route by the persisted profile (or OS default)
 #   ./run.sh --native        # force the native path
 #   ./run.sh --container     # force the container path
-#   ./run.sh --app           # build + launch FM Desktop, the native macOS app
+#   ./run.sh --app           # build + launch First Motive, the native macOS app
 #   ./run.sh --no-foxglove   # (native) skip auto-opening Foxglove Studio
 #   ./run.sh --macos|--linux # (container) force the compose overlay
 #
@@ -27,7 +27,7 @@ Usage: ./run.sh [--native|--container|--app] [path-specific args...] [-h|--help]
 
   --native      force the native path (pixi/RoboStack); passes on --no-foxglove
   --container   force the container path (Docker); passes on --macos/--linux/--no-foxglove
-  --app         build + launch FM Desktop, the native macOS app (macOS only)
+  --app         build + launch First Motive, the native macOS app (macOS only)
   -h, --help    show this help
 
 With no path flag, the profile in .fm_ros2.json decides; absent that, the OS
