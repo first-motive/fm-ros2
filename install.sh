@@ -119,6 +119,8 @@ Viewer:
 
 Options:
   --learning          also import the private learning overlay (fm-learning.repos)
+  --no-desktop        skip the FM Desktop app in the team-extras step (members)
+  --no-ai             skip the fm-ai harness in the team-extras step (members)
   --dry-run           print what would happen, change nothing (uninstall)
   -h, --help          show this help
 
@@ -192,8 +194,38 @@ ensure_vcs() {
   esac
 }
 
+# Offer the private team stack — the FM Desktop app and the fm-ai harness — once
+# the public workspace is assembled. Everything private lives behind an auth-gated
+# setup script in the private .github-private repo; this public installer names no
+# private repo beyond fetching that one script through gh, which only resolves for
+# an authenticated org member. A machine without gh, without auth, or without org
+# access probes false and skips silently, keeping just the public workspace. The
+# desktop app runs this same installer to provision the workspace and exports
+# FM_DESKTOP_BOOTSTRAP=1 so team-setup skips re-installing the app from under it.
+maybe_install_team_extras() {  # forwarded flags...
+  command -v gh >/dev/null 2>&1 || return 0
+  gh auth status >/dev/null 2>&1 || return 0
+  # The org-membership gate: only a member can read the private config repo.
+  gh api repos/first-motive/.github-private >/dev/null 2>&1 || return 0
+
+  step "Team Extras"
+  item "org access detected — installing the private team stack:"
+  item "  • FM Desktop (native macOS app)   skip with --no-desktop"
+  item "  • fm-ai (AI skills + harness)      skip with --no-ai"
+  item "  (non-members never reach this step; the public workspace is already done)"
+  # Fetch the auth-gated setup script over gh's authenticated API and run it —
+  # no extra clone, no token handling here. A failure leaves the public workspace
+  # intact; the team extras are additive, never a hard requirement.
+  if ! gh api repos/first-motive/.github-private/contents/internal/team-setup.sh \
+        --jq '.content' | base64 --decode | bash -s -- "$@"; then
+    item "team-extras step did not complete — the public workspace is ready regardless"
+  fi
+  return 0
+}
+
 main() {
   local cmd=install learning=false dry=0 path="" viewer=foxglove
+  local no_desktop=false no_ai=false
   while [[ $# -gt 0 ]]; do
     case "$1" in
       install|uninstall) cmd="$1"; shift ;;
@@ -201,6 +233,8 @@ main() {
       --container) path=container; shift ;;
       --viewer) viewer="${2:?--viewer needs a value}"; shift 2 ;;
       --learning) learning=true; shift ;;
+      --no-desktop) no_desktop=true; shift ;;
+      --no-ai) no_ai=true; shift ;;
       --dry-run) dry=1; shift ;;
       -h|--help) usage; return 0 ;;
       *)
@@ -236,7 +270,7 @@ main() {
   # stop before any clone or import. Lets the curl-path test prove the script loads
   # and the flag/default routing works, no auth.
   if [[ -n "${FM_SELFTEST:-}" ]]; then
-    echo "selftest ok: install.sh parsed under curl|bash (path=$path, viewer=$viewer)"
+    echo "selftest ok: install.sh parsed under curl|bash (path=$path, viewer=$viewer, no_desktop=$no_desktop, no_ai=$no_ai)"
     return 0
   fi
 
@@ -325,6 +359,15 @@ main() {
   fi
 
   write_profile "$path" "$viewer"
+
+  # Team members with org access get the private extras layered on top; everyone
+  # else stops at the provisioned public workspace above. Forward the skip flags.
+  local -a extra_flags=()
+  [[ "$no_desktop" == true ]] && extra_flags+=(--no-desktop)
+  [[ "$no_ai" == true ]] && extra_flags+=(--no-ai)
+  # bash 3.2 (macOS) errors on "${arr[@]}" for an empty array under set -u — guard
+  # the expansion so an unflagged run passes no args instead of tripping unbound.
+  maybe_install_team_extras ${extra_flags[@]+"${extra_flags[@]}"}
 
   # Setup ends here. run.sh builds and launches the interactive TUI, which needs a
   # controlling terminal — so it is the user's next step, not a curl|bash handoff.
