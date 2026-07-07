@@ -41,12 +41,13 @@ through the same script contract, sharing the `~/fm_ros2` workspace and the
 sync. It is operator-first; the terminal paths remain the reference for dev and CI.
 
 ```bash
-./run.sh --app          # build + launch First Motive from this workspace (macOS)
+./run.sh --desktop          # launch First Motive (install it first — macOS)
 ```
 
-`run.sh --app` clones and builds the app on first use, then opens it against this
-workspace — no separate install. See [docs/RUN.md](docs/RUN.md#app-front-door) for
-the full setup and how the two front doors bootstrap each other.
+`run.sh --desktop` launches the installed app; it does not build or install. Install
+First Motive first: `./install.sh` puts it in `/Applications` for team members,
+or use the fm-desktop repo's own `install.sh` directly. See
+[docs/RUN.md](docs/RUN.md#desktop-front-door) for the install/run split.
 
 `install.sh` picks a run path by OS: macOS and Windows default to **native**
 (ROS2 Humble via pixi + RoboStack, no container), Linux defaults to the

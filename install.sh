@@ -157,10 +157,10 @@ do_uninstall() {  # dry no_desktop no_ai purge
   [[ "$purge" == 1 ]] && xf+=(--purge)
 
   if [[ "$dry" == 1 ]]; then
-    say "would remove the private team extras for members (First Motive app, fm CLI, AI harness)"
-    say "would tear down the compose stack (docker compose down)"
-    say "would remove the fm-tools lib cache ($CACHE_DIR)"
-    [[ "$purge" == 1 ]] && say "would purge clean imported repos under src/ and external/ (dirty ones kept)"
+    item "would remove the private team extras for members (First Motive app, fm CLI, AI harness)"
+    item "would tear down the compose stack (docker compose down)"
+    item "would remove the fm-tools lib cache ($CACHE_DIR)"
+    [[ "$purge" == 1 ]] && item "would purge clean imported repos under src/ and external/ (dirty ones kept)"
     return 0
   fi
 
@@ -168,6 +168,7 @@ do_uninstall() {  # dry no_desktop no_ai purge
   # bash 3.2 (macOS) needs the empty-array guard under set -u.
   maybe_uninstall_team_extras ${xf[@]+"${xf[@]}"}
 
+  step "Teardown"
   if [[ -f docker/compose.yaml ]]; then
     # One overlay is enough to address the compose project for teardown; pick
     # whichever this host has. Best-effort — a stack that is already down is fine.
@@ -176,24 +177,29 @@ do_uninstall() {  # dry no_desktop no_ai purge
     for o in docker/compose.macos.yaml docker/compose.linux.yaml; do
       [[ -f "$o" ]] && { overlay="$o"; break; }
     done
-    say "tearing down the compose stack ..."
+    item "tearing down the compose stack ..."
     if [[ -n "$overlay" ]]; then
       docker compose -f docker/compose.yaml -f "$overlay" down 2>/dev/null || true
     else
       docker compose -f docker/compose.yaml down 2>/dev/null || true
     fi
   fi
-  say "removing the fm-tools lib cache ($CACHE_DIR) ..."
+  item "removing the fm-tools lib cache ($CACHE_DIR) ..."
   rm -rf "$CACHE_DIR"
 
   # --purge additionally drops the clean imported repos so a reinstall re-imports
   # fresh; dirty checkouts are kept. Without it, the imported src/external stay.
   if [[ "$purge" == 1 ]]; then
-    say "purging clean imported repos under src/ and external/ ..."
+    step "Purge"
+    item "dropping clean imported repos under src/ and external/ (dirty ones kept) ..."
     purge_workspace_repos
-    say "uninstall complete — imported repos purged (dirty ones kept); the fm_ros2 clone and pulled images are left in place."
+  fi
+
+  step "Done"
+  if [[ "$purge" == 1 ]]; then
+    item "imported repos purged (dirty ones kept); the fm_ros2 clone and pulled images are left in place."
   else
-    say "uninstall complete — workspace clone and pulled images left in place (use --purge to also drop imported repos)."
+    item "workspace clone and pulled images left in place (use --purge to also drop imported repos)."
   fi
 }
 
@@ -260,9 +266,10 @@ maybe_install_team_extras() {  # forwarded flags...
 # rest. --purge is forwarded so a purge run also drops the private clones.
 maybe_uninstall_team_extras() {  # forwarded flags...
   team_member || return 0
-  say "org access detected — removing the private team extras (First Motive, fm CLI, AI harness) ..."
+  step "Team Extras"
+  item "org access detected — removing the private team stack (First Motive, fm CLI, AI harness) ..."
   if ! fetch_run_team_setup uninstall "$@"; then
-    say "team-extras removal did not complete — continuing with the rest of the teardown"
+    item "team-extras removal did not complete — continuing with the rest of the teardown"
   fi
   return 0
 }
@@ -277,15 +284,15 @@ purge_workspace_repos() {
     for d in "$base"/*/; do
       [[ -d "$d.git" ]] || continue
       if [[ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ]]; then
-        say "keeping $d — uncommitted changes (not purged)"
+        item "keeping $d — uncommitted changes (not purged)"
         kept=1
       else
-        say "purging $d"
+        item "purging $d"
         rm -rf "$d"
       fi
     done
   done
-  [[ "$kept" == 1 ]] && say "some repos kept due to local changes — commit or stash, then re-run with --purge"
+  [[ "$kept" == 1 ]] && item "some repos kept due to local changes — commit or stash, then re-run with --purge"
   return 0
 }
 
