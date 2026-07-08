@@ -31,6 +31,12 @@ vcs import src < private-overlay.repos # private overlay — team members with a
 ./scripts/install/import-externals.sh      # vendor externals into external/
 ```
 
+The learning overlay is provisioned automatically for team members: `install.sh`'s
+auth gate (gh auth + org read) routes it through the private team-setup step, which
+imports it on top of the public workspace. `--no-learning` opts out. The public
+installer names no private learning repo — the manual `vcs import` above uses the
+gitignored `private-overlay.repos`, present only in a member's checkout.
+
 ## Testing
 
 Container path (CI/parity, default on Linux):
@@ -67,7 +73,10 @@ source. `vcs import < fm-ros2.repos` pulls the four public package repos into
 nesting depth. The `fm_ros2` metapackage depends on the four public group
 metapackages (`fm_robot`, `fm_app`, `fm_sim`, `fm_teleop`), each of which pulls its
 own sub-packages transitively. The private `private-overlay.repos` overlay adds
-the learning packages; colcon builds them too once imported. Local checkout dirs
+the learning packages; colcon builds them too once imported. `install.sh`
+provisions the overlay automatically for team members through its auth-gated
+team-setup step, so no `--learning` flag is needed on a normal member install;
+`--no-learning` opts out. Local checkout dirs
 are snake_case (`fm_ros2`, `src/fm_robot`) to match the package names; the GitHub
 repo slugs they clone from stay kebab (`fm-ros2`, `fm-robot`), and the `.repos`
 manifest filenames follow the slug.

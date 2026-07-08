@@ -109,6 +109,16 @@ vcs import < fm-ros2.repos     # pull the four public package repos into src/
 builds the base image (arm64). The package source comes from the four public repos
 in `fm-ros2.repos` — import them into `src/` first, as shown above.
 
+### Learning overlay (team members)
+
+The private learning overlay (data engine + policy) imports automatically when you
+install through `install.sh`: its auth gate (`gh auth` + org read) detects org
+access and the authenticated team-setup step provisions the overlay on top of the
+public workspace. No flag is needed — `--no-learning` opts out, `--learning` forces
+it and fails loud when no org access is detected. A non-member install skips the
+overlay silently and lands a complete public workspace. The public installer names
+no private learning repo; members find the manual steps in the private team docs.
+
 ## Bring the stack up
 
 ```bash
