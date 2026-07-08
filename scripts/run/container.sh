@@ -13,8 +13,8 @@
 #   ./run.sh                  # auto-detect overlay, build, open the launcher
 #   ./run.sh --linux          # force the Linux overlay (GPU / hardware)
 #   ./run.sh --macos          # force the macOS overlay (OrbStack, sim only)
-#   ./run.sh --foxglove       # also open Foxglove Studio (macOS; 3D arm is in the web GUI)
-#   ./run.sh --no-webgui      # skip auto-opening the vision control GUI (macOS)
+#   ./run.sh --foxglove       # also open Foxglove Studio (macOS; 3D arm is in the panel)
+#   ./run.sh --no-webgui      # skip auto-opening the fm_viewer panel (macOS, viewer=panel)
 #
 # Every run rebuilds the workspace (colcon) before opening the launcher, so source
 # and console-script changes are always picked up. The build is incremental, so a
@@ -89,8 +89,8 @@ run.sh — bring the fm_ros2 stack up and open the fm_tui launcher
 Usage: ./run.sh [--macos|--linux] [--foxglove] [--no-webgui] [-h|--help]
 
   --macos | --linux   force the compose overlay (default: auto-detect)
-  --foxglove          also open Foxglove Studio (the 3D arm is already in the web GUI)
-  --no-webgui         skip auto-opening the vision control GUI (macOS)
+  --foxglove          also open Foxglove Studio (the 3D arm is already in the panel)
+  --no-webgui         skip auto-opening the fm_viewer panel (macOS, viewer=panel)
   -h, --help          show this help
 EOF
 }
@@ -103,17 +103,25 @@ EOF
 # open the moment it binds. The watcher is forked before the launcher `exec` so it
 # outlives this shell, and bounded so a quit (or a non-bridge view) leaves nothing
 # polling. macOS GUI path only — skipped on Linux/CI/headless; never blocks the
-# launcher. Opens two surfaces: the vision control GUI (a local web page — camera +
-# engage/reset/record + the self-rendered 3D arm) and, opt-in via --foxglove,
-# Foxglove Studio. The web GUI needs no app install (default browser); Foxglove needs
-# the desktop app. Reads OVERLAY / OPEN_FOXGLOVE / OPEN_WEBGUI / COMPOSE / SERVICE /
-# FM_WS set by main (dynamic scope).
+# launcher. Opens two surfaces: the fm_viewer panel (a local web page — 3D arm,
+# plots, recordings, plus the vision panes when a vision session feeds them) when
+# the panel viewer is chosen, and, opt-in via --foxglove, Foxglove Studio. The panel
+# needs no app install (default browser); Foxglove needs the desktop app. Reads
+# OVERLAY / OPEN_FOXGLOVE / OPEN_WEBGUI / COMPOSE / SERVICE / FM_WS set by main
+# (dynamic scope).
 open_views_when_ready() {
   [[ "$OPEN_FOXGLOVE" == true || "$OPEN_WEBGUI" == true ]] || return 0
   [[ "$OVERLAY" == docker/compose.macos.yaml ]] || return 0
   command -v open >/dev/null 2>&1 || return 0
   local fg_url="foxglove://open?ds=foxglove-websocket&ds.url=ws://localhost:8765"
-  local gui_path="$FM_WS/src/fm_teleop/fm_teleop_vision/webgui/index.html"
+  # The panel page ships in the fm_viewer package — the colcon overlay install copy
+  # (mounted at $FM_WS/install on the host) first, then the source tree as a fallback.
+  local gui_path="" p
+  for p in \
+    "$FM_WS/install/fm_viewer/share/fm_viewer/webgui/index.html" \
+    "$FM_WS/src/fm_app/fm_viewer/webgui/index.html"; do
+    [[ -f "$p" ]] && { gui_path="$p"; break; }
+  done
   local open_fg=false open_gui=false
   if [[ "$OPEN_FOXGLOVE" == true ]]; then
     if [[ -d "/Applications/Foxglove.app" ]]; then
@@ -122,7 +130,7 @@ open_views_when_ready() {
       item "Foxglove Studio not installed — run ./install.sh or: brew install --cask foxglove"
     fi
   fi
-  if [[ "$OPEN_WEBGUI" == true && -f "$gui_path" ]]; then
+  if [[ "$OPEN_WEBGUI" == true && -n "$gui_path" ]]; then
     open_gui=true
   fi
   [[ "$open_fg" == true || "$open_gui" == true ]] || return 0
@@ -140,7 +148,7 @@ open_views_when_ready() {
     done
   ) &
   disown 2>/dev/null || true
-  if [[ "$open_gui" == true ]]; then item "Vision control GUI: opens when a view starts (ws://localhost:8765)"; fi
+  if [[ "$open_gui" == true ]]; then item "fm_viewer panel: opens when a view starts (ws://localhost:8765)"; fi
   if [[ "$open_fg" == true ]]; then item "Foxglove Studio (3D arm): opens when a view starts"; fi
 }
 
@@ -223,7 +231,7 @@ main() {
   # (no `local`) so the forked open_views_when_ready watcher sees them.
   OVERLAY=""
   OPEN_FOXGLOVE=false # the 3D arm now lives in the web GUI; opt in with --foxglove to also open it
-  OPEN_WEBGUI=true    # auto-open the vision control GUI on macOS; --no-webgui disables
+  OPEN_WEBGUI=true    # auto-open the fm_viewer panel on macOS when viewer=panel; --no-webgui disables
   RVIZ_VNC=false      # set when the persisted viewer is rviz on the macOS overlay
 
   # Parse before loading lib so --help works offline, with no network fetch.
@@ -288,20 +296,26 @@ main() {
   COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
   SERVICE=fm
 
-  # An rviz default needs no web-GUI / Foxglove auto-open, and on macOS it renders
-  # over VNC. Read the persisted preference from the host side of the mount; on rviz,
-  # skip both host-view watchers and (on macOS) flag the VNC path, started once the
-  # container is up (open_rviz_vnc needs a running container to exec into).
+  # The panel auto-open is viewer-driven: only the `panel` viewer opens the fm_viewer
+  # web page; every other viewer leaves OPEN_WEBGUI off. Read the persisted preference
+  # from the host side of the mount. rviz needs no host-view watcher and on macOS
+  # renders over VNC (started once the container is up — open_rviz_vnc needs a running
+  # container to exec into). foxglove/none open no panel; Foxglove is opt-in via
+  # --foxglove. Default (no file) is foxglove, so the panel stays closed unless chosen.
+  local viewer=foxglove
   if [[ -f "$FM_WS/.fm_tui.json" ]]; then
-    local viewer
     viewer=$(sed -n 's/.*"viewer"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
       "$FM_WS/.fm_tui.json" | head -1)
-    if [[ "$viewer" == rviz ]]; then
+    viewer="${viewer:-foxglove}"
+  fi
+  case "$viewer" in
+    rviz)
       OPEN_FOXGLOVE=false
       OPEN_WEBGUI=false
-      [[ "$OVERLAY" == docker/compose.macos.yaml ]] && RVIZ_VNC=true
-    fi
-  fi
+      [[ "$OVERLAY" == docker/compose.macos.yaml ]] && RVIZ_VNC=true ;;
+    panel) ;;                 # OPEN_WEBGUI (default on, --no-webgui off) opens the panel
+    *) OPEN_WEBGUI=false ;;    # foxglove/none: no panel page
+  esac
 
   # macOS runs on OrbStack as the Docker provider. Install it if missing, then make
   # sure the daemon is up — both idempotent, and each prints its own status bullet.

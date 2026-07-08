@@ -44,11 +44,12 @@ native.sh — build + launch the fm_ros2 stack natively via pixi (macOS / Window
 
 Usage: ./scripts/run/native.sh [--no-foxglove] [-h]
 
-  --no-foxglove   skip auto-opening Foxglove Studio
+  --no-foxglove   skip auto-opening the browser viewer (Foxglove Studio or the
+                  fm_viewer panel)
   -h, --help      show this help
 
 Viewer preference: .fm_tui.json (launcher V-toggle) wins, then the install
-profile (.fm_ros2.json), then foxglove.
+profile (.fm_ros2.json), then foxglove. Values: foxglove | rviz | panel | none.
 EOF
 }
 
@@ -71,33 +72,50 @@ read_viewer() {  # file
   sed -n 's/.*"viewer"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1" | head -1
 }
 
-# Open Foxglove Studio once a foxglove view is actually launched from the TUI —
+# Resolve the fm_viewer panel page — the colcon overlay install copy first (what a
+# built workspace ships), then the source tree as a fallback. Empty when neither
+# is present yet.
+panel_index() {
+  local p
+  for p in \
+    "$PWD/install/fm_viewer/share/fm_viewer/webgui/index.html" \
+    "$PWD/src/fm_app/fm_viewer/webgui/index.html"; do
+    [[ -f "$p" ]] && { echo "$p"; return 0; }
+  done
+  return 0
+}
+
+# Open the active browser viewer once a view is actually launched from the TUI —
 # not while the menu is still open. The bridge binds 8765 only when a view starts,
-# so poll the port and open Studio (pre-connected) the moment it binds. The V-toggle
-# can flip either way inside the TUI after this forks, so the watcher runs whatever
-# the startup viewer was and re-reads the toggle each pass: rviz now means keep
-# waiting (a later flip to foxglove still opens Studio), foxglove now + port bound
-# means open. Forked before the launcher exec so it outlives this shell, bounded so
-# a quit leaves nothing polling. macOS GUI path only; never blocks the launcher.
-# Reads $viewer from main (dynamic scope) as the fallback when no toggle file exists.
-open_foxglove_when_ready() {
+# so poll the port and open the moment it binds. Both browser viewers ride the same
+# bridge: foxglove opens Studio (pre-connected via a deep link), panel opens the
+# fm_viewer file:// page (three.js over the same websocket). rviz/none open nothing.
+# The V-toggle can flip inside the TUI after this forks, so re-read the choice each
+# pass: a non-browser viewer keeps waiting (a later flip still opens its window),
+# a browser viewer + port bound opens. Forked before the launcher exec so it
+# outlives this shell, bounded so a quit leaves nothing polling. macOS GUI path
+# only; never blocks the launcher. Reads $viewer from main (dynamic scope) as the
+# fallback when no toggle file exists.
+open_viewer_when_ready() {
   command -v open >/dev/null 2>&1 || return 0
-  if [[ ! -d "/Applications/Foxglove.app" ]]; then
-    item "Foxglove Studio not installed — run ./install.sh or: brew install --cask foxglove"
-    return 0
-  fi
-  local url="foxglove://open?ds=foxglove-websocket&ds.url=ws://localhost:8765"
+  local fg_url="foxglove://open?ds=foxglove-websocket&ds.url=ws://localhost:8765"
   (
     # ~10 min budget (300 × 2s) — enough to navigate the menu and launch, then
     # give up so a quit without launching never leaves this polling forever.
-    local now
+    local now page
     for ((i = 0; i < 300; i++)); do
       now="$(read_viewer .fm_tui.json)"
       now="${now:-$viewer}"
-      if [[ "$now" == foxglove ]] \
-        && bash -c 'exec 3<>/dev/tcp/127.0.0.1/8765' 2>/dev/null; then
-        open "$url" 2>/dev/null || true
-        exit 0
+      if bash -c 'exec 3<>/dev/tcp/127.0.0.1/8765' 2>/dev/null; then
+        if [[ "$now" == foxglove ]]; then
+          [[ -d "/Applications/Foxglove.app" ]] && open "$fg_url" 2>/dev/null || true
+          exit 0
+        elif [[ "$now" == panel ]]; then
+          page="$(panel_index)"
+          [[ -n "$page" ]] && open "file://$page" 2>/dev/null || true
+          exit 0
+        fi
+        # rviz/none while bound: nothing to open; keep polling for a flip.
       fi
       sleep 2
     done
@@ -168,13 +186,18 @@ main() {
   # itself is toggle-aware (opens only while foxglove is the current choice), so
   # an rviz session that never flips costs one silent bounded poll and nothing else.
   if [[ "$open_foxglove" == true && "$FM_HOST_OS" == macos ]]; then
-    open_foxglove_when_ready
+    open_viewer_when_ready
   fi
-  if [[ "$viewer" == foxglove ]]; then
-    item "Foxglove Studio: opens when a view starts (ws://localhost:8765)"
-  else
-    item "viewer: $viewer (V toggles in the launcher; foxglove still opens on a flip)"
-  fi
+  case "$viewer" in
+    foxglove)
+      item "Foxglove Studio: opens when a view starts (ws://localhost:8765)"
+      [[ -d /Applications/Foxglove.app ]] \
+        || item "  (not installed — brew install --cask foxglove, or flip the viewer)" ;;
+    panel)
+      item "fm_viewer panel: opens when a view starts (ws://localhost:8765)" ;;
+    *)
+      item "viewer: $viewer (V toggles in the launcher; foxglove/panel open on a flip)" ;;
+  esac
 
   # Launch the fm_tui launcher inside the pixi env with the workspace overlay
   # sourced. `pixi run` activates ROS; layer install/setup.bash on top, then exec

@@ -119,7 +119,9 @@ Path (where the stack runs):
   --container         Docker + compose (default on Linux; tests/CI/parity elsewhere)
 
 Viewer:
-  --viewer VIEWER     foxglove (default) | rviz | none
+  --viewer VIEWER     foxglove (default) | rviz | panel | none
+                      panel = the fm_viewer web panel (needs no host install; the
+                      run scripts open its file:// page against the bridge)
 
 Options:
   --learning          force-import the private learning overlay; fails loud
@@ -327,8 +329,8 @@ main() {
   done
 
   case "$viewer" in
-    foxglove|rviz|none) ;;
-    *) echo "error: --viewer must be foxglove, rviz, or none (got '$viewer')" >&2; return 1 ;;
+    foxglove|rviz|panel|none) ;;
+    *) echo "error: --viewer must be foxglove, rviz, panel, or none (got '$viewer')" >&2; return 1 ;;
   esac
 
   # Default path by OS when unflagged: native is the recommended path on macOS and
@@ -439,7 +441,7 @@ main() {
       item "Foxglove Studio (macOS; skipped on Linux) ..."
       ./scripts/install/install-foxglove.sh
     else
-      item "viewer '$viewer' needs no host install (renders in the container)"
+      item "viewer '$viewer' needs no host install"
     fi
   fi
 
