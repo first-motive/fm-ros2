@@ -32,18 +32,41 @@ fm_buildtree_prefix() {
 }
 
 # fm_buildtree_is_foreign <expected_ws_root>
-# 0 → an install tree exists whose baked prefix is NOT under <expected_ws_root>
+# 0 → a build/install tree baked for a prefix NOT under <expected_ws_root> exists
 #     (the other toolchain built here); 1 → no tree, or the tree is ours.
-# The baked prefix includes the /install leaf (e.g. /ws/install), so a prefix
-# under the workspace root matches "<root>/*".
+#
+# Two anchors, because a *partial* rebuild leaves a mixed tree — the failure mode
+# that motivated this guard:
+#   1. The top-level install/ prefix (fm_buildtree_prefix). Catches a fully
+#      generated tree of the other toolchain. The baked prefix carries the
+#      /install leaf (e.g. /ws/install), so a prefix under the root matches
+#      "<root>/*".
+#   2. The per-package build/<pkg>/colcon_command_prefix_*.sh scripts, which
+#      source each dependency's install tree by ABSOLUTE path. colcon reuses these
+#      at build time, and a rebuild that regenerates the top-level setup can still
+#      leave them pointing at the other toolchain's prefix — colcon then aborts
+#      with "The build time path ... doesn't exist". Flag any sourced
+#      /.../install/... path that is not under <expected_ws_root>. This is the
+#      authoritative anchor; (1) is a fast path.
 fm_buildtree_is_foreign() {
-  local expected="$1" prefix
+  local expected="$1" prefix f p
   prefix=$(fm_buildtree_prefix)
-  [ -n "$prefix" ] || return 1
-  case "$prefix" in
-    "$expected"|"$expected"/*) return 1 ;;
-    *) return 0 ;;
-  esac
+  if [ -n "$prefix" ]; then
+    case "$prefix" in
+      "$expected"|"$expected"/*) : ;;
+      *) return 0 ;;
+    esac
+  fi
+  while IFS= read -r f; do
+    while IFS= read -r p; do
+      p=${p#\"}; p=${p%\"}                 # strip the surrounding quotes
+      case "$p" in
+        "$expected"/*) : ;;                # sources our own workspace — fine
+        /*/install/*) return 0 ;;          # sources another prefix — foreign
+      esac
+    done < <(grep -oE '"/[^"]+/install/[^"]+"' "$f" 2>/dev/null)
+  done < <(find build -maxdepth 2 -name 'colcon_command_prefix_*.sh' 2>/dev/null)
+  return 1
 }
 
 # Drop the regenerable colcon outputs. Gitignored; rebuilt by the next build.
