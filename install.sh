@@ -22,7 +22,10 @@
 # with a clear "need org access" message without it. Team-only by design.
 #
 # Flags (pass through the pipe with `bash -s --`):
-#   curl ... | bash -s -- --learning    # also import the private learning overlay
+#   curl ... | bash -s -- --no-learning   # skip the private learning overlay
+#
+# Team members with org access get the private learning overlay automatically;
+# --no-learning opts out, --learning forces it (and fails loud without auth).
 #
 # The body is wrapped in main() and called on the last line, so a truncated
 # curl|bash leaves an incomplete function that never runs.
@@ -119,7 +122,10 @@ Viewer:
   --viewer VIEWER     foxglove (default) | rviz | none
 
 Options:
-  --learning          also import the private learning overlay (private-overlay.repos)
+  --learning          force-import the private learning overlay; fails loud
+                      without org access (members auto-get it, so this is only
+                      needed to turn a non-default skip back on)
+  --no-learning       skip the learning overlay even as a team member
   --no-desktop        skip the First Motive app in the team-extras step (members)
   --no-ai             skip the AI harness in the team-extras step (members)
   --purge             uninstall only: also drop clean imported repos under src/
@@ -297,7 +303,7 @@ purge_workspace_repos() {
 }
 
 main() {
-  local cmd=install learning=false dry=0 path="" viewer=foxglove
+  local cmd=install learning=auto dry=0 path="" viewer=foxglove
   local no_desktop=false no_ai=false purge=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -305,7 +311,8 @@ main() {
       --native) path=native; shift ;;
       --container) path=container; shift ;;
       --viewer) viewer="${2:?--viewer needs a value}"; shift 2 ;;
-      --learning) learning=true; shift ;;
+      --learning) learning=on; shift ;;
+      --no-learning) learning=off; shift ;;
       --no-desktop) no_desktop=true; shift ;;
       --no-ai) no_ai=true; shift ;;
       --purge) purge=1; shift ;;
@@ -339,7 +346,7 @@ main() {
   # stop before any clone, import, or teardown (covers install AND uninstall). Lets
   # the curl-path test prove the script loads and flag/default routing works, no auth.
   if [[ -n "${FM_SELFTEST:-}" ]]; then
-    echo "selftest ok: install.sh parsed under curl|bash (cmd=$cmd, path=$path, viewer=$viewer, no_desktop=$no_desktop, no_ai=$no_ai, purge=$purge)"
+    echo "selftest ok: install.sh parsed under curl|bash (cmd=$cmd, path=$path, viewer=$viewer, learning=$learning, no_desktop=$no_desktop, no_ai=$no_ai, purge=$purge)"
     return 0
   fi
 
@@ -394,15 +401,6 @@ main() {
     return 1
   fi
 
-  # Optional private learning overlay.
-  if [[ "$learning" == true ]]; then
-    item "importing the learning overlay into src/ ..."
-    if ! spin "importing learning overlay" vcs import src < private-overlay.repos; then
-      echo "error: failed to import the learning overlay (private-overlay.repos)." >&2
-      echo "       This needs access to the private learning repos. Check your auth." >&2
-      return 1
-    fi
-  fi
   # LC_ALL=C: du's size unit honours locale (a comma decimal separator reads as a
   # typo in the transcript) — pin the C locale for a stable "5.5M".
   item "imported — $(LC_ALL=C du -sh src 2>/dev/null | cut -f1) in src/"
@@ -410,6 +408,19 @@ main() {
   # Vendor the external sources the build consumes into external/.
   step "Vendor Externals"
   ./scripts/install/import-externals.sh
+
+  # --learning forces the private learning overlay and must fail loud without org
+  # access, so a non-member cannot silently miss it. The clone + import themselves
+  # live in the auth-gated team-setup step below (fetched over gh), which keeps
+  # this public installer from naming any private learning repo — the flag is
+  # forwarded there. auto/off need no gate here: a non-member auto-skips, and off
+  # opts out regardless.
+  if [[ "$learning" == on ]] && ! team_member; then
+    echo "error: --learning needs access to the private first-motive org, but no" >&2
+    echo "       team membership was detected (gh auth + org read). Authenticate" >&2
+    echo "       with 'gh auth login', or drop --learning to skip the overlay." >&2
+    return 1
+  fi
 
   # Set up the selected path and viewer, then persist the profile. run.sh reads
   # .fm_ros2.json to route the launch; both paths share the imported workspace above.
@@ -434,11 +445,17 @@ main() {
 
   write_profile "$path" "$viewer"
 
-  # Team members with org access get the private extras layered on top; everyone
-  # else stops at the provisioned public workspace above. Forward the skip flags.
+  # Team members with org access get the private extras layered on top — the app,
+  # the AI harness, and the learning overlay — everyone else stops at the
+  # provisioned public workspace above. The overlay clone + import lives inside the
+  # auth-gated team-setup step (it names the private learning repos, which this
+  # public installer must not), so forward the learning choice as a flag: off skips
+  # it, on forces it (already gated above), auto lets team-setup apply its default.
   local -a extra_flags=()
   [[ "$no_desktop" == true ]] && extra_flags+=(--no-desktop)
   [[ "$no_ai" == true ]] && extra_flags+=(--no-ai)
+  [[ "$learning" == off ]] && extra_flags+=(--no-learning)
+  [[ "$learning" == on ]] && extra_flags+=(--learning)
   # bash 3.2 (macOS) errors on "${arr[@]}" for an empty array under set -u — guard
   # the expansion so an unflagged run passes no args instead of tripping unbound.
   maybe_install_team_extras ${extra_flags[@]+"${extra_flags[@]}"}
