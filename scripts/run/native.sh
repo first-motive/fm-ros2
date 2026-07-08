@@ -14,6 +14,11 @@ set -euo pipefail
 # Reach the repo root — this script lives two levels down in scripts/run/.
 cd "$(dirname "$0")/../.."
 
+# Shared build-tree guard (foreign-toolchain tree detection + clear). Sourced from
+# the repo root, where we just cd'd. See the preflight in main().
+# shellcheck source=scripts/run/lib-buildtree.sh
+source scripts/run/lib-buildtree.sh
+
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so this
 # path, run.sh, and install.sh share one source of brand colour. Same pattern as
 # scripts/run/container.sh — keep the pin in sync.
@@ -141,6 +146,16 @@ main() {
   item "${FM_HOST_OS} detected (native)"
 
   step "Build Workspace"
+  # Symmetric to the container preflight: a build/install tree baked by the
+  # container toolchain (prefix under /ws) can't be reused by the native build —
+  # colcon aborts on the first package ("The build time path ... doesn't exist").
+  # PWD is the workspace root here, so a foreign tree is one baked outside it.
+  # Clear the regenerable artifacts (gitignored) so pixi rebuilds them clean.
+  if fm_buildtree_is_foreign "$PWD"; then
+    item "container build tree detected (baked $(fm_buildtree_prefix)) — clearing build/ install/ log/"
+    item "  gitignored + regenerable; the native build below rebuilds them clean"
+    fm_buildtree_clear
+  fi
   # Use the pixi `build` task, not an inline colcon call — the task carries the
   # FindPython cmake args that let interface packages (unitree_api and friends)
   # build on osx-arm64. An inline build would hit the FindPython failure that
