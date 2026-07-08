@@ -189,27 +189,33 @@ open_rviz_vnc() {
   item "(blank until you pick a robot description — rviz starts on selection)"
 }
 
-# Preflight the Foxglove port before the container publishes it. The macOS overlay
-# maps 8765 to the host at `up -d`; if a non-container process already holds it —
-# classically a foxglove_bridge left running by a crashed native run — docker fails
-# to bind with a cryptic error. Detect that here and stop with an actionable
-# message. A docker/OrbStack helper on the port is our own already-running,
-# already-published container: that is fine, so proceed. Best-effort: no lsof
-# (rare on macOS/Linux) means no check. Reads nothing global; call before `up`.
-check_foxglove_port() {
-  command -v lsof >/dev/null 2>&1 || return 0
-  local holders
-  holders=$(lsof -nP -iTCP:8765 -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $1" (pid "$2")"}' | sort -u)
-  [ -n "$holders" ] || return 0
-  # Any docker/OrbStack helper means 8765 is a published container port — ours.
-  if printf '%s\n' "$holders" | grep -qiE 'docker|orbstack|vpnkit|gvproxy|qemu|colima'; then
-    return 0
+# Bring the compose stack up, and turn a Foxglove-port bind failure into an
+# actionable message. The macOS overlay publishes 8765 to the host; if a
+# non-container process already holds it — classically a foxglove_bridge left by a
+# crashed native run — docker's `up` fails with a cryptic "port is already
+# allocated". We let docker be the source of truth (no guessing who owns the port —
+# an earlier version pattern-matched lsof command names and mis-flagged docker's
+# own `com.docker.*` helper, whose name lsof truncates), stream its output, and
+# only when it fails on 8765 append the hint. Reads COMPOSE set by main.
+compose_up() {
+  local log rc
+  log=$(mktemp)
+  set +e
+  "${COMPOSE[@]}" up -d --remove-orphans 2>&1 | tee "$log"
+  rc=${PIPESTATUS[0]}
+  set -e
+  if [ "$rc" -ne 0 ]; then
+    if grep -qiE '8765|address already in use|port is already allocated' "$log"; then
+      echo "" >&2
+      echo "hint: port 8765 could not be bound — usually a foxglove_bridge left by a" >&2
+      echo "      crashed native run. Find who holds it, then stop it and re-run:" >&2
+      echo "        lsof -nP -iTCP:8765 -sTCP:LISTEN     # see who holds it" >&2
+      echo "        pkill -f foxglove_bridge             # if that's the culprit" >&2
+    fi
+    rm -f "$log"
+    exit "$rc"
   fi
-  echo "error: port 8765 is held by a non-container process — Foxglove can't bind:" >&2
-  printf '  %s\n' "$holders" >&2
-  echo "       This is usually a foxglove_bridge left by a crashed native run." >&2
-  echo "       Free it and re-run, e.g.:  pkill -f foxglove_bridge" >&2
-  exit 1
+  rm -f "$log"
 }
 
 main() {
@@ -301,14 +307,13 @@ main() {
   # sure the daemon is up — both idempotent, and each prints its own status bullet.
   step "${HOST} Container"
 
-  # Preflight the host before touching the runtime — these are native<->container
-  # collisions that otherwise surface as cryptic docker/colcon errors downstream:
-  #  - a non-container listener squatting 8765 blocks the Foxglove port publish;
-  #  - a build/install tree baked by the native (pixi) toolchain (prefix not under
-  #    /ws) can't be reused by the container build — colcon aborts on the first
-  #    package ("The build time path ... doesn't exist"). Clear the regenerable
-  #    artifacts so the build below starts clean; they are gitignored and rebuilt.
-  check_foxglove_port
+  # Preflight the build tree before the container build reuses it. A build/install
+  # tree baked by the native (pixi) toolchain (prefix not under /ws) can't be
+  # reused by the container build — colcon aborts on the first package ("The build
+  # time path ... doesn't exist"). Clear the regenerable artifacts so the build
+  # below starts clean; they are gitignored and rebuilt. (The Foxglove-port
+  # collision is handled by compose_up, which reads docker's own bind error rather
+  # than guessing the port owner.)
   if fm_buildtree_is_foreign /ws; then
     item "native build tree detected (baked $(fm_buildtree_prefix)) — clearing build/ install/ log/"
     item "  gitignored + regenerable; the container build below rebuilds them clean"
@@ -325,9 +330,10 @@ main() {
       curl -fsSL --proto '=https' --proto-redir '=https' "$FM_DOCKER_RAW/install.sh" | bash -s -- --no-pull
     fi
   fi
-  # --remove-orphans reaps containers from a stale compose project (e.g. a prior
-  # image tag or overlay) that would otherwise linger and hold the published port.
-  "${COMPOSE[@]}" up -d --remove-orphans
+  # up -d with --remove-orphans (reaps containers from a stale compose project that
+  # would otherwise linger and hold the published port), and a clear hint when the
+  # published Foxglove port can't bind.
+  compose_up
   item "Container up"
 
   # The published fm-app image can lag its Dockerfile — mediapipe was added after the
