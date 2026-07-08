@@ -108,7 +108,7 @@ open_views_when_ready() {
   [[ "$OVERLAY" == docker/compose.macos.yaml ]] || return 0
   command -v open >/dev/null 2>&1 || return 0
   local fg_url="foxglove://open?ds=foxglove-websocket&ds.url=ws://localhost:8765"
-  local gui_path="$FM_WS/src/fm-teleop/fm_teleop_vision/webgui/index.html"
+  local gui_path="$FM_WS/src/fm_teleop/fm_teleop_vision/webgui/index.html"
   local open_fg=false open_gui=false
   if [[ "$OPEN_FOXGLOVE" == true ]]; then
     if [[ -d "/Applications/Foxglove.app" ]]; then
@@ -137,6 +137,27 @@ open_views_when_ready() {
   disown 2>/dev/null || true
   if [[ "$open_gui" == true ]]; then item "Vision control GUI: opens when a view starts (ws://localhost:8765)"; fi
   if [[ "$open_fg" == true ]]; then item "Foxglove Studio (3D arm): opens when a view starts"; fi
+}
+
+# Fork the host-side camera relay manager (macOS only). The vision TUI runs inside
+# the container and cannot start the camera source the vision node reads from — the
+# Mac's AVFoundation camera or a socat relay to the phone both live on the host. So
+# the TUI persists the operator's camera choice to .fm_tui.json and this host process
+# watches that file and keeps :8090 fed (see scripts/run/camera-bridge.sh). Bound to
+# the fm container's lifetime; a fresh run replaces any prior manager via a pidfile.
+# Skipped off macOS (the Linux overlay passes a /dev camera straight in) and when the
+# script is absent. Reads OVERLAY / COMPOSE / SERVICE / FM_WS set by main (dynamic scope).
+start_camera_bridge() {
+  [[ "$OVERLAY" == docker/compose.macos.yaml ]] || return 0
+  [[ -f "$FM_WS/scripts/run/camera-bridge.sh" ]] || return 0
+  command -v socat >/dev/null 2>&1 ||
+    item "camera: socat not found (brew install socat) — phone relay unavailable"
+  local cid
+  cid=$("${COMPOSE[@]}" ps -q "$SERVICE" 2>/dev/null | head -1)
+  bash "$FM_WS/scripts/run/camera-bridge.sh" "$FM_WS/.fm_tui.json" "$cid" \
+    >"${TMPDIR:-/tmp}/fm-camera-bridge.log" 2>&1 &
+  disown 2>/dev/null || true
+  item "Camera relay: :8090 managed from your TUI camera choice (mac built-in / phone)"
 }
 
 # Serve the macOS rviz view over VNC. rviz has no native macOS build and cannot
@@ -264,6 +285,39 @@ main() {
   "${COMPOSE[@]}" up -d
   item "Container up"
 
+  # The published fm-app image can lag its Dockerfile — mediapipe was added after the
+  # last publish, and the mesh-converter deps (trimesh/pycollada) only just landed in the
+  # base — so a fresh pull may be missing what vision teleop needs. Until the image chain
+  # is republished, install whatever the running image lacks so a fresh install still
+  # (a) builds fm_description's OpenArm visual meshes and (b) runs hand tracking, and fetch
+  # the MediaPipe .task models (gitignored, ~30 MB) if absent. All idempotent: pip is a
+  # near-instant no-op once satisfied, download_model.sh skips when the models exist, so this
+  # self-neutralises once the baked image carries them. Runs BEFORE the build because
+  # trimesh/pycollada are build-time deps of fm_description.
+  step "Vision Dependencies"
+  "${COMPOSE[@]}" exec -T "$SERVICE" bash -c '
+    need=""
+    python3 -c "import mediapipe" 2>/dev/null || need="$need mediapipe==0.10.14"
+    python3 -c "import trimesh"   2>/dev/null || need="$need trimesh==4.12.2"
+    python3 -c "import collada"   2>/dev/null || need="$need pycollada==0.9.3"
+    [ -n "$need" ] && { echo "installing python deps:$need"; pip install --no-cache-dir $need; }
+    v=/ws/src/fm_teleop/fm_teleop_vision
+    if [ -f "$v/scripts/download_model.sh" ] && ! ls "$v"/models/*.task >/dev/null 2>&1; then
+      echo "fetching MediaPipe models (~30 MB) ..."; bash "$v/scripts/download_model.sh"
+    fi
+  '
+  # Guard the upgrade path: if an earlier build cached fm_description's mesh conversion as
+  # skipped (built before the converter deps existed), the visual meshes are missing and an
+  # incremental build will not regenerate them. Force one clean reconfigure in that case — a
+  # no-op on a fresh tree, where nothing is built yet and the main build generates them.
+  "${COMPOSE[@]}" exec -T "$SERVICE" /ros_entrypoint.sh bash -c '
+    stl=/ws/install/fm_description/share/fm_description/openarm_meshes/assets/robot/openarm_v2.0/meshes/arm/visual/base_link.stl
+    if [ ! -s "$stl" ] && [ -d /ws/build/fm_description ]; then
+      colcon build --packages-select fm_description --cmake-clean-cache
+    fi
+  '
+  item "vision deps + models present"
+
   step "Build Workspace"
   # Route through the entrypoint so ROS is sourced; build from /ws (the compose
   # working_dir). Incremental, so a warm tree returns fast. -T disables TTY
@@ -278,6 +332,8 @@ main() {
   item "Vision control GUI (camera + 3D arm + engage/reset/record): opens in your browser"
   item "teardown: ${COMPOSE[*]} down"
   open_views_when_ready
+  # Keep :8090 fed by whichever camera the operator picks in the TUI (macOS host-side).
+  start_camera_bridge
   # When rviz is the macOS default, bring up the in-container display + noVNC
   # bridge and open the browser. The launcher then renders rviz on that display.
   local launch_env=(-e COLORTERM -e TERM -e FM_TUI_CONFIG -e FM_HOST_OS)
