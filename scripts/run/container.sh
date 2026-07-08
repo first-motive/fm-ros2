@@ -33,6 +33,11 @@ set -euo pipefail
 # Reach the repo root — this script now lives two levels down in scripts/run/.
 cd "$(dirname "$0")/../.."
 
+# Shared build-tree guard (foreign-toolchain tree detection + clear). Sourced from
+# the repo root, where we just cd'd. See the preflight in main().
+# shellcheck source=scripts/run/lib-buildtree.sh
+source scripts/run/lib-buildtree.sh
+
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
 # run.sh and the TUIs share one source of brand colour. `step` draws a numbered
 # header block as a rich rule; `item` prints a plain status line beneath it. The
@@ -184,6 +189,35 @@ open_rviz_vnc() {
   item "(blank until you pick a robot description — rviz starts on selection)"
 }
 
+# Bring the compose stack up, and turn a Foxglove-port bind failure into an
+# actionable message. The macOS overlay publishes 8765 to the host; if a
+# non-container process already holds it — classically a foxglove_bridge left by a
+# crashed native run — docker's `up` fails with a cryptic "port is already
+# allocated". We let docker be the source of truth (no guessing who owns the port —
+# an earlier version pattern-matched lsof command names and mis-flagged docker's
+# own `com.docker.*` helper, whose name lsof truncates), stream its output, and
+# only when it fails on 8765 append the hint. Reads COMPOSE set by main.
+compose_up() {
+  local log rc
+  log=$(mktemp)
+  set +e
+  "${COMPOSE[@]}" up -d --remove-orphans 2>&1 | tee "$log"
+  rc=${PIPESTATUS[0]}
+  set -e
+  if [ "$rc" -ne 0 ]; then
+    if grep -qiE '8765|address already in use|port is already allocated' "$log"; then
+      echo "" >&2
+      echo "hint: port 8765 could not be bound — usually a foxglove_bridge left by a" >&2
+      echo "      crashed native run. Find who holds it, then stop it and re-run:" >&2
+      echo "        lsof -nP -iTCP:8765 -sTCP:LISTEN     # see who holds it" >&2
+      echo "        pkill -f foxglove_bridge             # if that's the culprit" >&2
+    fi
+    rm -f "$log"
+    exit "$rc"
+  fi
+  rm -f "$log"
+}
+
 main() {
   # OVERLAY / OPEN_FOXGLOVE / OPEN_WEBGUI / COMPOSE / SERVICE / HOST / FM_WS stay global
   # (no `local`) so the forked open_views_when_ready watcher sees them.
@@ -272,6 +306,20 @@ main() {
   # macOS runs on OrbStack as the Docker provider. Install it if missing, then make
   # sure the daemon is up — both idempotent, and each prints its own status bullet.
   step "${HOST} Container"
+
+  # Preflight the build tree before the container build reuses it. A build/install
+  # tree baked by the native (pixi) toolchain (prefix not under /ws) can't be
+  # reused by the container build — colcon aborts on the first package ("The build
+  # time path ... doesn't exist"). Clear the regenerable artifacts so the build
+  # below starts clean; they are gitignored and rebuilt. (The Foxglove-port
+  # collision is handled by compose_up, which reads docker's own bind error rather
+  # than guessing the port owner.)
+  if fm_buildtree_is_foreign /ws; then
+    item "native build tree detected (baked $(fm_buildtree_prefix)) — clearing build/ install/ log/"
+    item "  gitignored + regenerable; the container build below rebuilds them clean"
+    fm_buildtree_clear
+  fi
+
   if [[ "$OVERLAY" == docker/compose.macos.yaml ]]; then
     # Delegate the container runtime (OrbStack install + daemon start) to fm-docker
     # — no vendored helper here. docker/ is imported above, so use the imported
@@ -282,7 +330,10 @@ main() {
       curl -fsSL --proto '=https' --proto-redir '=https' "$FM_DOCKER_RAW/install.sh" | bash -s -- --no-pull
     fi
   fi
-  "${COMPOSE[@]}" up -d
+  # up -d with --remove-orphans (reaps containers from a stale compose project that
+  # would otherwise linger and hold the published port), and a clear hint when the
+  # published Foxglove port can't bind.
+  compose_up
   item "Container up"
 
   # The published fm-app image can lag its Dockerfile — mediapipe was added after the
