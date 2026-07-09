@@ -445,6 +445,16 @@ main() {
     fi
   fi
 
+  # Host tools for the container run path. Vision teleop runs in the container on
+  # macOS even on a native-profile install, and its PHONE camera source is relayed
+  # host-side by socat (scripts/run/camera-bridge.sh). Install it here so phone
+  # streaming works out of the box; a missing socat otherwise fails only the phone
+  # source, silently, under the full-screen TUI. macOS only (idempotent, best-effort).
+  if [[ "$(uname -s)" == Darwin ]]; then
+    step "Host Tools"
+    ./scripts/install/install-socat.sh
+  fi
+
   write_profile "$path" "$viewer"
 
   # Team members with org access get the private extras layered on top — the app,
