@@ -145,6 +145,16 @@ The interface lives in `fm-robot`; the sim plugins live in `fm-sim`. Full detail
 the xacro layering and the backend table — is in
 [fm-robot's architecture doc](https://github.com/first-motive/fm-robot/blob/main/docs/ARCHITECTURE.md#hardware-abstraction-layer).
 
+Capture-rig sensors sit outside this abstraction. The studio wrist cameras
+instrument the capture rig, not the robot, so their driver lives in `fm-data`
+(`fm_data_sensors`), independent of `fm_control` and `sim_backend`. The same
+pattern of one interface, many backends applies to the driver: `cameras.launch.py`
+picks `usb_cam` (a binary on Linux) or `opencv_cam` (built from source on native
+macOS, where robostack ships no USB camera driver) by ament index, and both drivers
+publish the same `/camera/wrist_*/image_raw` + `camera_info` pair (a republish node
+adds the `/image_raw/compressed` stream that recording captures). See
+[SETUP.md](SETUP.md#wrist-cameras-capture-rig).
+
 ## Deployment
 
 One dev container hosts the full node graph. The host OS only provides Docker, the
