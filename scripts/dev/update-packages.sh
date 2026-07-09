@@ -44,23 +44,25 @@ main() {
 
   mkdir -p src
 
-  # vcs import clones repos missing from src/ and leaves existing clones untouched.
-  echo "==> Importing missing package repos into src/ ..."
-  "${VCS[@]}" import src < fm-ros2.repos
+  # Manifest keys are root-relative (src/fm_robot, docker, external/lerobot), so
+  # import from the workspace root — no `src` arg, matching install.sh. vcs import
+  # clones repos missing from the tree and leaves existing clones untouched.
+  echo "==> Importing missing package repos ..."
+  "${VCS[@]}" import < fm-ros2.repos
 
   # Private overlay: imported only when the gitignored manifest is present (team
   # members with access). Public clones skip it silently.
   if [[ -f private-overlay.repos ]]; then
-    echo "==> Importing private overlay into src/ ..."
-    "${VCS[@]}" import src < private-overlay.repos
+    echo "==> Importing private overlay ..."
+    "${VCS[@]}" import < private-overlay.repos
   fi
 
-  # vcs pull fast-forwards every clone already in src/ to its tracked ref.
+  # vcs pull fast-forwards every clone in src/ + external/ to its tracked ref.
   echo "==> Pulling all package repos to latest ..."
-  "${VCS[@]}" pull src
+  "${VCS[@]}" pull src external
 
   echo "==> Status:"
-  "${VCS[@]}" status src
+  "${VCS[@]}" status src external
 }
 
 main "$@"
