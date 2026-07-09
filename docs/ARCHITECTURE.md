@@ -146,8 +146,9 @@ the xacro layering and the backend table — is in
 [fm-robot's architecture doc](https://github.com/first-motive/fm-robot/blob/main/docs/ARCHITECTURE.md#hardware-abstraction-layer).
 
 Capture-rig sensors sit outside this abstraction. The studio wrist cameras
-instrument the capture rig, not the robot, so their driver lives in `fm-data`
-(`fm_data_sensors`), independent of `fm_control` and `sim_backend`. The same
+instrument the capture rig, not the robot, so their driver lives in the
+`fm_data_sensors` package (part of the data engine), independent of `fm_control`
+and `sim_backend`. The same
 pattern of one interface, many backends applies to the driver: `cameras.launch.py`
 picks `usb_cam` (a binary on Linux) or `opencv_cam` (built from source on native
 macOS, where robostack ships no USB camera driver) by ament index, and both drivers

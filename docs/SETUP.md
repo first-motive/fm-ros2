@@ -180,7 +180,7 @@ For GPU, hardware, or GUI tools, use the Linux native path
 ## Wrist cameras (capture rig)
 
 The studio capture rig uses two USB RGB wrist cameras, driven by the
-`fm_data_sensors` package (in fm-data). Data Capture brings them up automatically;
+`fm_data_sensors` package. Data Capture brings them up automatically;
 `ros2 launch fm_data_sensors cameras.launch.py` runs them standalone.
 
 - **Driver by platform.** robostack osx-arm64 ships no generic USB camera driver, so
