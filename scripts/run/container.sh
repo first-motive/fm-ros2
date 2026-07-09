@@ -218,6 +218,36 @@ compose_up() {
   rm -f "$log"
 }
 
+# Guarantee /ws is a LIVE bind mount before anything execs into it. `up -d` reports a
+# pre-existing container as "Running" and moves on — but a container left over from an
+# earlier run can come back up with its workspace bind DETACHED: classically after a
+# host reboot, an OrbStack restart, or the laptop sleeping. The container is "running",
+# yet /ws is gone, so the first `docker compose exec` (which lands in working_dir /ws)
+# dies with the cryptic:
+#   chdir to cwd ("/ws") set in config.json failed: no such file or directory
+# `up -d` will not fix it: the compose config is unchanged, so it reuses the broken
+# container instead of recreating it. So we probe here. The probe runs from `-w /` (a
+# directory that always exists, so the probe itself never trips the chdir) and checks
+# for a file only the mounted workspace carries (run.sh). If it is missing, the bind is
+# stale/wrong — force ONE clean recreate, which re-establishes the mount from the
+# current FM_WS, then re-probe. Reads COMPOSE / SERVICE / FM_WS set by main.
+ensure_ws_live() {
+  local attempt
+  for attempt in 1 2; do
+    if "${COMPOSE[@]}" exec -T -w / "$SERVICE" test -f /ws/run.sh 2>/dev/null; then
+      return 0
+    fi
+    [ "$attempt" -eq 1 ] || break
+    item "workspace mount /ws is not live in the container — recreating it"
+    item "  (usually a container left running with a stale bind after a reboot/sleep)"
+    "${COMPOSE[@]}" up -d --force-recreate "$SERVICE" >/dev/null 2>&1 || true
+  done
+  echo "error: /ws is not a live mount of $FM_WS inside the '$SERVICE' container, even" >&2
+  echo "       after a recreate. Clear the container and re-run:" >&2
+  echo "         ${COMPOSE[*]} down && ./run.sh --container" >&2
+  exit 1
+}
+
 main() {
   # OVERLAY / OPEN_FOXGLOVE / OPEN_WEBGUI / COMPOSE / SERVICE / HOST / FM_WS stay global
   # (no `local`) so the forked open_views_when_ready watcher sees them.
@@ -334,6 +364,9 @@ main() {
   # would otherwise linger and hold the published port), and a clear hint when the
   # published Foxglove port can't bind.
   compose_up
+  # A reused container can be "Running" with its /ws bind detached (post-reboot/sleep) —
+  # heal it before step 3 execs into working_dir /ws and dies on the chdir.
+  ensure_ws_live
   item "Container up"
 
   # The published fm-app image can lag its Dockerfile — mediapipe was added after the
