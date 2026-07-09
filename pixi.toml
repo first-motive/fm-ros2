@@ -40,6 +40,10 @@ ros-humble-spacenav = ">=3.3.0,<4"
 # builds opencv_cam, linux-64 has usb_cam); win-64 has no camera path. See
 # docs/SETUP.md wrist-camera note.
 ros-humble-image-transport-plugins = "*"
+# opencv_cam build dep, not shipped by ros-humble-desktop. osx-arm64 only: it is the
+# one platform that builds opencv_cam from source (Linux uses the usb_cam binary and
+# COLCON_IGNOREs opencv_cam).
+ros-humble-camera-calibration-parsers = "*"
 
 [target.linux-64.dependencies]
 ros-humble-foxglove-bridge = "*"

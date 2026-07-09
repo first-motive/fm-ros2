@@ -1246,6 +1246,7 @@ environments:
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-backward-ros-1.0.8-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-bicycle-steering-controller-2.48.0-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-builtin-interfaces-1.2.1-np126py311h2a51a2c_13.conda
+      - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-camera-calibration-parsers-3.1.12-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-chomp-motion-planner-2.5.9-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-class-loader-2.2.0-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-common-interfaces-4.9.0-np126py311h2a51a2c_13.conda
@@ -27135,6 +27136,25 @@ packages:
   license: BSD-3-Clause
   size: 70197
   timestamp: 1753311158592
+- conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-camera-calibration-parsers-3.1.12-np126py311h2a51a2c_13.conda
+  sha256: be776107f2c627e79533e8467fad5560aee8bc1c1d87a3de77015924c6ff19bb
+  md5: 0e053081201650637d03aeccae112a0d
+  depends:
+  - python
+  - ros-humble-rclcpp
+  - ros-humble-rcpputils
+  - ros-humble-ros-workspace
+  - ros-humble-sensor-msgs
+  - ros-humble-yaml-cpp-vendor
+  - ros2-distro-mutex 0.7.* humble_*
+  - __osx >=11.0
+  - libcxx >=18
+  - ros2-distro-mutex >=0.7.0,<0.8.0a0
+  - numpy >=1.26.4,<2.0a0
+  - python_abi 3.11.* *_cp311
+  license: BSD-3-Clause
+  size: 87973
+  timestamp: 1753313257090
 - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-chomp-motion-planner-2.5.9-np126py311h2a51a2c_13.conda
   sha256: e4f19e630f1205dd33b4492021677970667b3ce16c7e5bb98cc0c26a80bfe68e
   md5: eab1e0e440ce14903766e859046b7bde
