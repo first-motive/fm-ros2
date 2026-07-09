@@ -105,7 +105,7 @@ main() {
     echo "plan:"
     echo "  1. pull fm_ros2 (--ff-only; skipped if this tree is dirty)"
     echo "  2. vcs import < fm-ros2.repos            (packages)"
-    echo "  3. vcs import src < private-overlay.repos (learning overlay, if present)"
+    echo "  3. vcs import < private-overlay.repos    (learning overlay, if present)"
     echo "  4. ./scripts/install/import-externals.sh  (externals)"
     echo "  5. report dirty sub-repos left untouched"
     return 0
@@ -117,7 +117,7 @@ main() {
     item "[dry-run] would pull fm_ros2 (--ff-only) unless this tree is dirty"
     item "[dry-run] would vcs import < fm-ros2.repos"
     if [[ -f private-overlay.repos ]]; then
-      item "[dry-run] would vcs import src < private-overlay.repos"
+      item "[dry-run] would vcs import < private-overlay.repos"
     else
       item "[dry-run] private-overlay.repos absent — would skip the learning overlay"
     fi
@@ -153,8 +153,8 @@ main() {
   # Optional private learning overlay — absent for members without access, so
   # skip quietly when the manifest is not present.
   if [[ -f private-overlay.repos ]]; then
-    item "re-importing the learning overlay into src/ ..."
-    if ! spin "re-importing learning overlay" vcs import src < private-overlay.repos; then
+    item "re-importing the learning overlay (src/ + external/) ..."
+    if ! spin "re-importing learning overlay" vcs import < private-overlay.repos; then
       echo "error: failed to import the learning overlay (private-overlay.repos)." >&2
       echo "       This needs access to the private learning repos. Check your auth." >&2
       return 1
