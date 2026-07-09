@@ -168,6 +168,7 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "would remove the private team extras for members (First Motive app, fm CLI, AI harness)"
     item "would tear down the compose stack (docker compose down)"
     item "would remove the fm-tools lib cache ($CACHE_DIR)"
+    item "would remove the persisted profile (.fm_ros2.json)"
     [[ "$purge" == 1 ]] && item "would purge clean imported repos under src/ and external/ (dirty ones kept)"
     return 0
   fi
@@ -194,6 +195,12 @@ do_uninstall() {  # dry no_desktop no_ai purge
   fi
   item "removing the fm-tools lib cache ($CACHE_DIR) ..."
   rm -rf "$CACHE_DIR"
+
+  # The persisted profile is bootstrap-owned transient state, written by install
+  # and consumed by run.sh. Drop it on teardown so a stale path/viewer never routes
+  # a later run at a workspace the uninstall already dismantled.
+  item "removing the persisted profile (.fm_ros2.json) ..."
+  rm -f .fm_ros2.json
 
   # --purge additionally drops the clean imported repos so a reinstall re-imports
   # fresh; dirty checkouts are kept. Without it, the imported src/external stay.
