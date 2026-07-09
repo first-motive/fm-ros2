@@ -513,6 +513,8 @@ environments:
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-common-interfaces-4.9.1-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-composition-0.20.9-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-composition-interfaces-1.2.2-np2py312h2ed9cc7_18.conda
+      - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-compressed-depth-image-transport-2.5.5-np2py312h2ed9cc7_18.conda
+      - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-compressed-image-transport-2.5.5-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-console-bridge-vendor-1.4.1-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-control-msgs-4.9.0-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-control-toolbox-3.7.0-np2py312h3ba0a76_18.conda
@@ -578,6 +580,7 @@ environments:
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-image-geometry-3.2.1-np2py312h3b5449b_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-image-tools-0.20.9-np2py312h3b5449b_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-image-transport-3.1.12-np2py312h2ed9cc7_18.conda
+      - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-image-transport-plugins-2.5.5-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-imu-sensor-broadcaster-2.53.1-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-interactive-markers-2.3.2-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-intra-process-demo-0.20.9-np2py312h3b5449b_18.conda
@@ -811,6 +814,7 @@ environments:
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-tf2-ros-py-0.25.20-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-tf2-sensor-msgs-0.25.20-np2py312h3ba0a76_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-tf2-tools-0.25.20-np2py312h2ed9cc7_18.conda
+      - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-theora-image-transport-2.5.5-np2py312h3b5449b_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-tinyxml-vendor-0.8.3-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-tinyxml2-vendor-0.7.7-np2py312h2ed9cc7_18.conda
       - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-tlsf-0.7.0-np2py312h2ed9cc7_18.conda
@@ -1247,6 +1251,8 @@ environments:
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-common-interfaces-4.9.0-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-composition-0.20.5-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-composition-interfaces-1.2.1-np126py311h2a51a2c_13.conda
+      - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-compressed-depth-image-transport-2.5.3-np126py311h2a51a2c_13.conda
+      - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-compressed-image-transport-2.5.3-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-console-bridge-vendor-1.4.1-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-control-msgs-4.8.0-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-control-toolbox-3.6.1-np126py311h2a51a2c_13.conda
@@ -1312,6 +1318,7 @@ environments:
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-image-geometry-3.2.1-np126py311h3f06965_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-image-tools-0.20.5-np126py311h3f06965_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-image-transport-3.1.12-np126py311h2a51a2c_13.conda
+      - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-image-transport-plugins-2.5.3-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-imu-sensor-broadcaster-2.48.0-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-interactive-markers-2.3.2-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-intra-process-demo-0.20.5-np126py311h3f06965_13.conda
@@ -1541,6 +1548,7 @@ environments:
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-tf2-ros-py-0.25.14-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-tf2-sensor-msgs-0.25.14-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-tf2-tools-0.25.14-np126py311h2a51a2c_13.conda
+      - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-theora-image-transport-2.5.3-np126py311h3f06965_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-tinyxml-vendor-0.8.3-np126py311h2a51a2c_13.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-tinyxml2-vendor-0.7.6-np126py311h2a51a2c_14.conda
       - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-tl-expected-1.0.2-np126py311h2a51a2c_13.conda
@@ -2332,7 +2340,7 @@ packages:
   license: MIT AND Apache-2.0
   license_family: Apache
   purls:
-  - pkg:pypi/aiohttp?source=compressed-mapping
+  - pkg:pypi/aiohttp?source=hash-mapping
   run_exports: {}
   size: 1078273
   timestamp: 1780913823270
@@ -6191,7 +6199,7 @@ packages:
   license: Apache-2.0
   license_family: APACHE
   purls:
-  - pkg:pypi/msgpack?source=compressed-mapping
+  - pkg:pypi/msgpack?source=hash-mapping
   run_exports: {}
   size: 112800
   timestamp: 1782460774570
@@ -6628,7 +6636,7 @@ packages:
   - libwebp-base >=1.6.0,<2.0a0
   license: HPND
   purls:
-  - pkg:pypi/pillow?source=compressed-mapping
+  - pkg:pypi/pillow?source=hash-mapping
   run_exports: {}
   size: 1064129
   timestamp: 1782912080163
@@ -9230,7 +9238,7 @@ packages:
   license: MPL-2.0
   license_family: OTHER
   purls:
-  - pkg:pypi/pytest-rerunfailures?source=compressed-mapping
+  - pkg:pypi/pytest-rerunfailures?source=hash-mapping
   run_exports: {}
   size: 22855
   timestamp: 1782920468250
@@ -12457,7 +12465,7 @@ packages:
   - libwebp-base >=1.6.0,<2.0a0
   license: HPND
   purls:
-  - pkg:pypi/pillow?source=compressed-mapping
+  - pkg:pypi/pillow?source=hash-mapping
   run_exports: {}
   size: 993213
   timestamp: 1782912213683
@@ -18902,6 +18910,42 @@ packages:
   license: Apache-2.0
   size: 145442
   timestamp: 1778996978458
+- conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-compressed-depth-image-transport-2.5.5-np2py312h2ed9cc7_18.conda
+  sha256: bdecef64315d1a30ec76a261af1865d71f4c0858b8cccb6bceaae6305de021ca
+  md5: 2163394e67d4feb73a9251fbb77a12f1
+  depends:
+  - python
+  - ros-humble-cv-bridge
+  - ros-humble-image-transport
+  - ros-humble-ros-workspace
+  - ros2-distro-mutex 0.9.* humble_*
+  - libstdcxx >=14
+  - libgcc >=14
+  - __glibc >=2.17,<3.0.a0
+  - ros2-distro-mutex >=0.9.0,<0.10.0a0
+  - numpy >=1.23,<3
+  - python_abi 3.12.* *_cp312
+  license: BSD-3-Clause
+  size: 218439
+  timestamp: 1778998824512
+- conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-compressed-image-transport-2.5.5-np2py312h2ed9cc7_18.conda
+  sha256: 00e3ba889578e136cc5cce9bb1ef026a89cbd64b2d8dc32fafbb47f0aa2eb4ad
+  md5: e6f4305c213642fc3cc1f72374570966
+  depends:
+  - python
+  - ros-humble-cv-bridge
+  - ros-humble-image-transport
+  - ros-humble-ros-workspace
+  - ros2-distro-mutex 0.9.* humble_*
+  - libstdcxx >=14
+  - libgcc >=14
+  - __glibc >=2.17,<3.0.a0
+  - numpy >=1.23,<3
+  - ros2-distro-mutex >=0.9.0,<0.10.0a0
+  - python_abi 3.12.* *_cp312
+  license: BSD-3-Clause
+  size: 227036
+  timestamp: 1778998898357
 - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-console-bridge-vendor-1.4.1-np2py312h2ed9cc7_18.conda
   sha256: 3d16c2ef2136d78b741656dff1710a0a8b6ad94f658b14c2f4c2190cc7f50c0e
   md5: 81d33344129d8ecedb16030da42fb76c
@@ -20305,6 +20349,25 @@ packages:
   license: BSD-3-Clause
   size: 552640
   timestamp: 1778998638928
+- conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-image-transport-plugins-2.5.5-np2py312h2ed9cc7_18.conda
+  sha256: 371b13750735d61ca05b34cd152d0e7d49ec9b5db8c0ba39cea0c766abaec165
+  md5: c980df59b373863624d1bfdf52e8cff0
+  depends:
+  - python
+  - ros-humble-compressed-depth-image-transport
+  - ros-humble-compressed-image-transport
+  - ros-humble-ros-workspace
+  - ros-humble-theora-image-transport
+  - ros2-distro-mutex 0.9.* humble_*
+  - libgcc >=14
+  - __glibc >=2.17,<3.0.a0
+  - libstdcxx >=14
+  - ros2-distro-mutex >=0.9.0,<0.10.0a0
+  - python_abi 3.12.* *_cp312
+  - numpy >=1.23,<3
+  license: BSD-3-Clause
+  size: 23109
+  timestamp: 1778999171310
 - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-imu-sensor-broadcaster-2.53.1-np2py312h2ed9cc7_18.conda
   sha256: 4faef69d4546303834317ce33ab3d48d1057bd11e2237b7e1f15374807b7b43d
   md5: 04ca2e5e48813563abb5d354510bd9bd
@@ -25571,6 +25634,42 @@ packages:
   license: BSD-3-Clause
   size: 20964
   timestamp: 1778998606896
+- conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-theora-image-transport-2.5.5-np2py312h3b5449b_18.conda
+  sha256: cea424599b8fb9b25f1173f6d470c2f1c50ee9ef017fdcc651c139cb56a1d5c0
+  md5: 4e74287e71ddb85bec47bc10909fad63
+  depends:
+  - libgl-devel
+  - libogg
+  - libopencv
+  - libopengl-devel
+  - libtheora
+  - py-opencv
+  - python
+  - ros-humble-cv-bridge
+  - ros-humble-image-transport
+  - ros-humble-pluginlib
+  - ros-humble-rclcpp
+  - ros-humble-rcutils
+  - ros-humble-ros-workspace
+  - ros-humble-rosidl-default-runtime
+  - ros-humble-sensor-msgs
+  - ros-humble-std-msgs
+  - ros2-distro-mutex 0.9.* humble_*
+  - __glibc >=2.17,<3.0.a0
+  - libstdcxx >=14
+  - libgcc >=14
+  - python_abi 3.12.* *_cp312
+  - py-opencv >=4.13.0,<5.0a0
+  - ros2-distro-mutex >=0.9.0,<0.10.0a0
+  - libopengl >=1.7.0,<2.0a0
+  - libtheora >=1.1.1,<1.2.0a0
+  - libopencv >=4.13.0,<4.13.1.0a0
+  - numpy >=1.23,<3
+  - libgl >=1.7.0,<2.0a0
+  - libogg >=1.3.5,<1.4.0a0
+  license: BSD-3-Clause
+  size: 326027
+  timestamp: 1778998862156
 - conda: https://conda.anaconda.org/robostack-humble/linux-64/ros-humble-tinyxml-vendor-0.8.3-np2py312h2ed9cc7_18.conda
   sha256: d873776dca7ae7218c5752188287ea17f69e6538c378e88c31c2da0bf6a1e8c3
   md5: 8daf1fd2c3e39372639b7ee3ec7bdacb
@@ -27139,6 +27238,40 @@ packages:
   license: BSD-3-Clause
   size: 128657
   timestamp: 1753311450412
+- conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-compressed-depth-image-transport-2.5.3-np126py311h2a51a2c_13.conda
+  sha256: 424b1fe8b6ad88b686207dff93fe30f1a8e7daaf9576e9fefce9bd77e4b66e05
+  md5: 07be513bb5e06c445fc43580a4bbfc9f
+  depends:
+  - python
+  - ros-humble-cv-bridge
+  - ros-humble-image-transport
+  - ros-humble-ros-workspace
+  - ros2-distro-mutex 0.7.* humble_*
+  - __osx >=11.0
+  - libcxx >=18
+  - python_abi 3.11.* *_cp311
+  - ros2-distro-mutex >=0.7.0,<0.8.0a0
+  - numpy >=1.26.4,<2.0a0
+  license: BSD-3-Clause
+  size: 168020
+  timestamp: 1753314262667
+- conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-compressed-image-transport-2.5.3-np126py311h2a51a2c_13.conda
+  sha256: 6b81b3d342d9819e0e74d34b137829d57a67104fbe07240c20f60bbbb678bad0
+  md5: cbad90b20ad195285c28824f15c3dc4a
+  depends:
+  - python
+  - ros-humble-cv-bridge
+  - ros-humble-image-transport
+  - ros-humble-ros-workspace
+  - ros2-distro-mutex 0.7.* humble_*
+  - libcxx >=18
+  - __osx >=11.0
+  - python_abi 3.11.* *_cp311
+  - numpy >=1.26.4,<2.0a0
+  - ros2-distro-mutex >=0.7.0,<0.8.0a0
+  license: BSD-3-Clause
+  size: 181098
+  timestamp: 1753314242441
 - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-console-bridge-vendor-1.4.1-np126py311h2a51a2c_13.conda
   sha256: 477f6234b0eb4d60c1927933a725ef9339fef2c4a1fd057720bc8ae8e579e330
   md5: 12e23dd340db4211ad7b1b75178f2c85
@@ -28460,6 +28593,24 @@ packages:
   license: BSD-3-Clause
   size: 387904
   timestamp: 1753313981471
+- conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-image-transport-plugins-2.5.3-np126py311h2a51a2c_13.conda
+  sha256: 4fd5740fbb9b7333e9268af9e87b68631e32a6525661eb45ad3632feb2534498
+  md5: 9810e937654077e919d6a76919474b8a
+  depends:
+  - python
+  - ros-humble-compressed-depth-image-transport
+  - ros-humble-compressed-image-transport
+  - ros-humble-ros-workspace
+  - ros-humble-theora-image-transport
+  - ros2-distro-mutex 0.7.* humble_*
+  - __osx >=11.0
+  - libcxx >=18
+  - ros2-distro-mutex >=0.7.0,<0.8.0a0
+  - numpy >=1.26.4,<2.0a0
+  - python_abi 3.11.* *_cp311
+  license: BSD-3-Clause
+  size: 22684
+  timestamp: 1753314859877
 - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-imu-sensor-broadcaster-2.48.0-np126py311h2a51a2c_13.conda
   sha256: 9cc3bc6404676638a991fad4467f4a3701a585db955db5da197a50ebd26bfdfc
   md5: 5c092475b434f3f832c33ca46f4f39e9
@@ -33411,6 +33562,41 @@ packages:
   license: BSD-3-Clause
   size: 21480
   timestamp: 1753313863761
+- conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-theora-image-transport-2.5.3-np126py311h3f06965_13.conda
+  sha256: d455259e2ae43ab29da4d7962ab78161c9b30105322a5ee0384705a193194768
+  md5: d0862942c680ba270b55a6374c5f8857
+  depends:
+  - libogg
+  - libopencv
+  - libtheora
+  - py-opencv
+  - python
+  - ros-humble-cv-bridge
+  - ros-humble-image-transport
+  - ros-humble-pluginlib
+  - ros-humble-rclcpp
+  - ros-humble-rcutils
+  - ros-humble-ros-workspace
+  - ros-humble-rosidl-default-runtime
+  - ros-humble-sensor-msgs
+  - ros-humble-std-msgs
+  - ros2-distro-mutex 0.7.* humble_*
+  - xorg-libx11
+  - xorg-libxext
+  - __osx >=11.0
+  - libcxx >=18
+  - libtheora >=1.1.1,<1.2.0a0
+  - py-opencv >=4.11.0,<5.0a0
+  - numpy >=1.26.4,<2.0a0
+  - python_abi 3.11.* *_cp311
+  - libopencv >=4.11.0,<4.11.1.0a0
+  - libogg >=1.3.5,<1.4.0a0
+  - xorg-libxext >=1.3.6,<2.0a0
+  - ros2-distro-mutex >=0.7.0,<0.8.0a0
+  - xorg-libx11 >=1.8.12,<2.0a0
+  license: BSD-3-Clause
+  size: 261435
+  timestamp: 1753314210754
 - conda: https://conda.anaconda.org/robostack-humble/osx-arm64/ros-humble-tinyxml-vendor-0.8.3-np126py311h2a51a2c_13.conda
   sha256: 12821834331bb21b679d171ffb9d13781f64a25e1bf0b8a28135a40d41f9e11b
   md5: f68d8da98188cec9e2d2217660066f53
