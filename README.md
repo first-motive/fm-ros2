@@ -66,11 +66,13 @@ curl ... | bash -s -- --container                  # Docker + compose
 | `--container` | Docker + compose (default: Linux; CI/parity elsewhere) |
 | `--viewer foxglove\|rviz\|none` | viewer to install (default: foxglove) |
 
-Pass `--learning` through the install pipe to also import the private learning
-overlay:
+The private learning overlay imports automatically for team members: when the
+installer's org-auth gate passes, its team-setup step provisions the overlay on
+top of the public workspace. No flag needed. Opt out with `--no-learning`; force
+it with `--learning` (which fails loud without org access):
 
 ```bash
-curl ... | bash -s -- --learning
+curl ... | bash -s -- --no-learning   # skip the overlay
 ```
 
 <details>
@@ -85,8 +87,8 @@ cd fm_ros2
 
 Clone by hand, then run `install.sh` from the checkout — same setup the curl
 pipe runs (vcs bootstrap, package + external import, env + viewer), without
-piping to `bash`. Pass `--learning` to add the private overlay, `--native` or
-`--container` to override the path.
+piping to `bash`. Team members get the private overlay automatically (org auth);
+use `--no-learning` to skip it, `--native` or `--container` to override the path.
 
 ```bash
 ./run.sh --native      # force the native path (pixi/RoboStack)

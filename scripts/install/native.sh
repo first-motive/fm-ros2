@@ -24,11 +24,12 @@ native.sh — install the native ROS2 env via pixi + RoboStack (macOS / Windows)
 
 Bootstraps pixi, solves the workspace env from pixi.lock, installs the viewer.
 
-Usage: ./scripts/install/native.sh [--viewer foxglove|rviz|none] [-h]
+Usage: ./scripts/install/native.sh [--viewer foxglove|rviz|panel|none] [-h]
 
-  --viewer   foxglove (default) | rviz | none
+  --viewer   foxglove (default) | rviz | panel | none
              rviz ships inside the pixi env; foxglove is a per-platform GUI app;
-             none installs no viewer.
+             panel is the fm_viewer file:// page (no host install); none installs
+             no viewer.
   -h, --help show this help
 EOF
 }
@@ -51,11 +52,12 @@ ensure_pixi() {
     || { echo "error: pixi install failed — see https://pixi.sh" >&2; exit 1; }
 }
 
-# Install the foxglove GUI per platform. rviz + none need nothing — rviz is in the
-# pixi env, none installs no viewer. Best-effort: a viewer failure never aborts.
+# Install the foxglove GUI per platform. rviz, panel, and none need nothing — rviz
+# ships in the pixi env, panel is a file:// page the run scripts open against the
+# bridge, none installs no viewer. Best-effort: a viewer failure never aborts.
 install_viewer() {
   case "$VIEWER" in
-    rviz|none) return 0 ;;
+    rviz|panel|none) return 0 ;;
     foxglove) ;;
     *) echo "error: unknown viewer '$VIEWER'" >&2; return 1 ;;
   esac
