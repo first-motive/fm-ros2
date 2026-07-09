@@ -34,10 +34,17 @@ ros-humble-joint-state-publisher-gui = ">=2.4.0,<3"
 [target.osx-arm64.dependencies]
 ros-humble-foxglove-bridge = "*"
 ros-humble-spacenav = ">=3.3.0,<4"
+# Wrist-camera capture republishes raw frames to compressed for recording. The
+# compressed transport plugin is not part of ros-humble-desktop, so add it (rosdep
+# is unsupported in pixi). Scoped to the platforms with a camera driver (osx-arm64
+# builds opencv_cam, linux-64 has usb_cam); win-64 has no camera path. See
+# docs/SETUP.md wrist-camera note.
+ros-humble-image-transport-plugins = "*"
 
 [target.linux-64.dependencies]
 ros-humble-foxglove-bridge = "*"
 ros-humble-spacenav = ">=3.3.0,<4"
+ros-humble-image-transport-plugins = "*"
 
 # Build the full colcon workspace (src/ + external/) from the host. Point CMake's
 # FindPython at the env interpreter — rosidl_generator_py (used by unitree_api and

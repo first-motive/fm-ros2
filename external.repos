@@ -115,3 +115,19 @@ repositories:
     type: git
     url: https://github.com/enactic/openarm_mujoco.git
     version: 5c6e1b4c71cbe27c6a4b58c7f198f080449e1b9c  # master @ 2026-06-03; fork before patching
+  opencv_cam:
+    # Native macOS wrist-camera driver: an OpenCV VideoCapture ROS2 node (AVFoundation
+    # on macOS). robostack osx-arm64 ships no generic USB camera driver (no usb_cam,
+    # gscam, v4l2_camera, or camera_ros), so this is BUILT on the native mac path and
+    # COLCON_IGNORE'd on Linux, where the usb_cam binary is used instead — the inverse
+    # of feetech_ros2_driver's posture. See import-externals.sh. BSD-3-Clause.
+    type: git
+    url: https://github.com/clydemcqueen/opencv_cam.git
+    version: 27eee1ce10f2481f71122b493558438a189ba649  # HEAD @ 2026-07-09; fork before patching
+  ros2_shared:
+    # Parameter helper library (ptrmu/ros2_shared) that opencv_cam build-depends on for
+    # its context/parameter macros. Built alongside opencv_cam on the native mac path,
+    # COLCON_IGNORE'd on Linux. BSD-3-Clause.
+    type: git
+    url: https://github.com/ptrmu/ros2_shared.git
+    version: 662206467488566aea068541fbd48648c7172b89  # HEAD @ 2026-07-09; fork before patching
