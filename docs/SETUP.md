@@ -172,9 +172,33 @@ ros2 run fm_sim_core sim_loop
 | headless MuJoCo (CPU) | robot hardware / `/dev` |
 | dataset record / replay | X11 GUI passthrough |
 | Foxglove viz over ws | CUDA training |
+| USB wrist cameras (native) | wrist cameras in a container (no USB passthrough) |
 
 For GPU, hardware, or GUI tools, use the Linux native path
 (`scripts/install/setup-linux.sh` + `compose.linux.yaml`).
+
+## Wrist cameras (capture rig)
+
+The studio capture rig uses two USB RGB wrist cameras, driven by the
+`fm_data_sensors` package. Data Capture brings them up automatically;
+`ros2 launch fm_data_sensors cameras.launch.py` runs them standalone.
+
+- **Driver by platform.** robostack osx-arm64 ships no generic USB camera driver, so
+  the native macOS path builds `opencv_cam` (OpenCV VideoCapture over AVFoundation)
+  from source — it is vendored in `external.repos` and built by
+  `import-externals.sh` only on macOS. Linux uses the `usb_cam` binary instead.
+  `cameras.launch.py` picks the driver by ament index, so the same launch works on
+  both. Container-on-mac has no wrist cameras: OrbStack passes no USB through, so
+  capture is a native-mac path only.
+- **Device index.** `config/wrist_cameras.yaml` sets each camera's `device` index.
+  macOS Continuity Camera can claim index 0 and shuffle the USB cameras, so the left
+  and right streams may come out swapped — check `ros2 topic hz` and swap the indices
+  in the yaml if so. Override the whole file with `config:=/path/to.yaml`.
+- **Resolution.** Default is 1280x720 at 30 fps; full 8MP raw is ~24 MB/frame, which
+  kills DDS and bag size. Recording captures the compressed stream; the raw stream
+  stays on-host for the viewer.
+- **Calibration is deferred.** Cameras run uncalibrated by default (placeholder `.ini`
+  files ship in the package). Set `calibration_url` in the yaml once intrinsics land.
 
 ## Troubleshooting
 

@@ -69,12 +69,24 @@ main() {
   #   ros2_so_arm                       reference for the SO101 MoveIt config values
   #   unitree_sdk2, unitree_mujoco      reference for the arm_sdk loop + DDS sim
   #   feetech_ros2_driver, openarm_can  Linux + real-hardware backends only
+  #   opencv_cam, ros2_shared           native macOS wrist-camera driver — BUILT on
+  #                                     osx-arm64 (added to BUILD_DIRS below), IGNORE'd
+  #                                     on Linux (usb_cam binary there); inverse of the
+  #                                     feetech posture
   #   unitree_ros                       Unitree description (flat URDF + meshes, file-vendored)
   #   axol                              Axol description (flat URDF + STL, file-vendored).
   #                                     Its COLCON_IGNORE also stops colcon descending into
   #                                     the repo's nested cli/*/setup.py, which otherwise
   #                                     break package identification.
   local BUILD_DIRS=(openarm_description openarm_ros2 unitree_ros2)
+  # Native macOS wrist-camera capture: robostack osx-arm64 ships no generic USB camera
+  # driver, so opencv_cam (+ its ros2_shared param dep) is built from source there. On
+  # Linux the usb_cam binary is used instead, so both stay COLCON_IGNORE'd (they fall
+  # through the loop below) — the inverse of feetech_ros2_driver, which is ignored on
+  # every path.
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    BUILD_DIRS+=(opencv_cam ros2_shared)
+  fi
   # Sub-packages inside a built repo that must stay OUT of the build. openarm_hardware
   # is C++ SocketCAN (Linux-only, needs openarm_can) and joins the build only on the
   # real backend; unitree_ros2/example/src is the C++ DDS demo set, which needs the full
