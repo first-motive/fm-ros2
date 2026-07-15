@@ -21,8 +21,10 @@ if [ ! -f /opt/ros/humble/setup.bash ]; then
   echo "       Install it first: https://docs.ros.org/en/humble/Installation.html" >&2
   exit 1
 fi
+# ROS setup scripts reference unset AMENT_* vars, which `set -u` treats as an error — drop
+# nounset just around the source, then restore it.
 # shellcheck disable=SC1091
-source /opt/ros/humble/setup.bash
+set +u; source /opt/ros/humble/setup.bash; set -u
 
 # 1. Camera driver + compressed transport + build tooling (apt).
 item "installing apt packages (RealSense driver, compressed transport, colcon, rosdep) ..."
