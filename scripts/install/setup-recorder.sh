@@ -69,6 +69,11 @@ rosdep update 2>/dev/null || true
 rosdep install --from-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
   --ignore-src -y --rosdistro humble 2>/dev/null || \
   item "rosdep install skipped/partial — continuing (apt deps above cover the core path)"
+# colcon --symlink-install builds ament_python via `setup.py develop --editable`; the pip installs
+# above can pull a too-new user setuptools that dropped that flag ("option --editable not
+# recognized"). Pin the Humble-compatible setuptools (Ubuntu 22.04's system version).
+item "pinning setuptools for the colcon ament_python build ..."
+pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "setuptools<64"
 # fm-data has a top-level metapackage package.xml, so colcon's recursive discovery stops there and
 # never sees the nested fm_data_record / fm_data_sensors. List their dirs explicitly as base-paths
 # (mirrors fm-data's own README), alongside src/fm_teleop for the tracker + its deps.
