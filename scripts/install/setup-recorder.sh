@@ -31,6 +31,7 @@ item "installing apt packages (RealSense driver, compressed transport, colcon, r
 sudo apt-get update -qq
 sudo apt-get install -y \
   ros-humble-realsense2-camera ros-humble-compressed-image-transport \
+  ros-humble-rosbag2-storage-mcap \
   python3-colcon-common-extensions python3-vcstool python3-rosdep python3-pip \
   python3-opencv git curl
 
@@ -68,7 +69,12 @@ rosdep update 2>/dev/null || true
 rosdep install --from-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
   --ignore-src -y --rosdistro humble 2>/dev/null || \
   item "rosdep install skipped/partial — continuing (apt deps above cover the core path)"
-colcon build --symlink-install --packages-up-to fm_teleop_vision fm_data_record fm_data_sensors
+# fm-data has a top-level metapackage package.xml, so colcon's recursive discovery stops there and
+# never sees the nested fm_data_record / fm_data_sensors. List their dirs explicitly as base-paths
+# (mirrors fm-data's own README), alongside src/fm_teleop for the tracker + its deps.
+colcon build --symlink-install \
+  --base-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
+  --packages-up-to fm_teleop_vision fm_data_record fm_data_sensors
 
 # 4b. --symlink-install can leave the model files in the package share dir as dangling symlinks;
 #     copy the real .task files in so hand_tracker (which resolves them from share) finds them.
