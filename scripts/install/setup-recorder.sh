@@ -102,6 +102,18 @@ if ! grep -q 'scripts/run/dds-lan.sh' "$HOME/.bashrc" 2>/dev/null; then
   } >> "$HOME/.bashrc"
 fi
 
+# 6. Boot service (opt-in via install.sh --recorder --service -> FM_INSTALL_SERVICE=1).
+#    Installs a systemd unit so this host comes up as a headless recorder appliance:
+#    camera + tracker + recorder (armed, idle) + foxglove bridge on boot, driven
+#    remotely from a Mac. A plain --recorder just builds; the appliance is opt-in.
+if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
+  item "installing the recorder boot service (fm-recorder.service) ..."
+  ./scripts/install/install-recorder-service.sh
+else
+  item "boot service not installed — add it anytime with:"
+  item "  ./scripts/install/install-recorder-service.sh   (or reinstall with --service)"
+fi
+
 item "recorder provisioned at $ROOT"
 cat <<EOF
 
@@ -119,5 +131,10 @@ Next — plug the RealSense into a USB3 port, open a NEW terminal, then:
   ros2 topic pub --once /fm_data_record/episode_marker std_msgs/msg/String "data: '{\\"event\\": \\"start\\"}'"
   #   ... do the task ...
   ros2 topic pub --once /fm_data_record/episode_marker std_msgs/msg/String "data: '{\\"event\\": \\"end\\"}'"
-  # Bags land under ./recordings (output_dir in egocentric_head.yaml); fm_data_package ships them onward.
+  # Bags land under ~/recordings (output_dir in egocentric_head.yaml); fm_data_package ships them onward.
+
+  # Installed the boot service (--service)? Then the stack above already runs on boot —
+  # just drive REC/STOP from a Mac and watch the service:
+  #   open src/fm_app/fm_viewer/webgui/index.html?ws=ws://<this-host-ip>:8765
+  #   systemctl status fm-recorder    |    journalctl -u fm-recorder -f
 EOF
