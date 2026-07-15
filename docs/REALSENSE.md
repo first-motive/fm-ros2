@@ -81,3 +81,59 @@ ros2 topic echo --once --qos-reliability best_effort --field format /camera/head
 
 Compressed **color + IMU** stream to the Mac cleanly. **Depth does not** — record it on the Linux
 machine (above) and sync the bags.
+
+## Run on boot (headless appliance)
+
+The end state is a **screenless companion computer** (a Jetson; today's Linux box stands in for it)
+that boots straight into recording-ready — no login, no `ros2 launch` by hand. `install.sh
+--recorder --service` installs a **systemd service** (`fm-recorder.service`) that runs
+`scripts/run/recorder-boot.sh` on every boot: it sources ROS + the workspace overlay + `dds-lan.sh`,
+then launches the whole stack via `egocentric_record.launch.py` —
+
+    head camera (/head + aligned depth) + hand tracker + recorder (armed, idle) + foxglove bridge (:8765)
+
+The recorder comes up **armed but idle**: it waits for a REC command and records nothing until one
+arrives. Nothing needs a display on the host.
+
+### Install
+
+```bash
+./install.sh --recorder --service                 # build + install + enable + start
+# already built? just add the service:
+./scripts/install/install-recorder-service.sh
+```
+
+### Operate + watch
+
+```bash
+systemctl status fm-recorder                       # active (running)?
+journalctl -u fm-recorder -f                       # camera bring-up, depth ~30 Hz, "waiting for episode markers"
+sudo systemctl restart fm-recorder                 # apply an /etc/fm-recorder.env change
+```
+
+Drive **REC/STOP from a Mac** on the same network (nothing runs on the host's screen):
+
+```
+open src/fm_app/fm_viewer/webgui/index.html?ws=ws://<host-ip>:8765
+# or point Foxglove Studio at ws://<host-ip>:8765
+```
+
+The REC/STOP button publishes `/capture/record` (Bool); `/capture/status` shows recording/idle.
+Episodes land in **`~/recordings`** on the host — depth never crosses the network.
+
+### Tune — `/etc/fm-recorder.env`
+
+| Knob | Default | Use |
+|---|---|---|
+| `FM_LAN_IP` | (auto) | pin the DDS LAN interface if boot-time auto-detect picks the wrong IP |
+| `FM_RECORDER_TRACKER` | `on` | set `off` where MediaPipe won't install (some Jetsons) — still captures RGB-D + IMU |
+| `FM_RECORDER_RECORD` | `true` | `false` = preview (camera + bridge + status, no capture) |
+| `FM_RECORDER_FOXGLOVE` | `true` | `false` if a Mac-side app owns `:8765` |
+
+### Remove
+
+```bash
+./install.sh uninstall                             # (also) removes the service
+# or directly:
+./scripts/install/install-recorder-service.sh uninstall
+```
