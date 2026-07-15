@@ -133,6 +133,9 @@ Options:
   --no-learning       skip the learning overlay even as a team member
   --no-desktop        skip the First Motive app in the team-extras step (members)
   --no-ai             skip the AI harness in the team-extras step (members)
+  --service           recorder path only: also install + enable + start the boot
+                      service (fm-recorder.service) so the host records on boot —
+                      see docs/REALSENSE.md
   --purge             uninstall only: also drop clean imported repos under src/
                       and external/ (dirty checkouts are kept)
   --dry-run           print what would happen, change nothing (uninstall)
@@ -172,6 +175,7 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "would tear down the compose stack (docker compose down)"
     item "would remove the fm-tools lib cache ($CACHE_DIR)"
     item "would remove the persisted profile (.fm_ros2.json)"
+    item "would remove the recorder boot service (fm-recorder.service), if installed"
     [[ "$purge" == 1 ]] && item "would purge clean imported repos under src/ and external/ (dirty ones kept)"
     return 0
   fi
@@ -198,6 +202,14 @@ do_uninstall() {  # dry no_desktop no_ai purge
   fi
   item "removing the fm-tools lib cache ($CACHE_DIR) ..."
   rm -rf "$CACHE_DIR"
+
+  # Recorder boot service (headless camera-host appliance). Best-effort and Linux-only;
+  # a no-op on hosts that never installed it. Delegated to the split-out installer so the
+  # systemctl teardown lives in one place.
+  if [[ "$(uname -s)" == Linux && -x scripts/install/install-recorder-service.sh ]]; then
+    item "removing the recorder boot service (fm-recorder.service), if present ..."
+    ./scripts/install/install-recorder-service.sh uninstall || true
+  fi
 
   # The persisted profile is bootstrap-owned transient state, written by install
   # and consumed by run.sh. Drop it on teardown so a stale path/viewer never routes
@@ -316,7 +328,7 @@ purge_workspace_repos() {
 
 main() {
   local cmd=install learning=auto dry=0 path="" viewer=foxglove
-  local no_desktop=false no_ai=false purge=0
+  local no_desktop=false no_ai=false purge=0 service=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       install|uninstall) cmd="$1"; shift ;;
@@ -329,6 +341,7 @@ main() {
       --no-desktop) no_desktop=true; shift ;;
       --no-ai) no_ai=true; shift ;;
       --purge) purge=1; shift ;;
+      --service) service=1; shift ;;
       --dry-run) dry=1; shift ;;
       -h|--help) usage; return 0 ;;
       *)
@@ -355,11 +368,18 @@ main() {
     esac
   fi
 
+  # --service installs the boot recorder service, which only makes sense for the
+  # recorder camera-host role.
+  if [[ "$service" == 1 && "$path" != recorder ]]; then
+    echo "error: --service applies only to --recorder (the camera-host role)." >&2
+    return 1
+  fi
+
   # CI self-test hook: arg parse + profile resolution survived the curl|bash pipe —
   # stop before any clone, import, or teardown (covers install AND uninstall). Lets
   # the curl-path test prove the script loads and flag/default routing works, no auth.
   if [[ -n "${FM_SELFTEST:-}" ]]; then
-    echo "selftest ok: install.sh parsed under curl|bash (cmd=$cmd, path=$path, viewer=$viewer, learning=$learning, no_desktop=$no_desktop, no_ai=$no_ai, purge=$purge)"
+    echo "selftest ok: install.sh parsed under curl|bash (cmd=$cmd, path=$path, viewer=$viewer, learning=$learning, no_desktop=$no_desktop, no_ai=$no_ai, purge=$purge, service=$service)"
     return 0
   fi
 
@@ -443,8 +463,9 @@ main() {
   if [[ "$path" == recorder ]]; then
     # Recorder: native Linux camera host — RealSense driver, MediaPipe tracker, episode
     # recording, DDS-to-laptops. No pixi/container, no viewer install (headless).
+    # --service (FM_INSTALL_SERVICE=1) also installs the on-boot appliance service.
     step "Recorder Setup"
-    ./scripts/install/setup-recorder.sh
+    FM_INSTALL_SERVICE="$service" ./scripts/install/setup-recorder.sh
   elif [[ "$path" == native ]]; then
     # Native: bootstrap pixi, solve the RoboStack env, install the viewer. native.sh
     # installs foxglove itself (per platform) and leaves rviz/none to the pixi env.
