@@ -47,6 +47,9 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 #    is installed into the package share dir.
 item "installing MediaPipe==$MEDIAPIPE_VERSION + downloading the hand model ..."
 pip3 install --user "mediapipe==$MEDIAPIPE_VERSION"
+# MediaPipe pulls numpy 2.x, but the system matplotlib (a MediaPipe import dep) is built for
+# numpy 1.x ("_ARRAY_API not found" / "numpy.core.multiarray failed to import"). Pin numpy < 2.
+pip3 install --user "numpy<2"
 bash src/fm_teleop/fm_teleop_vision/scripts/download_model.sh
 
 # 4. Data engine — clone the private fm-data (the recorder + sensors live there) if absent.
