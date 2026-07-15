@@ -117,6 +117,9 @@ Usage: ./install.sh [install|uninstall] [options]
 Path (where the stack runs):
   --native            native ROS2 via pixi + RoboStack (default on macOS/Windows)
   --container         Docker + compose (default on Linux; tests/CI/parity elsewhere)
+  --recorder          native Linux camera host: RealSense driver + hand tracker +
+                      episode recording, streaming to laptops over DDS. Ubuntu 22.04
+                      + ROS 2 Humble required. See docs/REALSENSE.md.
 
 Viewer:
   --viewer VIEWER     foxglove (default) | rviz | panel | none
@@ -319,6 +322,7 @@ main() {
       install|uninstall) cmd="$1"; shift ;;
       --native) path=native; shift ;;
       --container) path=container; shift ;;
+      --recorder) path=recorder; shift ;;
       --viewer) viewer="${2:?--viewer needs a value}"; shift 2 ;;
       --learning) learning=on; shift ;;
       --no-learning) learning=off; shift ;;
@@ -414,9 +418,12 @@ main() {
   # typo in the transcript) — pin the C locale for a stable "5.5M".
   item "imported — $(LC_ALL=C du -sh src 2>/dev/null | cut -f1) in src/"
 
-  # Vendor the external sources the build consumes into external/.
-  step "Vendor Externals"
-  ./scripts/install/import-externals.sh
+  # Vendor the external sources the build consumes into external/. The recorder role builds
+  # only the tracker (no sim/robot/MoveIt), so it skips the heavy external vendoring.
+  if [[ "$path" != recorder ]]; then
+    step "Vendor Externals"
+    ./scripts/install/import-externals.sh
+  fi
 
   # --learning forces the private learning overlay and must fail loud without org
   # access, so a non-member cannot silently miss it. The clone + import themselves
@@ -433,7 +440,12 @@ main() {
 
   # Set up the selected path and viewer, then persist the profile. run.sh reads
   # .fm_ros2.json to route the launch; both paths share the imported workspace above.
-  if [[ "$path" == native ]]; then
+  if [[ "$path" == recorder ]]; then
+    # Recorder: native Linux camera host — RealSense driver, MediaPipe tracker, episode
+    # recording, DDS-to-laptops. No pixi/container, no viewer install (headless).
+    step "Recorder Setup"
+    ./scripts/install/setup-recorder.sh
+  elif [[ "$path" == native ]]; then
     # Native: bootstrap pixi, solve the RoboStack env, install the viewer. native.sh
     # installs foxglove itself (per platform) and leaves rviz/none to the pixi env.
     step "Native Env"
@@ -462,31 +474,40 @@ main() {
     ./scripts/install/install-socat.sh
   fi
 
-  write_profile "$path" "$viewer"
+  # The recorder is a headless camera host — no run.sh routing profile and no team
+  # extras (app / AI harness / learning overlay). setup-recorder.sh already printed its
+  # run commands, so just close out below.
+  if [[ "$path" != recorder ]]; then
+    write_profile "$path" "$viewer"
 
-  # Team members with org access get the private extras layered on top — the app,
-  # the AI harness, and the learning overlay — everyone else stops at the
-  # provisioned public workspace above. The overlay clone + import lives inside the
-  # auth-gated team-setup step (it names the private learning repos, which this
-  # public installer must not), so forward the learning choice as a flag: off skips
-  # it, on forces it (already gated above), auto lets team-setup apply its default.
-  local -a extra_flags=()
-  [[ "$no_desktop" == true ]] && extra_flags+=(--no-desktop)
-  [[ "$no_ai" == true ]] && extra_flags+=(--no-ai)
-  [[ "$learning" == off ]] && extra_flags+=(--no-learning)
-  [[ "$learning" == on ]] && extra_flags+=(--learning)
-  # bash 3.2 (macOS) errors on "${arr[@]}" for an empty array under set -u — guard
-  # the expansion so an unflagged run passes no args instead of tripping unbound.
-  maybe_install_team_extras ${extra_flags[@]+"${extra_flags[@]}"}
+    # Team members with org access get the private extras layered on top — the app,
+    # the AI harness, and the learning overlay — everyone else stops at the
+    # provisioned public workspace above. The overlay clone + import lives inside the
+    # auth-gated team-setup step (it names the private learning repos, which this
+    # public installer must not), so forward the learning choice as a flag: off skips
+    # it, on forces it (already gated above), auto lets team-setup apply its default.
+    local -a extra_flags=()
+    [[ "$no_desktop" == true ]] && extra_flags+=(--no-desktop)
+    [[ "$no_ai" == true ]] && extra_flags+=(--no-ai)
+    [[ "$learning" == off ]] && extra_flags+=(--no-learning)
+    [[ "$learning" == on ]] && extra_flags+=(--learning)
+    # bash 3.2 (macOS) errors on "${arr[@]}" for an empty array under set -u — guard
+    # the expansion so an unflagged run passes no args instead of tripping unbound.
+    maybe_install_team_extras ${extra_flags[@]+"${extra_flags[@]}"}
+  fi
 
   # Setup ends here. run.sh builds and launches the interactive TUI, which needs a
   # controlling terminal — so it is the user's next step, not a curl|bash handoff.
   step "Ready"
   item "workspace provisioned at $PWD (path=$path, viewer=$viewer)"
-  # In-tree re-run: the user is already in the workspace, so drop the cd hint.
-  local next="cd $TARGET && ./run.sh"
-  if [[ "$TARGET" == "." ]]; then next="./run.sh"; fi
-  item "next: $next    (build + launch, from your terminal)"
+  if [[ "$path" == recorder ]]; then
+    item "recorder ready — see the camera/tracker/record commands above (and docs/REALSENSE.md)"
+  else
+    # In-tree re-run: the user is already in the workspace, so drop the cd hint.
+    local next="cd $TARGET && ./run.sh"
+    if [[ "$TARGET" == "." ]]; then next="./run.sh"; fi
+    item "next: $next    (build + launch, from your terminal)"
+  fi
 }
 
 main "$@"
