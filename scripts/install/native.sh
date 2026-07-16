@@ -102,6 +102,13 @@ main() {
   # branded transcript on success; a failed solve still replays its full log.
   echo "solving the native ROS2 env (pixi install) — first run takes a few minutes ..."
   spin "solving env" pixi install
+  # macOS: heal RoboStack's controller_manager condition_variable crash in the freshly
+  # solved env so ros2_control runs natively (ros2_control #604 — see the script). It
+  # also self-heals on every build via native-build.sh, but priming here makes the env
+  # usable right away. No-op off macOS; never aborts the install.
+  if [ "$(uname -s)" = "Darwin" ]; then
+    spin "patching controller_manager (macOS)" pixi run bash scripts/install/patch-ros2-control-macos.sh || true
+  fi
   install_viewer
   echo "native env ready — run.sh builds and launches from here."
 }

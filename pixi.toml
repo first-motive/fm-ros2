@@ -50,15 +50,16 @@ ros-humble-foxglove-bridge = "*"
 ros-humble-spacenav = ">=3.3.0,<4"
 ros-humble-image-transport-plugins = "*"
 
-# Build the full colcon workspace (src/ + external/) from the host. Point CMake's
-# FindPython at the env interpreter — rosidl_generator_py (used by unitree_api and
-# other interface packages) cannot otherwise locate the conda Python's dev
-# component on osx-arm64, and the failure aborts the whole build. PYTHONWARNINGS
+# Build the full colcon workspace (src/ + external/) from the host via
+# scripts/run/native-build.sh, which points CMake's FindPython at the env interpreter
+# (rosidl_generator_py cannot otherwise locate the conda Python's dev component on
+# osx-arm64, and the failure aborts the whole build) and, on macOS, heals the
+# controller_manager bug + adds -dead_strip_dylibs (see that script). PYTHONWARNINGS
 # silences setuptools' per-package "Unknown distribution option: 'tests_require'"
 # spam (same pattern install.sh uses for the pkg_resources warning) until the
 # package repos drop the deprecated tests_require from their setup.py.
 [tasks.build]
-cmd = "colcon build --symlink-install --cmake-args -DPython_EXECUTABLE=$CONDA_PREFIX/bin/python -DPython3_EXECUTABLE=$CONDA_PREFIX/bin/python"
+cmd = "bash scripts/run/native-build.sh"
 env = { PYTHONWARNINGS = "ignore:Unknown distribution option:UserWarning" }
 
 # Run the fm_ package tests natively.
