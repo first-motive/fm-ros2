@@ -43,7 +43,10 @@ else
       <transport_descriptor>
         <transport_id>lan_only</transport_id>
         <type>UDPv4</type>
-        <interfaceWhiteList><address>${_fm_ip}</address></interfaceWhiteList>
+        <!-- ${_fm_ip}: cross-host (Mac <-> rig). 127.0.0.1: same-host best_effort
+             delivery, which the single-NIC whitelist otherwise drops (camera ->
+             tracker -> recorder on the rig; sim <-> mirror_source on the Mac). -->
+        <interfaceWhiteList><address>${_fm_ip}</address><address>127.0.0.1</address></interfaceWhiteList>
       </transport_descriptor>
     </transport_descriptors>
     <participant profile_name="default_participant" is_default_profile="true">
