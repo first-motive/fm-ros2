@@ -152,27 +152,6 @@ open_views_when_ready() {
   if [[ "$open_fg" == true ]]; then item "Foxglove Studio (3D arm): opens when a view starts"; fi
 }
 
-# Fork the host-side camera relay manager (macOS only). The vision TUI runs inside
-# the container and cannot start the camera source the vision node reads from — the
-# Mac's AVFoundation camera or a socat relay to the phone both live on the host. So
-# the TUI persists the operator's camera choice to .fm_tui.json and this host process
-# watches that file and keeps :8090 fed (see scripts/run/camera-bridge.sh). Bound to
-# the fm container's lifetime; a fresh run replaces any prior manager via a pidfile.
-# Skipped off macOS (the Linux overlay passes a /dev camera straight in) and when the
-# script is absent. Reads OVERLAY / COMPOSE / SERVICE / FM_WS set by main (dynamic scope).
-start_camera_bridge() {
-  [[ "$OVERLAY" == docker/compose.macos.yaml ]] || return 0
-  [[ -f "$FM_WS/scripts/run/camera-bridge.sh" ]] || return 0
-  command -v socat >/dev/null 2>&1 ||
-    item "camera: socat not found (brew install socat) — phone relay unavailable"
-  local cid
-  cid=$("${COMPOSE[@]}" ps -q "$SERVICE" 2>/dev/null | head -1)
-  bash "$FM_WS/scripts/run/camera-bridge.sh" "$FM_WS/.fm_tui.json" "$cid" \
-    >"${TMPDIR:-/tmp}/fm-camera-bridge.log" 2>&1 &
-  disown 2>/dev/null || true
-  item "Camera relay: :8090 managed from your TUI camera choice (mac built-in / phone)"
-}
-
 # Serve the macOS rviz view over VNC. rviz has no native macOS build and cannot
 # render over XQuartz's indirect GLX on Apple Silicon, so it renders inside the
 # container against Xvfb + software GL (llvmpipe); scripts/run/rviz-vnc.sh starts that
@@ -430,8 +409,6 @@ main() {
   item "Vision control GUI (camera + 3D arm + engage/reset/record): opens in your browser"
   item "teardown: ${COMPOSE[*]} down"
   open_views_when_ready
-  # Keep :8090 fed by whichever camera the operator picks in the TUI (macOS host-side).
-  start_camera_bridge
   # When rviz is the macOS default, bring up the in-container display + noVNC
   # bridge and open the browser. The launcher then renders rviz on that display.
   local launch_env=(-e COLORTERM -e TERM -e FM_TUI_CONFIG -e FM_HOST_OS)
