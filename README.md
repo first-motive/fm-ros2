@@ -55,6 +55,14 @@ or use the fm-desktop repo's own `install.sh` directly. See
 viewer with flags; the choice is written to `.fm_ros2.json`, and `run.sh` reads it
 to dispatch.
 
+On **macOS the native path is self-contained** — the one-liner brings up the full
+stack, including the MuJoCo sim, with no Docker. `import-externals.sh` vendors and
+patches `mujoco_ros2_control` for macOS (RoboStack ships no build), the pixi env
+carries the hand-tracking deps (mediapipe, trimesh, pycollada), and `pixi run
+build` heals the ros2_control + MuJoCo dylibs and links the workspace message
+typesupport so custom-message C++ nodes load. A fresh MacBook needs only the
+one-liner and `./run.sh`.
+
 ```bash
 curl ... | bash -s -- --native --viewer foxglove   # pixi/RoboStack, Foxglove
 curl ... | bash -s -- --container                  # Docker + compose

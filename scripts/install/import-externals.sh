@@ -84,8 +84,16 @@ main() {
   # Linux the usb_cam binary is used instead, so both stay COLCON_IGNORE'd (they fall
   # through the loop below) — the inverse of feetech_ros2_driver, which is ignored on
   # every path.
+  #
+  # MuJoCo sim backend: same posture. The container installs the
+  # ros-humble-mujoco-ros2-control apt binary; robostack has no osx-arm64 build, so
+  # the native Mac builds mujoco_ros2_control from source, patched for macOS by
+  # patch-mujoco-macos.sh (invoked below), which also writes the mujoco_vendor shim.
   if [[ "$(uname -s)" == "Darwin" ]]; then
-    BUILD_DIRS+=(opencv_cam ros2_shared)
+    BUILD_DIRS+=(opencv_cam ros2_shared mujoco_ros2_control mujoco_vendor)
+    # Runs before the COLCON_IGNORE pass so the freshly written external/mujoco_vendor
+    # is seen (and kept) by the marker loop and the post-import existence check.
+    bash "$(dirname "${BASH_SOURCE[0]}")/patch-mujoco-macos.sh"
   fi
   # Sub-packages inside a built repo that must stay OUT of the build. openarm_hardware
   # is C++ SocketCAN (Linux-only, needs openarm_can) and joins the build only on the

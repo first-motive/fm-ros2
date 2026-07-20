@@ -115,6 +115,19 @@ repositories:
     type: git
     url: https://github.com/enactic/openarm_mujoco.git
     version: 5c6e1b4c71cbe27c6a4b58c7f198f080449e1b9c  # master @ 2026-06-03; fork before patching
+  mujoco_ros2_control:
+    # MuJoCo ros2_control backend (system interface + msgs + plugins + demos).
+    # The container installs the ros-humble apt binary; RoboStack ships no
+    # osx-arm64 build, so the native Mac BUILDS this from source (Darwin joins
+    # BUILD_DIRS in import-externals.sh, Linux keeps it COLCON_IGNORE'd).
+    # patch-mujoco-macos.sh applies the macOS patch set on top (2.51-API
+    # downgrade, Mach-O rpaths, headless camera gate) and writes the sibling
+    # external/mujoco_vendor shim that satisfies its mujoco_vendor dependency
+    # from conda's libmujoco. Pinned to tag 0.0.3 — the rosdistro humble
+    # release the container's apt binary is built from. Apache-2.0.
+    type: git
+    url: https://github.com/ros-controls/mujoco_ros2_control.git
+    version: 35ba8174b62d9560093614f981a3d4b978a96036  # tag 0.0.3; fork before patching further
   opencv_cam:
     # Native macOS wrist-camera driver: an OpenCV VideoCapture ROS2 node (AVFoundation
     # on macOS). robostack osx-arm64 ships no generic USB camera driver (no usb_cam,

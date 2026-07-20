@@ -1,0 +1,212 @@
+diff --git a/mujoco_ros2_control/CMakeLists.txt b/mujoco_ros2_control/CMakeLists.txt
+index 9e30a29..9a3f6f4 100644
+--- a/mujoco_ros2_control/CMakeLists.txt
++++ b/mujoco_ros2_control/CMakeLists.txt
+@@ -21,6 +21,16 @@ find_package(mujoco_ros2_control_msgs REQUIRED)
+ find_package(mujoco_ros2_control_plugins REQUIRED)
+ find_package(Threads REQUIRED)
+ find_package(transmission_interface REQUIRED)
++# RoboStack's hardware_interface exports only <prefix>/include (Humble's flat header
++# layout) but generates version.h into the modern nested one,
++# <prefix>/include/hardware_interface/hardware_interface/version.h. So
++# `#include <hardware_interface/version.h>` cannot resolve through
++# hardware_interface_INCLUDE_DIRS. Locate the nested root and add it below.
++find_path(hardware_interface_NESTED_INCLUDE_DIR
++  NAMES hardware_interface/version.h
++  HINTS ${hardware_interface_INCLUDE_DIRS}
++  PATH_SUFFIXES hardware_interface
++)
+ find_package(backward_ros REQUIRED)
+ find_package(tinyxml2_vendor QUIET)
+ find_package(TinyXML2 REQUIRED)
+@@ -152,22 +162,44 @@ add_library(mujoco_ros2_control SHARED
+ # Ensure MuJoCo library can be found at runtime regardless of how it was installed above.
+ # mujoco_vendor installs libmujoco.so under opt/mujoco_vendor/lib/ relative to the
+ # install prefix, so that directory must be in the RPATH alongside the standard lib/.
+-set_target_properties(mujoco_ros2_control PROPERTIES
+-  INSTALL_RPATH "\$ORIGIN/../lib;\$ORIGIN/../opt/mujoco_vendor/lib;${CMAKE_INSTALL_PREFIX}/lib"
+-)
++if(APPLE)
++  # Mach-O spells the loader-relative prefix @loader_path, not $ORIGIN.
++  set_target_properties(mujoco_ros2_control PROPERTIES
++    INSTALL_RPATH "@loader_path/../lib;@loader_path/../opt/mujoco_vendor/lib;${CMAKE_INSTALL_PREFIX}/lib"
++  )
++else()
++  set_target_properties(mujoco_ros2_control PROPERTIES
++    INSTALL_RPATH "\$ORIGIN/../lib;\$ORIGIN/../opt/mujoco_vendor/lib;${CMAKE_INSTALL_PREFIX}/lib"
++  )
++endif()
++# Setting INSTALL_RPATH explicitly above replaces the rpath CMake would otherwise derive
++# from the link line. On apt Linux that is harmless — the loader finds librcl and friends
++# through ld.so.conf. In a conda/pixi env nothing is on a global search path, so every ROS
++# dylib must be reachable by rpath or the library dlopens to "@rpath/librcl.dylib not
++# loaded". Re-enable the derived entries so the env's lib dir is appended.
++set_target_properties(mujoco_ros2_control PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+ # MuJoCo has TinyXML2 statically linked, which conflicts with the system TinyXML2
+ # used by FastDDS. We need to ensure the system TinyXML2 is loaded first.
+ # Force tinyxml2 to appear first in the DT_NEEDED entries by using LINK_OPTIONS.
+ # TODO: Remove this after the following is resolved and the next ROS sync
+ # https://github.com/pal-robotics/mujoco_vendor/issues/2
+-target_link_options(mujoco_ros2_control PUBLIC
+-  "LINKER:--push-state,--no-as-needed"
+-  "$<TARGET_LINKER_FILE:tinyxml2::tinyxml2>"
+-  "LINKER:--pop-state"
+-)
++#
++# Mach-O has no DT_NEEDED and no --as-needed, so there is no load order to force and
++# ld rejects the flags outright. The conflict this guards against cannot arise here:
++# it is an ELF symbol-interposition artifact. Skip the block on Apple.
++if(NOT APPLE)
++  target_link_options(mujoco_ros2_control PUBLIC
++    "LINKER:--push-state,--no-as-needed"
++    "$<TARGET_LINKER_FILE:tinyxml2::tinyxml2>"
++    "LINKER:--pop-state"
++  )
++endif()
+ target_link_libraries(mujoco_ros2_control
+ PUBLIC
+-  hardware_interface::hardware_interface
++  # RoboStack's Humble hardware_interface (2.51.0) predates ros2_control's namespaced
++  # target export (added in 2.54.0) and still exports the old ament variables. macOS is
++  # capped at 2.51.0 by the ros2-distro-mutex 0.7 pin, so use the variable form.
++  ${hardware_interface_LIBRARIES}
+   rclcpp::rclcpp
+   rclcpp_lifecycle::rclcpp_lifecycle
+   ${nav_msgs_TARGETS}
+@@ -194,7 +226,12 @@ target_include_directories(mujoco_ros2_control PUBLIC
+   $<INSTALL_INTERFACE:include>
+   $<INSTALL_INTERFACE:${MUJOCO_INSTALL_INCLUDE_DIR}>
+   $<INSTALL_INTERFACE:${MUJOCO_INSTALL_SIMULATE_DIR}>
+-  $<TARGET_PROPERTY:transmission_interface::transmission_interface,INTERFACE_INCLUDE_DIRECTORIES>
++  # transmission_interface (2.51.0) exports no namespaced target to read the property
++  # off; its ament variable carries the same include dirs. Headers only either way,
++  # which is what the note above requires.
++  ${transmission_interface_INCLUDE_DIRS}
++  ${hardware_interface_INCLUDE_DIRS}
++  ${hardware_interface_NESTED_INCLUDE_DIR}
+   $<TARGET_PROPERTY:mujoco_ros2_control_plugins::mujoco_ros2_control_plugins,INTERFACE_INCLUDE_DIRECTORIES>
+ )
+ # Mark MuJoCo source as system to avoid compiler warnings
+@@ -217,8 +254,13 @@ install(DIRECTORY include/ DESTINATION include)
+ 
+ # Install the ROS 2 control node
+ add_executable(ros2_control_node src/mujoco_ros2_control_node.cpp)
++# controller_manager (2.51.0) exports old-style ament variables, not a namespaced target.
+ target_link_libraries(ros2_control_node PUBLIC
+-  controller_manager::controller_manager
++  ${controller_manager_LIBRARIES}
++)
++target_include_directories(ros2_control_node PUBLIC
++  ${controller_manager_INCLUDE_DIRS}
++  ${hardware_interface_NESTED_INCLUDE_DIR}
+ )
+ install(
+   TARGETS ros2_control_node
+diff --git a/mujoco_ros2_control/src/mujoco_system_interface.cpp b/mujoco_ros2_control/src/mujoco_system_interface.cpp
+index a0d5f27..9afc6e7 100644
+--- a/mujoco_ros2_control/src/mujoco_system_interface.cpp
++++ b/mujoco_ros2_control/src/mujoco_system_interface.cpp
+@@ -1087,10 +1087,19 @@ MujocoSystemInterface::on_init(const hardware_interface::HardwareComponentInterf
+   RCLCPP_INFO(get_logger(), "Created step_simulation service at: %s/step_simulation",
+               get_node()->get_fully_qualified_name());
+ 
+-  // Ready cameras
+-  RCLCPP_INFO(get_logger(), "Initializing cameras...");
+-  cameras_ = std::make_unique<MujocoCameras>(get_node(), sim_mutex_, mj_data_, mj_model_, camera_publish_rate);
+-  cameras_->register_cameras(get_hardware_info());
++  // Ready cameras. In headless mode there is no GL context to render into (the
++  // camera loop creates a GLFW window, which macOS additionally forbids off the
++  // main thread), so camera rendering is disabled entirely.
++  if (headless_)
++  {
++    RCLCPP_WARN(get_logger(), "Headless mode: MJCF camera rendering disabled.");
++  }
++  else
++  {
++    RCLCPP_INFO(get_logger(), "Initializing cameras...");
++    cameras_ = std::make_unique<MujocoCameras>(get_node(), sim_mutex_, mj_data_, mj_model_, camera_publish_rate);
++    cameras_->register_cameras(get_hardware_info());
++  }
+ 
+   // Configure Lidar sensors
+   RCLCPP_INFO(get_logger(), "Initializing lidar...");
+@@ -1350,8 +1359,11 @@ hardware_interface::CallbackReturn MujocoSystemInterface::on_activate(const rclc
+ {
+   RCLCPP_INFO(get_logger(), "Activating MuJoCo hardware interface and starting Simulate threads...");
+ 
+-  // Start camera and sensor rendering loops
+-  cameras_->init();
++  // Start camera and sensor rendering loops (cameras are absent in headless mode)
++  if (cameras_)
++  {
++    cameras_->init();
++  }
+   lidar_sensors_->init();
+ 
+   return hardware_interface::CallbackReturn::SUCCESS;
+diff --git a/mujoco_ros2_control/tests/CMakeLists.txt b/mujoco_ros2_control/tests/CMakeLists.txt
+index c1a99d3..2814ea7 100644
+--- a/mujoco_ros2_control/tests/CMakeLists.txt
++++ b/mujoco_ros2_control/tests/CMakeLists.txt
+@@ -11,7 +11,11 @@ ament_add_gtest(test_headless_init test_headless_init.cpp)
+ target_link_libraries(test_headless_init
+   mujoco_ros2_control
+   rclcpp::rclcpp
+-  hardware_interface::hardware_interface
++  # 2.51.0 exports no namespaced target — see the note in ../CMakeLists.txt.
++  ${hardware_interface_LIBRARIES}
++)
++target_include_directories(test_headless_init PUBLIC
++  ${hardware_interface_NESTED_INCLUDE_DIR}
+ )
+ 
+ ament_add_pytest_test(test_urdf_to_mujoco_utils test_urdf_to_mujoco_utils.py)
+diff --git a/mujoco_ros2_control_plugins/CMakeLists.txt b/mujoco_ros2_control_plugins/CMakeLists.txt
+index 5800ce3..8292f78 100644
+--- a/mujoco_ros2_control_plugins/CMakeLists.txt
++++ b/mujoco_ros2_control_plugins/CMakeLists.txt
+@@ -76,11 +76,17 @@ if(BUILD_TESTING)
+   # Force tinyxml2 to appear first in the DT_NEEDED entries by using LINK_OPTIONS.
+   # TODO: Remove this after the following is resolved and the next ROS sync
+   # https://github.com/pal-robotics/mujoco_vendor/issues/2
+-  target_link_options(test_external_wrench_plugin PUBLIC
+-    "LINKER:--push-state,--no-as-needed"
+-    "$<TARGET_LINKER_FILE:tinyxml2::tinyxml2>"
+-    "LINKER:--pop-state"
+-  )
++  #
++  # Mach-O has no DT_NEEDED and no --as-needed, so there is no load order to force and
++  # ld rejects these flags outright ("unknown options: --push-state ..."). The conflict
++  # is an ELF symbol-interposition artifact and cannot arise here. Skip on Apple.
++  if(NOT APPLE)
++    target_link_options(test_external_wrench_plugin PUBLIC
++      "LINKER:--push-state,--no-as-needed"
++      "$<TARGET_LINKER_FILE:tinyxml2::tinyxml2>"
++      "LINKER:--pop-state"
++    )
++  endif()
+ 
+ endif()
+ 
+diff --git a/mujoco_ros2_control_plugins/src/heartbeat_publisher_plugin.cpp b/mujoco_ros2_control_plugins/src/heartbeat_publisher_plugin.cpp
+index 2f0e15d..33d5e26 100644
+--- a/mujoco_ros2_control_plugins/src/heartbeat_publisher_plugin.cpp
++++ b/mujoco_ros2_control_plugins/src/heartbeat_publisher_plugin.cpp
+@@ -50,7 +50,7 @@ void HeartbeatPublisherPlugin::update(const mjModel* /*model*/, mjData* data)
+ 
+     heartbeat_publisher_->publish(message);
+ 
+-    RCLCPP_DEBUG(logger_, "Published heartbeat #%lu at simulation time %.3f", message_count_, data->time);
++    RCLCPP_DEBUG(logger_, "Published heartbeat #%lu at simulation time %.3f", static_cast<unsigned long>(message_count_), data->time);
+ 
+     message_count_++;
+     last_publish_time_ = current_time;
+@@ -59,7 +59,7 @@ void HeartbeatPublisherPlugin::update(const mjModel* /*model*/, mjData* data)
+ 
+ void HeartbeatPublisherPlugin::cleanup()
+ {
+-  RCLCPP_INFO(logger_, "HeartbeatPublisherPlugin cleanup. Published %lu messages total.", message_count_);
++  RCLCPP_INFO(logger_, "HeartbeatPublisherPlugin cleanup. Published %lu messages total.", static_cast<unsigned long>(message_count_));
+ 
+   heartbeat_publisher_.reset();
+   node_.reset();
