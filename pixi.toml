@@ -26,6 +26,17 @@ ros-humble-joint-state-publisher = ">=2.4.0,<3"
 ros-humble-ros2-control = ">=2.51.0,<3"
 ros-humble-ros2-controllers = ">=2.48.0,<3"
 ros-humble-joint-state-publisher-gui = ">=2.4.0,<3"
+libmujoco = ">=3.10.0,<4"
+glfw = ">=3.4,<4"
+ros-humble-ros2-control-cmake = ">=0.2.1,<0.3"
+ros-humble-backward-ros = ">=1.0.8,<2"
+ros-humble-control-toolbox = ">=3.6.1,<4"
+ros-humble-realtime-tools = ">=2.14.0,<3"
+ros-humble-transmission-interface = ">=2.51.0,<3"
+ros-humble-tinyxml2-vendor = ">=0.7.6,<0.8"
+lodepng = ">=20220109,<20220110"
+trimesh = ">=4.12.2,<5"
+pycollada = ">=0.9.3,<0.10"
 
 # foxglove-bridge and spacenav have no win-64 build on robostack-humble, so both
 # are scoped to the platforms that have them. Native Windows therefore has no
@@ -76,3 +87,4 @@ textual = "==0.74.0"
 rich = ">=15.0.0, <16"
 fm-tools = { git = "https://github.com/first-motive/fm-tools", rev = "5d9ef62f9449321730b8ebcacef7be3bc13448f5" }
 mujoco = ">=3.10.0, <4"
+mediapipe = "==0.10.14"
