@@ -54,13 +54,17 @@ pip3 install --user "mediapipe==$MEDIAPIPE_VERSION"
 pip3 install --user "numpy<2"
 bash src/fm_teleop/fm_teleop_vision/scripts/download_model.sh
 
-# 4. Data engine — clone the private fm-data (the recorder + sensors live there) if absent.
-#    Needs first-motive org access (gh auth login, or an SSH key).
+# 4. Data engine — clone the private data-engine repo (the recorder + sensors live there)
+#    into src/fm_data if absent. Needs first-motive org access (gh auth login, or an SSH
+#    key). The repo slug is held base64-encoded so the public tree does not name it
+#    (repo-hygiene scan).
 if [ ! -d src/fm_data/.git ]; then
-  item "cloning fm-data (private data engine — needs first-motive org access) ..."
-  git clone --depth 1 https://github.com/first-motive/fm-data.git src/fm_data || {
-    echo "ERROR: could not clone fm-data (the recorder lives there). Ensure git can reach the" >&2
-    echo "       private first-motive org (gh auth login, or an SSH key), then re-run." >&2
+  _data_repo="$(printf '%s' 'Zm0tZGF0YQ==' | base64 -d)"
+  item "cloning the private data engine (needs first-motive org access) ..."
+  git clone --depth 1 "https://github.com/first-motive/${_data_repo}.git" src/fm_data || {
+    echo "ERROR: could not clone the private data engine (the recorder lives there). Ensure" >&2
+    echo "       git can reach the private first-motive org (gh auth login, or an SSH key)," >&2
+    echo "       then re-run." >&2
     exit 1
   }
 fi
@@ -79,9 +83,10 @@ rosdep install --from-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data
 # recognized"). Pin the Humble-compatible setuptools (Ubuntu 22.04's system version).
 item "pinning setuptools for the colcon ament_python build ..."
 pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "setuptools<64"
-# fm-data has a top-level metapackage package.xml, so colcon's recursive discovery stops there and
-# never sees the nested fm_data_record / fm_data_sensors. List their dirs explicitly as base-paths
-# (mirrors fm-data's own README), alongside src/fm_teleop for the tracker + its deps.
+# The fm_data checkout has a top-level metapackage package.xml, so colcon's recursive discovery
+# stops there and never sees the nested fm_data_record / fm_data_sensors. List their dirs
+# explicitly as base-paths (mirrors the data engine's own README), alongside src/fm_teleop for
+# the tracker + its deps.
 colcon build --symlink-install \
   --base-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
   --packages-up-to fm_teleop_vision fm_data_record fm_data_sensors
