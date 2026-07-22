@@ -49,5 +49,12 @@ source "$ROOT/install/setup.bash"
 source "$ROOT/scripts/run/dds-lan.sh"
 set -u
 
-exec ros2 launch fm_data process_session.launch.py \
-  recordings_dir:="$RECORDINGS_DIR" output_dir:="$OUTPUT_DIR" config:="$CONFIG"
+# ros2 launch rejects an empty-valued argument ("malformed launch argument
+# 'config:='"), so the config override is appended only when actually set —
+# absent, the launch file's empty default (= the engine default profile) holds.
+# Hit live on the first processor host, 2026-07-22.
+LAUNCH_ARGS=(recordings_dir:="$RECORDINGS_DIR" output_dir:="$OUTPUT_DIR")
+if [ -n "$CONFIG" ]; then
+  LAUNCH_ARGS+=(config:="$CONFIG")
+fi
+exec ros2 launch fm_data process_session.launch.py "${LAUNCH_ARGS[@]}"
