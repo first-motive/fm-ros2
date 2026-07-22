@@ -83,6 +83,45 @@ it with `--learning` (which fails loud without org access):
 curl ... | bash -s -- --no-learning   # skip the overlay
 ```
 
+### Role One-Liners
+
+One command per machine role — the desktop app on a Mac, and the two Linux
+appliance roles the same installer provisions:
+
+**Desktop app (macOS)** — pulls the latest release dmg into `/Applications`.
+The app repo is private, so the script is fetched over an authenticated `gh`:
+
+```bash
+gh api repos/first-motive/fm-desktop/contents/install.sh --jq .content \
+  | base64 --decode | bash
+```
+
+**Recorder (Linux camera host)** — RealSense + hand tracker + episode recorder,
+streaming to the app over the LAN. Ubuntu 22.04 + ROS 2 Humble required;
+`--service` makes it a boot appliance (`fm-recorder.service`). Run from the
+directory that should own the checkout:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh \
+  | bash -s -- --recorder --service
+```
+
+**Data processor (Linux)** — the dataset engine plus the supervisor the desktop
+app's Process surface drives (`/process/*`). Deliberately its own workspace,
+separate from a recorder checkout: the recorder later moves to its own device
+while processing stays on the strong host. `--service` installs
+`fm-processor.service`:
+
+```bash
+mkdir -p ~/processor && cd ~/processor
+curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh \
+  | bash -s -- --processor --service
+```
+
+All three need access to the private `first-motive` org: the Linux roles clone
+private repos over git auth, and the app installer fetches its release through
+`gh`.
+
 <details>
 <summary>Manual steps (fallback)</summary>
 
