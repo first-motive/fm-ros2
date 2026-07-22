@@ -120,6 +120,11 @@ Path (where the stack runs):
   --recorder          native Linux camera host: RealSense driver + hand tracker +
                       episode recording, streaming to laptops over DDS. Ubuntu 22.04
                       + ROS 2 Humble required. See docs/REALSENSE.md.
+  --processor         native Linux dataset-processing host: the fm_data engine +
+                      process_supervisor, driven by the desktop app's Process
+                      surface over /process/*. Its own workspace, deliberately
+                      separate from a recorder checkout (run the one-liner from
+                      e.g. ~/processor). Ubuntu 22.04 + ROS 2 Humble required.
 
 Viewer:
   --viewer VIEWER     foxglove (default) | rviz | panel | none
@@ -133,9 +138,9 @@ Options:
   --no-learning       skip the learning overlay even as a team member
   --no-desktop        skip the First Motive app in the team-extras step (members)
   --no-ai             skip the AI harness in the team-extras step (members)
-  --service           recorder path only: also install + enable + start the boot
-                      service (fm-recorder.service) so the host records on boot —
-                      see docs/REALSENSE.md
+  --service           recorder/processor paths only: also install + enable + start
+                      the boot service (fm-recorder.service / fm-processor.service)
+                      so the host comes up in its role on boot — see docs/REALSENSE.md
   --purge             uninstall only: also drop clean imported repos under src/
                       and external/ (dirty checkouts are kept)
   --dry-run           print what would happen, change nothing (uninstall)
@@ -176,6 +181,7 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "would remove the fm-tools lib cache ($CACHE_DIR)"
     item "would remove the persisted profile (.fm_ros2.json)"
     item "would remove the recorder boot service (fm-recorder.service), if installed"
+    item "would remove the processor boot service (fm-processor.service), if installed"
     [[ "$purge" == 1 ]] && item "would purge clean imported repos under src/ and external/ (dirty ones kept)"
     return 0
   fi
@@ -203,12 +209,16 @@ do_uninstall() {  # dry no_desktop no_ai purge
   item "removing the fm-tools lib cache ($CACHE_DIR) ..."
   rm -rf "$CACHE_DIR"
 
-  # Recorder boot service (headless camera-host appliance). Best-effort and Linux-only;
-  # a no-op on hosts that never installed it. Delegated to the split-out installer so the
-  # systemctl teardown lives in one place.
+  # Recorder/processor boot services (the headless appliance roles). Best-effort and
+  # Linux-only; a no-op on hosts that never installed them. Delegated to the split-out
+  # installers so the systemctl teardown lives in one place.
   if [[ "$(uname -s)" == Linux && -x scripts/install/install-recorder-service.sh ]]; then
     item "removing the recorder boot service (fm-recorder.service), if present ..."
     ./scripts/install/install-recorder-service.sh uninstall || true
+  fi
+  if [[ "$(uname -s)" == Linux && -x scripts/install/install-processor-service.sh ]]; then
+    item "removing the processor boot service (fm-processor.service), if present ..."
+    ./scripts/install/install-processor-service.sh uninstall || true
   fi
 
   # The persisted profile is bootstrap-owned transient state, written by install
@@ -335,6 +345,7 @@ main() {
       --native) path=native; shift ;;
       --container) path=container; shift ;;
       --recorder) path=recorder; shift ;;
+      --processor) path=processor; shift ;;
       --viewer) viewer="${2:?--viewer needs a value}"; shift 2 ;;
       --learning) learning=on; shift ;;
       --no-learning) learning=off; shift ;;
@@ -368,10 +379,10 @@ main() {
     esac
   fi
 
-  # --service installs the boot recorder service, which only makes sense for the
-  # recorder camera-host role.
-  if [[ "$service" == 1 && "$path" != recorder ]]; then
-    echo "error: --service applies only to --recorder (the camera-host role)." >&2
+  # --service installs a boot service, which only makes sense for the appliance
+  # roles: the recorder camera host and the dataset-processing host.
+  if [[ "$service" == 1 && "$path" != recorder && "$path" != processor ]]; then
+    echo "error: --service applies only to --recorder or --processor (the appliance roles)." >&2
     return 1
   fi
 
@@ -422,25 +433,31 @@ main() {
   # Pull the container infra into docker/ and the four public package repos into
   # src/ (manifest paths are root-relative, so import from the root). A failure here
   # is almost always missing org access to the private repos — say so plainly, then
-  # exit non-zero.
-  step "Import Packages"
-  local n; n=$(grep -c 'version:' fm-ros2.repos)
-  item "importing $n repos (container infra + packages) — first run clones, sit tight ..."
-  if ! spin "importing $n repos" vcs import < fm-ros2.repos; then
-    echo "error: failed to import the package repos." >&2
-    echo "       The fm-* package repos are private — this needs git access to the" >&2
-    echo "       first-motive org (SSH key or a credential helper). Check your auth" >&2
-    echo "       and retry." >&2
-    return 1
+  # exit non-zero. The processor role skips the whole import: it needs none of the
+  # teleop/robot/app/sim packages — setup-processor.sh clones the (private) data
+  # engine itself, keeping the processing workspace lean and clearly separated from
+  # a recorder checkout.
+  if [[ "$path" != processor ]]; then
+    step "Import Packages"
+    local n; n=$(grep -c 'version:' fm-ros2.repos)
+    item "importing $n repos (container infra + packages) — first run clones, sit tight ..."
+    if ! spin "importing $n repos" vcs import < fm-ros2.repos; then
+      echo "error: failed to import the package repos." >&2
+      echo "       The fm-* package repos are private — this needs git access to the" >&2
+      echo "       first-motive org (SSH key or a credential helper). Check your auth" >&2
+      echo "       and retry." >&2
+      return 1
+    fi
+
+    # LC_ALL=C: du's size unit honours locale (a comma decimal separator reads as a
+    # typo in the transcript) — pin the C locale for a stable "5.5M".
+    item "imported — $(LC_ALL=C du -sh src 2>/dev/null | cut -f1) in src/"
   fi
 
-  # LC_ALL=C: du's size unit honours locale (a comma decimal separator reads as a
-  # typo in the transcript) — pin the C locale for a stable "5.5M".
-  item "imported — $(LC_ALL=C du -sh src 2>/dev/null | cut -f1) in src/"
-
-  # Vendor the external sources the build consumes into external/. The recorder role builds
-  # only the tracker (no sim/robot/MoveIt), so it skips the heavy external vendoring.
-  if [[ "$path" != recorder ]]; then
+  # Vendor the external sources the build consumes into external/. The recorder role
+  # builds only the tracker and the processor only the data engine (no sim/robot/
+  # MoveIt), so both skip the heavy external vendoring.
+  if [[ "$path" != recorder && "$path" != processor ]]; then
     step "Vendor Externals"
     ./scripts/install/import-externals.sh
   fi
@@ -466,6 +483,12 @@ main() {
     # --service (FM_INSTALL_SERVICE=1) also installs the on-boot appliance service.
     step "Recorder Setup"
     FM_INSTALL_SERVICE="$service" ./scripts/install/setup-recorder.sh
+  elif [[ "$path" == processor ]]; then
+    # Processor: native Linux dataset-processing host — the fm_data engine + the
+    # process_supervisor the desktop app drives. No pixi/container, no viewer
+    # (headless). --service also installs the on-boot appliance service.
+    step "Processor Setup"
+    FM_INSTALL_SERVICE="$service" ./scripts/install/setup-processor.sh
   elif [[ "$path" == native ]]; then
     # Native: bootstrap pixi, solve the RoboStack env, install the viewer. native.sh
     # installs foxglove itself (per platform) and leaves rviz/none to the pixi env.
@@ -485,10 +508,10 @@ main() {
     fi
   fi
 
-  # The recorder is a headless camera host — no run.sh routing profile and no team
-  # extras (app / AI harness / learning overlay). setup-recorder.sh already printed its
-  # run commands, so just close out below.
-  if [[ "$path" != recorder ]]; then
+  # The recorder and processor are headless appliance roles — no run.sh routing
+  # profile and no team extras (app / AI harness / learning overlay). Their setup
+  # scripts already printed run commands, so just close out below.
+  if [[ "$path" != recorder && "$path" != processor ]]; then
     write_profile "$path" "$viewer"
 
     # Team members with org access get the private extras layered on top — the app,
@@ -513,6 +536,8 @@ main() {
   item "workspace provisioned at $PWD (path=$path, viewer=$viewer)"
   if [[ "$path" == recorder ]]; then
     item "recorder ready — see the camera/tracker/record commands above (and docs/REALSENSE.md)"
+  elif [[ "$path" == processor ]]; then
+    item "processor ready — see the process_session launch commands above"
   else
     # In-tree re-run: the user is already in the workspace, so drop the cd hint.
     local next="cd $TARGET && ./run.sh"
