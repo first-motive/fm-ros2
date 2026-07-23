@@ -30,11 +30,12 @@ fi
 set +u; source /opt/ros/humble/setup.bash; set -u
 
 # 1. Build tooling (apt). The engine's bag ingest is the pure-Python `rosbags` pip package,
-#    so no camera drivers and no rosbag2 plugins are needed for this role.
-item "installing apt packages (colcon, rosdep, pip) ..."
+#    so no camera drivers and no rosbag2 plugins are needed for this role. python3-venv is
+#    NOT in stock Ubuntu 22.04 and the engine venv below needs it (hit live, 2026-07-23).
+item "installing apt packages (colcon, rosdep, pip, venv) ..."
 sudo apt-get update -qq
 sudo apt-get install -y \
-  python3-colcon-common-extensions python3-rosdep python3-pip \
+  python3-colcon-common-extensions python3-rosdep python3-pip python3-venv \
   git curl
 
 # 2. Data engine — clone the private data-engine repo (the dataset engine + the recorder's
