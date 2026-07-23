@@ -73,7 +73,11 @@ _busy() {  # role
 _repo_state() {  # dir
   local dir="$1"
   git -C "$dir" fetch -q origin 2>/dev/null || { echo held; return; }
-  if [ -n "$(git -C "$dir" status --porcelain 2>/dev/null)" ]; then
+  # Tracked modifications only: untracked artifacts living in the checkout (the
+  # engine venv, logs, caches) must never wedge the updater — git itself refuses
+  # an ff that would overwrite an untracked file, which is the only unsafe case.
+  # (.engine-venv/ wedged the first tick before it was gitignored, 2026-07-23.)
+  if [ -n "$(git -C "$dir" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
     echo held
     return
   fi
