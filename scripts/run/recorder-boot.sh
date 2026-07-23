@@ -10,6 +10,8 @@
 #
 # Knobs (set in /etc/fm-recorder.env, the unit's EnvironmentFile):
 #   FM_RECORDER_TRACKER=on|off      run the hand tracker (off for a MediaPipe-less host)
+#   FM_RECORDER_LIDAR=auto|on|off   Livox MID-360S (auto = on iff the vendor driver
+#                                   overlay ~/ws_livox is built on this host)
 #   FM_RECORDER_RECORD=true|false   arm the recorder (true = armed+idle, waits for REC)
 #   FM_RECORDER_FOXGLOVE=true|false run the foxglove bridge here (:8765)
 #   FM_LAN_IP=<ip>                  pin the DDS LAN interface (else auto-detected)
@@ -24,6 +26,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TRACKER="${FM_RECORDER_TRACKER:-on}"
 RECORD="${FM_RECORDER_RECORD:-true}"
 FOXGLOVE="${FM_RECORDER_FOXGLOVE:-true}"
+# The Livox vendor driver lives in its own overlay workspace (setup-recorder.sh
+# provisions it best-effort). auto = run the LiDAR exactly when that overlay is
+# built here, so hosts without the sensor keep booting clean.
+LIDAR="${FM_RECORDER_LIDAR:-auto}"
+LIVOX_OVERLAY="$HOME/ws_livox/install/setup.sh"
+if [ "$LIDAR" = auto ]; then
+  [ -f "$LIVOX_OVERLAY" ] && LIDAR=on || LIDAR=off
+fi
 
 # At boot the LAN interface may not be up yet, so dds-lan.sh would find no IP to pin
 # and fall back to default DDS. Wait (bounded, ~30s) for a private-LAN address before
@@ -45,9 +55,14 @@ set +u
 source /opt/ros/humble/setup.bash
 # shellcheck disable=SC1091
 source "$ROOT/install/setup.bash"
+# The Livox driver overlay, when this host has it (lidar:=on needs the package).
+if [ "$LIDAR" = on ] && [ -f "$LIVOX_OVERLAY" ]; then
+  # shellcheck disable=SC1091
+  source "$LIVOX_OVERLAY"
+fi
 # shellcheck disable=SC1091
 source "$ROOT/scripts/run/dds-lan.sh"
 set -u
 
 exec ros2 launch fm_data_record egocentric_record.launch.py \
-  tracker:="$TRACKER" record:="$RECORD" use_foxglove:="$FOXGLOVE"
+  tracker:="$TRACKER" record:="$RECORD" use_foxglove:="$FOXGLOVE" lidar:="$LIDAR"
