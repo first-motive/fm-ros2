@@ -35,7 +35,7 @@ sudo apt-get install -y \
   ros-humble-compressed-image-transport \
   ros-humble-rosbag2-storage-mcap v4l-utils \
   python3-colcon-common-extensions python3-vcstool python3-rosdep python3-pip \
-  python3-opencv git curl
+  python3-opencv git curl cmake build-essential
 
 # 2. RealSense udev rules — required for the IMU (else it fails with Permission denied) and for
 #    non-root device access. Re-plug the camera after this.
@@ -97,6 +97,41 @@ _share_models="install/fm_teleop_vision/share/fm_teleop_vision/models"
 if [ -d "$_share_models" ]; then
   cp -f src/fm_teleop/fm_teleop_vision/models/*.task "$_share_models"/ 2>/dev/null || true
 fi
+
+# 4c. Livox MID-360S chest LiDAR stack (best-effort — an optional sensor must never
+#     cost the camera-host role). The vendor driver builds in its OWN overlay
+#     workspace (~/ws_livox) against the system-installed Livox SDK2, both pinned to
+#     the upstream commits that added MID-360S support. recorder-boot.sh runs the
+#     LiDAR exactly when that overlay exists (FM_RECORDER_LIDAR=auto), and the
+#     driver loads the rig's network identity from fm_data_sensors'
+#     livox_mid360s.json (lidar 192.168.1.131 <- host 192.168.1.10 on the dedicated
+#     second NIC — set that up as a persistent /32 profile, never a live /24;
+#     see the fm-lidar NetworkManager profile).
+item "provisioning the Livox MID-360S stack (best-effort) ..."
+(
+  set -e
+  _livox_sdk_ref=f5d9375   # Support Mid-360S (upstream Livox-SDK2)
+  _livox_drv_ref=13eb05e   # support Mid-360s Lidar (upstream livox_ros_driver2)
+  if [ ! -f /usr/local/lib/liblivox_lidar_sdk_shared.so ]; then
+    [ -d "$HOME/Livox-SDK2" ] || \
+      git clone https://github.com/Livox-SDK/Livox-SDK2.git "$HOME/Livox-SDK2"
+    git -C "$HOME/Livox-SDK2" checkout -q "$_livox_sdk_ref" 2>/dev/null || true
+    cmake -S "$HOME/Livox-SDK2" -B "$HOME/Livox-SDK2/build" >/dev/null
+    cmake --build "$HOME/Livox-SDK2/build" -j"$(nproc)" >/dev/null
+    sudo cmake --install "$HOME/Livox-SDK2/build" >/dev/null
+    sudo ldconfig
+  fi
+  if [ ! -f "$HOME/ws_livox/install/setup.sh" ]; then
+    mkdir -p "$HOME/ws_livox/src"
+    [ -d "$HOME/ws_livox/src/livox_ros_driver2" ] || \
+      git clone https://github.com/Livox-SDK/livox_ros_driver2.git \
+        "$HOME/ws_livox/src/livox_ros_driver2"
+    git -C "$HOME/ws_livox/src/livox_ros_driver2" checkout -q "$_livox_drv_ref" 2>/dev/null || true
+    # The vendor build script selects the ROS2 package.xml and colcon-builds the
+    # overlay workspace (run from the repo dir, per the vendor README).
+    ( cd "$HOME/ws_livox/src/livox_ros_driver2" && ./build.sh humble >/dev/null )
+  fi
+) || item "WARNING: Livox stack provisioning failed — the LiDAR stays off (FM_RECORDER_LIDAR=auto); fix and re-run anytime"
 
 # 5. DDS LAN networking — pin FastDDS to the LAN interface so a Mac actually receives the stream
 #    (extra NICs otherwise break delivery). Auto-source it in every shell.

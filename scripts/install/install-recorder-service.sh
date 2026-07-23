@@ -105,6 +105,9 @@ EOF
 # Hand tracker — set off on a host where MediaPipe won't install (e.g. some Jetsons);
 # the recorder still captures RGB-D + IMU headless without it:
 FM_RECORDER_TRACKER=on
+# Livox MID-360S chest LiDAR — auto runs it exactly when the vendor driver overlay
+# (~/ws_livox) is built on this host; force on|off to override:
+FM_RECORDER_LIDAR=auto
 # Arm the recorder (true = armed + idle, waits for a REC command):
 FM_RECORDER_RECORD=true
 # Run the foxglove bridge here (:8765) for the Mac operator surface:
