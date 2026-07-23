@@ -130,6 +130,10 @@ fi
 if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   item "installing the processor boot service (fm-processor.service) ..."
   ./scripts/install/install-processor-service.sh
+  # An appliance keeps itself current: fetch every ~15 min, converge on merged
+  # updates (busy runs are never interrupted; see appliance-update.sh).
+  item "installing the auto-update timer (fm-update-processor.timer) ..."
+  ./scripts/install/install-update-timer.sh processor
 else
   item "boot service not installed — add it anytime with:"
   item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"

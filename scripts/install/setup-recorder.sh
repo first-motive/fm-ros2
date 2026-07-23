@@ -116,6 +116,10 @@ fi
 if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   item "installing the recorder boot service (fm-recorder.service) ..."
   ./scripts/install/install-recorder-service.sh
+  # An appliance keeps itself current: fetch every ~15 min, converge on merged
+  # updates (a take in flight is never interrupted; see appliance-update.sh).
+  item "installing the auto-update timer (fm-update-recorder.timer) ..."
+  ./scripts/install/install-update-timer.sh recorder
 else
   item "boot service not installed — add it anytime with:"
   item "  ./scripts/install/install-recorder-service.sh   (or reinstall with --service)"
