@@ -150,6 +150,10 @@ if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   # updates (busy runs are never interrupted; see appliance-update.sh).
   item "installing the auto-update timer (fm-update-processor.timer) ..."
   ./scripts/install/install-update-timer.sh processor
+  # Recordings transfer for the two-box split: idle no-op until FM_SYNC_SOURCE
+  # is configured (single-box setups need no transfer; see recordings-sync.sh).
+  item "installing the recordings-sync timer (fm-sync.timer) ..."
+  ./scripts/install/install-sync-timer.sh
 else
   item "boot service not installed — add it anytime with:"
   item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"

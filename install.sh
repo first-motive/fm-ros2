@@ -225,6 +225,10 @@ do_uninstall() {  # dry no_desktop no_ai purge
     ./scripts/install/install-update-timer.sh uninstall recorder || true
     ./scripts/install/install-update-timer.sh uninstall processor || true
   fi
+  if [[ "$(uname -s)" == Linux && -x scripts/install/install-sync-timer.sh ]]; then
+    item "removing the recordings-sync timer (fm-sync), if present ..."
+    ./scripts/install/install-sync-timer.sh uninstall || true
+  fi
 
   # The persisted profile is bootstrap-owned transient state, written by install
   # and consumed by run.sh. Drop it on teardown so a stale path/viewer never routes
