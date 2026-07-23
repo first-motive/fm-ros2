@@ -50,3 +50,6 @@ venv/
 .DS_Store
 
 /docker
+
+# Processor role: the dataset engine's dedicated venv (setup-processor.sh)
+.engine-venv/
