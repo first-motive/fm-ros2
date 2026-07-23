@@ -106,7 +106,8 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
   | bash -s -- --recorder --service
 ```
 
-**Data processor (Linux)** — the dataset engine plus the supervisor the desktop
+**Data processor (Linux)** — the dataset engine, the annotation tooling
+(`annotation_run` / `annotation_verify`), and the supervisor the desktop
 app's Process surface drives (`/process/*`). Deliberately its own workspace,
 separate from a recorder checkout: the recorder later moves to its own device
 while processing stays on the strong host. `--service` installs

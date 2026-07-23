@@ -3,7 +3,9 @@
 # Motive "processor": the dataset engine (fm_data_dataset) plus its process_supervisor node,
 # which the desktop app's Process surface drives over the capture session's foxglove bridge
 # (/process/* topics). It scores recorded episode bags into manifests and, with the RLDS tier
-# installed, emits clean RLDS datasets.
+# installed, emits clean RLDS datasets. The annotation tooling (fm_data_annotate:
+# annotation_run / annotation_verify + the media tier) rides along in the same engine venv —
+# derived-data work belongs on the processing host, beside the recordings it reads.
 #
 # Deliberately a SIBLING role to setup-recorder.sh, installed into its OWN workspace checkout:
 # the recorder stack (a ~/jetson checkout today) moves to a Jetson later, while processing stays
@@ -81,6 +83,13 @@ else
     "$(grep -E '^rosbags==' src/fm_data/fm_data_dataset/requirements-bags.txt)"
 fi
 "$ENGINE_VENV/bin/pip" install --quiet -e src/fm_data/fm_data_dataset
+# Annotation tooling in the same venv: the package (jsonschema contract deps come
+# with it) plus its media tier (Pillow; rosbags is already pinned above), so
+# annotation_run / annotation_verify work against recorded bags on this host. The
+# experiment-only public-surrogate tier (pyarrow/av, fmtower-locked) stays out.
+item "installing the annotation tooling (fm_data_annotate + media tier) into the venv ..."
+"$ENGINE_VENV/bin/pip" install --quiet -e src/fm_data/fm_data_annotate \
+  -r src/fm_data/fm_data_annotate/requirements-media.txt
 if [ "${FM_INSTALL_RLDS:-0}" = 1 ]; then
   item "installing the RLDS emit tier into the venv (TensorFlow + TFDS — large download) ..."
   "$ENGINE_VENV/bin/pip" install -r src/fm_data/fm_data_dataset/requirements-rlds.txt
@@ -92,10 +101,11 @@ fi
 # 4. Build the dataset engine + the recorder core it reads sessions.jsonl through — nothing
 #    else (no sim / robot / cameras / tracker). rosdep resolves system deps; failures there
 #    are non-fatal (the apt deps above cover the core path), so the build still proceeds.
-item "resolving deps + building the processor (fm_data, fm_data_dataset, fm_data_record) ..."
+item "resolving deps + building the processor (fm_data, fm_data_dataset, fm_data_record, fm_data_annotate) ..."
 sudo rosdep init 2>/dev/null || true
 rosdep update 2>/dev/null || true
 rosdep install --from-paths src/fm_data/fm_data_dataset src/fm_data/fm_data_record \
+  src/fm_data/fm_data_annotate \
   --ignore-src -y --rosdistro humble 2>/dev/null || \
   item "rosdep install skipped/partial — continuing (apt deps above cover the core path)"
 # colcon --symlink-install builds ament_python via `setup.py develop --editable`; the pip installs
@@ -109,7 +119,8 @@ pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "set
 # launch/process_session.launch.py, the processor's entry point.
 colcon build --symlink-install \
   --base-paths src/fm_data src/fm_data/fm_data_dataset src/fm_data/fm_data_record \
-  --packages-select fm_data fm_data_dataset fm_data_record
+  src/fm_data/fm_data_annotate \
+  --packages-select fm_data fm_data_dataset fm_data_record fm_data_annotate
 
 # 5. DDS LAN networking — pin FastDDS to the LAN interface so the /process/* topics reach the
 #    capture session's bridge (and, after the Jetson split, the recorder host). Auto-source it
@@ -159,6 +170,11 @@ Next — open a NEW terminal, then:
 
   # One-off CLI runs (no app) still work directly:
   ros2 run fm_data_dataset dataset_process --input <bag_dir> --output <out_dir>
+
+  # Annotation tooling (same engine venv — see the fm_data_annotate README):
+  $ROOT/.engine-venv/bin/annotation_run <bag_dir> --output <out_dir> \\
+      --episode-id <id> --camera-topic /head/color/image_raw/compressed --git-commit <sha>
+  $ROOT/.engine-venv/bin/annotation_verify <bundle_dir>
 
   # Installed the boot service (--service)? The supervisor already runs on boot:
   #   systemctl status fm-processor    |    journalctl -u fm-processor -f
