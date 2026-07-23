@@ -122,6 +122,12 @@ All three need access to the private `first-motive` org: the Linux roles clone
 private repos over git auth, and the app installer fetches its release through
 `gh`.
 
+`--service` also enables auto-update on the Linux roles: `fm-update-<role>.timer`
+fetches every ~15 minutes and, when a repo is behind, fast-forwards and re-runs
+the role installer — merged PRs land on the box within one tick. A take or
+processing run in flight is never interrupted. Pause with
+`sudo systemctl stop fm-update-<role>.timer`.
+
 <details>
 <summary>Manual steps (fallback)</summary>
 

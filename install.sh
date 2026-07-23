@@ -220,6 +220,11 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "removing the processor boot service (fm-processor.service), if present ..."
     ./scripts/install/install-processor-service.sh uninstall || true
   fi
+  if [[ "$(uname -s)" == Linux && -x scripts/install/install-update-timer.sh ]]; then
+    item "removing the auto-update timers (fm-update-*), if present ..."
+    ./scripts/install/install-update-timer.sh uninstall recorder || true
+    ./scripts/install/install-update-timer.sh uninstall processor || true
+  fi
 
   # The persisted profile is bootstrap-owned transient state, written by install
   # and consumed by run.sh. Drop it on teardown so a stale path/viewer never routes
