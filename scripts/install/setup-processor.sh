@@ -52,29 +52,40 @@ if [ ! -d src/fm_data/.git ]; then
   }
 fi
 
-# 3. Engine Python tiers. Bags (numpy + rosbags) is the working tier — scoring real MCAP
-#    episodes needs it. The heavy TensorFlow/RLDS tier is opt-in (FM_INSTALL_RLDS=1) because
-#    emit is optional and the download is large; add it later anytime with the same pip line.
+# 3. Engine Python tiers, in a DEDICATED venv ($ROOT/.engine-venv) — never the shared
+#    user site-packages. The engine wants numpy 2.x while other tenants of the same
+#    host (the recorder's MediaPipe chain) pin numpy<2; a --user install here broke the
+#    recorder's hand tracker live on the shared rig host (2026-07-23). The supervisor
+#    spawns dataset_process under this venv's interpreter (engine_python), so the two
+#    roles never fight. The engine package itself is editable-installed from the
+#    workspace source, so a git pull updates it with no reinstall.
 #
-#    The engine's requirements pin numpy==2.4.6, which needs Python >= 3.11 — but Ubuntu
-#    22.04's system Python is 3.10, where numpy caps at 2.2.x (hit live on the first
-#    processor host, 2026-07-22). Keep the repo pin on new-enough hosts; on 3.10 install
-#    the newest compatible numpy 2.x with the same rosbags pin (the engine's CI already
-#    runs on the py3.10 Humble container, so 3.10 + numpy 2.2 is a supported pair).
-item "installing the engine's bag-ingest tier (numpy + rosbags) ..."
-if python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)'; then
-  pip3 install --user -r src/fm_data/fm_data_dataset/requirements-bags.txt
+#    Bags (numpy + rosbags) is the working tier — scoring real MCAP episodes needs it.
+#    The heavy TensorFlow/RLDS tier is opt-in (FM_INSTALL_RLDS=1) because emit is
+#    optional and the download is large; add it later anytime with the same pip line.
+#
+#    numpy pin: the engine's requirements pin numpy==2.4.6, which needs Python >= 3.11 —
+#    Ubuntu 22.04's system Python is 3.10, where numpy caps at 2.2.x (hit live on the
+#    first processor host, 2026-07-22). Keep the repo pin on new-enough hosts; on 3.10
+#    install the newest compatible numpy 2.x with the same rosbags pin (the engine's CI
+#    already runs on the py3.10 Humble container, so 3.10 + numpy 2.2 is a supported pair).
+ENGINE_VENV="$ROOT/.engine-venv"
+item "creating the engine venv ($ENGINE_VENV) + installing the bag-ingest tier ..."
+python3 -m venv "$ENGINE_VENV"
+if "$ENGINE_VENV/bin/python" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)'; then
+  "$ENGINE_VENV/bin/pip" install --quiet -r src/fm_data/fm_data_dataset/requirements-bags.txt
 else
   item "host Python $(python3 -V | cut -d' ' -f2) < 3.11 — pinning numpy==2.2.6 (newest 3.10-compatible)"
-  pip3 install --user "numpy==2.2.6" \
+  "$ENGINE_VENV/bin/pip" install --quiet "numpy==2.2.6" \
     "$(grep -E '^rosbags==' src/fm_data/fm_data_dataset/requirements-bags.txt)"
 fi
+"$ENGINE_VENV/bin/pip" install --quiet -e src/fm_data/fm_data_dataset
 if [ "${FM_INSTALL_RLDS:-0}" = 1 ]; then
-  item "installing the RLDS emit tier (TensorFlow + TFDS — large download) ..."
-  pip3 install --user -r src/fm_data/fm_data_dataset/requirements-rlds.txt
+  item "installing the RLDS emit tier into the venv (TensorFlow + TFDS — large download) ..."
+  "$ENGINE_VENV/bin/pip" install -r src/fm_data/fm_data_dataset/requirements-rlds.txt
 else
   item "RLDS emit tier skipped — enable emit later with:"
-  item "  pip3 install --user -r src/fm_data/fm_data_dataset/requirements-rlds.txt"
+  item "  $ENGINE_VENV/bin/pip install -r src/fm_data/fm_data_dataset/requirements-rlds.txt"
 fi
 
 # 4. Build the dataset engine + the recorder core it reads sessions.jsonl through — nothing

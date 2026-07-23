@@ -12,6 +12,8 @@
 #   FM_PROCESSOR_RECORDINGS_DIR=<dir>  recorder output dir with sessions.jsonl + bags
 #   FM_PROCESSOR_OUTPUT_DIR=<dir>      per-episode processing output root
 #   FM_PROCESSOR_CONFIG=<file>         processing profile JSON (empty = engine default)
+#   FM_PROCESSOR_ENGINE_PYTHON=<exe>   interpreter for the dataset_process subprocess
+#                                      (default: the workspace .engine-venv when present)
 #   FM_LAN_IP=<ip>                     pin the DDS LAN interface (else auto-detected)
 #
 # No `set -e`: this is a long-lived bring-up wrapper, and a non-matching grep in the
@@ -24,6 +26,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RECORDINGS_DIR="${FM_PROCESSOR_RECORDINGS_DIR:-~/recordings}"
 OUTPUT_DIR="${FM_PROCESSOR_OUTPUT_DIR:-~/processed}"
 CONFIG="${FM_PROCESSOR_CONFIG:-}"
+# The engine's dedicated venv isolates its numpy pin from other tenants of the
+# host (setup-processor.sh creates it); default to it whenever it exists.
+ENGINE_PYTHON="${FM_PROCESSOR_ENGINE_PYTHON:-}"
+if [ -z "$ENGINE_PYTHON" ] && [ -x "$ROOT/.engine-venv/bin/python" ]; then
+  ENGINE_PYTHON="$ROOT/.engine-venv/bin/python"
+fi
 
 # At boot the LAN interface may not be up yet, so dds-lan.sh would find no IP to pin
 # and fall back to default DDS. Wait (bounded, ~30s) for a private-LAN address before
@@ -50,11 +58,14 @@ source "$ROOT/scripts/run/dds-lan.sh"
 set -u
 
 # ros2 launch rejects an empty-valued argument ("malformed launch argument
-# 'config:='"), so the config override is appended only when actually set —
-# absent, the launch file's empty default (= the engine default profile) holds.
-# Hit live on the first processor host, 2026-07-22.
+# 'config:='"), so optional overrides are appended only when actually set —
+# absent, the launch file's empty defaults hold. Hit live on the first
+# processor host, 2026-07-22.
 LAUNCH_ARGS=(recordings_dir:="$RECORDINGS_DIR" output_dir:="$OUTPUT_DIR")
 if [ -n "$CONFIG" ]; then
   LAUNCH_ARGS+=(config:="$CONFIG")
+fi
+if [ -n "$ENGINE_PYTHON" ]; then
+  LAUNCH_ARGS+=(engine_python:="$ENGINE_PYTHON")
 fi
 exec ros2 launch fm_data process_session.launch.py "${LAUNCH_ARGS[@]}"

@@ -108,6 +108,10 @@ FM_PROCESSOR_RECORDINGS_DIR=~/recordings
 FM_PROCESSOR_OUTPUT_DIR=~/processed
 # Processing profile JSON for dataset_process --config (empty = engine default):
 FM_PROCESSOR_CONFIG=
+# Interpreter for the dataset_process subprocess. Empty auto-uses the workspace's
+# .engine-venv (created by setup-processor.sh) so the engine's numpy pin never
+# fights another tenant of the host's user site-packages:
+#FM_PROCESSOR_ENGINE_PYTHON=
 EOF
   fi
 
