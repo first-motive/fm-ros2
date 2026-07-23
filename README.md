@@ -129,6 +129,13 @@ the role installer — merged PRs land on the box within one tick. A take or
 processing run in flight is never interrupted. Pause with
 `sudo systemctl stop fm-update-<role>.timer`.
 
+The processor additionally gets `fm-sync.timer`, the recordings transfer for a
+two-box split: it pulls finalized episodes from the recorder host into
+`~/recordings` (index-driven, busy-gated, never deletes at the source). On a
+single-box setup it idles as a quiet no-op; when the recorder moves to its own
+device, set `FM_SYNC_SOURCE=user@<recorder>:~/recordings` in `/etc/fm-sync.env`
+and the split is live on the next tick.
+
 <details>
 <summary>Manual steps (fallback)</summary>
 
