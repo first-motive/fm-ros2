@@ -75,6 +75,11 @@ fi
 ENGINE_VENV="$ROOT/.engine-venv"
 item "creating the engine venv ($ENGINE_VENV) + installing the bag-ingest tier ..."
 python3 -m venv "$ENGINE_VENV"
+# Stock Ubuntu 22.04 venvs bundle setuptools 59, whose legacy `setup.py develop`
+# editable path writes NO console scripts (dataset_process / annotation_run were
+# silently absent from the venv's bin — hit live 2026-07-23). Modern pip +
+# setuptools install editables per PEP 660, with proper entry-point scripts.
+"$ENGINE_VENV/bin/pip" install --quiet --upgrade pip setuptools
 if "$ENGINE_VENV/bin/python" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)'; then
   "$ENGINE_VENV/bin/pip" install --quiet -r src/fm_data/fm_data_dataset/requirements-bags.txt
 else
