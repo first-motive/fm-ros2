@@ -229,6 +229,10 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "removing the recordings-sync timer (fm-sync), if present ..."
     ./scripts/install/install-sync-timer.sh uninstall || true
   fi
+  if [[ "$(uname -s)" == Linux && -x scripts/install/install-avahi-advert.sh ]]; then
+    item "removing the rig mDNS adverts (fm-recorder/fm-processor), if present ..."
+    ./scripts/install/install-avahi-advert.sh uninstall || true
+  fi
 
   # The persisted profile is bootstrap-owned transient state, written by install
   # and consumed by run.sh. Drop it on teardown so a stale path/viewer never routes

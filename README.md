@@ -123,6 +123,11 @@ All three need access to the private `first-motive` org: the Linux roles clone
 private repos over git auth, and the app installer fetches its release through
 `gh`.
 
+`--service` also makes the box discoverable: the installer writes an avahi
+advert (`_fm-rig._tcp`, role-tagged) so the desktop app's Settings lists the rig
+by hostname — no typed IPs. Every box provisioned with a role one-liner shows up
+on its own; both roles on one box advertise as two entries at the same address.
+
 `--service` also enables auto-update on the Linux roles: `fm-update-<role>.timer`
 fetches every ~15 minutes and, when a repo is behind, fast-forwards and re-runs
 the role installer — merged PRs land on the box within one tick. A take or

@@ -155,6 +155,10 @@ if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   # updates (a take in flight is never interrupted; see appliance-update.sh).
   item "installing the auto-update timer (fm-update-recorder.timer) ..."
   ./scripts/install/install-update-timer.sh recorder
+  # Make the box discoverable: advertise the recorder role over mDNS so the
+  # desktop app's Settings offers this rig instead of a typed IP.
+  item "advertising the recorder on the local network (mDNS) ..."
+  ./scripts/install/install-avahi-advert.sh recorder
 else
   item "boot service not installed — add it anytime with:"
   item "  ./scripts/install/install-recorder-service.sh   (or reinstall with --service)"
