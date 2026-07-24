@@ -73,4 +73,8 @@ fi
 if [ -n "$ANNOTATIONS_DIR" ]; then
   LAUNCH_ARGS+=(annotations_dir:="$ANNOTATIONS_DIR")
 fi
+# The app-triggerable real-model provisioning (/process/provision) runs this
+# workspace's own setup-qwen.sh; passing the path here keeps the supervisor
+# free of workspace-layout knowledge.
+LAUNCH_ARGS+=(provision_script:="$ROOT/scripts/install/setup-qwen.sh")
 exec ros2 launch fm_data process_session.launch.py "${LAUNCH_ARGS[@]}"
