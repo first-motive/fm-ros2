@@ -134,6 +134,14 @@ the role installer — merged PRs land on the box within one tick. A take or
 processing run in flight is never interrupted. Pause with
 `sudo systemctl stop fm-update-<role>.timer`.
 
+The processor can also carry the REAL annotation model (pinned Qwen2.5-VL
+weights + a locked GPU runtime, ~22 GB, NVIDIA hosts only) — opt-in because the
+default fake-adapter annotation lane needs none of it. Provision it with
+`FM_INSTALL_QWEN=1` on the one-liner, later via
+`./scripts/install/setup-qwen.sh`, or from the desktop app's Process window.
+Model execution itself stays approval-gated per run; provisioning only
+downloads and verifies content identities.
+
 The processor additionally gets `fm-sync.timer`, the recordings transfer for a
 two-box split: it pulls finalized episodes from the recorder host into
 `~/recordings` (index-driven, busy-gated, never deletes at the source). On a

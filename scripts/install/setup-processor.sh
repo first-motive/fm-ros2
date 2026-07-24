@@ -163,6 +163,18 @@ else
   item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"
 fi
 
+# 7. Optional: the REAL annotation model (pinned Qwen weights + locked cu128
+#    runtime). Opt-in — ~22 GB of downloads, GPU hosts only; the fake-adapter
+#    annotation lane needs none of it. The app's Process window can also
+#    trigger this later over /process/provision.
+if [ "${FM_INSTALL_QWEN:-0}" = 1 ]; then
+  item "provisioning the real annotation model (setup-qwen.sh) ..."
+  ./scripts/install/setup-qwen.sh
+else
+  item "real-model provisioning skipped — enable anytime with:"
+  item "  ./scripts/install/setup-qwen.sh   (or FM_INSTALL_QWEN=1 on a reinstall, or from the app)"
+fi
+
 item "processor provisioned at $ROOT"
 cat <<EOF
 
