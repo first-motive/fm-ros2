@@ -154,6 +154,10 @@ if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   # is configured (single-box setups need no transfer; see recordings-sync.sh).
   item "installing the recordings-sync timer (fm-sync.timer) ..."
   ./scripts/install/install-sync-timer.sh
+  # Make the box discoverable: advertise the processor role over mDNS so the
+  # desktop app's Settings offers this rig instead of a typed IP.
+  item "advertising the processor on the local network (mDNS) ..."
+  ./scripts/install/install-avahi-advert.sh processor
 else
   item "boot service not installed — add it anytime with:"
   item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"
