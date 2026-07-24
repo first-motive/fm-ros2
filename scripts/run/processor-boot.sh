@@ -13,6 +13,7 @@
 #   FM_PROCESSOR_OUTPUT_DIR=<dir>      per-episode processing output root
 #   FM_PROCESSOR_CONFIG=<file>         processing profile JSON (empty = engine default)
 #   FM_PROCESSOR_ENGINE_PYTHON=<exe>   interpreter for the dataset_process subprocess
+#   FM_PROCESSOR_ANNOTATIONS_DIR=<dir> per-episode annotation bundle root
 #                                      (default: the workspace .engine-venv when present)
 #   FM_LAN_IP=<ip>                     pin the DDS LAN interface (else auto-detected)
 #
@@ -26,6 +27,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RECORDINGS_DIR="${FM_PROCESSOR_RECORDINGS_DIR:-~/recordings}"
 OUTPUT_DIR="${FM_PROCESSOR_OUTPUT_DIR:-~/processed}"
 CONFIG="${FM_PROCESSOR_CONFIG:-}"
+ANNOTATIONS_DIR="${FM_PROCESSOR_ANNOTATIONS_DIR:-}"
 # The engine's dedicated venv isolates its numpy pin from other tenants of the
 # host (setup-processor.sh creates it); default to it whenever it exists.
 ENGINE_PYTHON="${FM_PROCESSOR_ENGINE_PYTHON:-}"
@@ -67,5 +69,8 @@ if [ -n "$CONFIG" ]; then
 fi
 if [ -n "$ENGINE_PYTHON" ]; then
   LAUNCH_ARGS+=(engine_python:="$ENGINE_PYTHON")
+fi
+if [ -n "$ANNOTATIONS_DIR" ]; then
+  LAUNCH_ARGS+=(annotations_dir:="$ANNOTATIONS_DIR")
 fi
 exec ros2 launch fm_data process_session.launch.py "${LAUNCH_ARGS[@]}"
