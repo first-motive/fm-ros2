@@ -23,9 +23,11 @@
 #   ./scripts/install/install-avahi-advert.sh uninstall [role]     # remove one/both
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# lib.sh fallback keeps the script runnable over `ssh 'bash -s'` (no file on
+# disk, so no workspace root to resolve) — the recordings-sync.sh pattern.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")/../.." && pwd)"
 # shellcheck disable=SC1091
-. "$ROOT/lib.sh"          # item()
+[ -f "$ROOT/lib.sh" ] && . "$ROOT/lib.sh" || item() { echo "$1"; }
 
 SERVICE_TYPE="_fm-rig._tcp"
 BRIDGE_PORT="${FM_BRIDGE_PORT:-8765}"
