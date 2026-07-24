@@ -112,6 +112,8 @@ FM_PROCESSOR_CONFIG=
 # .engine-venv (created by setup-processor.sh) so the engine's numpy pin never
 # fights another tenant of the host's user site-packages:
 #FM_PROCESSOR_ENGINE_PYTHON=
+# Per-episode annotation bundle root (empty = the launch default, ~/annotations):
+#FM_PROCESSOR_ANNOTATIONS_DIR=
 EOF
   fi
 
