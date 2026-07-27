@@ -77,4 +77,7 @@ fi
 # workspace's own setup-qwen.sh; passing the path here keeps the supervisor
 # free of workspace-layout knowledge.
 LAUNCH_ARGS+=(provision_script:="$ROOT/scripts/install/setup-qwen.sh")
+# App-approved real annotation stages through the annotation package's own
+# staging script in this workspace's source tree.
+LAUNCH_ARGS+=(stage_script:="$ROOT/src/fm_data/fm_data_annotate/scripts/stage_qwen_run.sh")
 exec ros2 launch fm_data process_session.launch.py "${LAUNCH_ARGS[@]}"
