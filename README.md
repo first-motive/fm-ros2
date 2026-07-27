@@ -140,7 +140,10 @@ default fake-adapter annotation lane needs none of it. Provision it with
 `FM_INSTALL_QWEN=1` on the one-liner, later via
 `./scripts/install/setup-qwen.sh`, or from the desktop app's Process window.
 Model execution itself stays approval-gated per run; provisioning only
-downloads and verifies content identities.
+downloads and verifies content identities. The processor service retains each
+real-model attempt, including failed and GPU-blocked runs, under
+`~/fm-data-runs/annotation-attempts`; override that durable root with
+`FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR` in `/etc/fm-processor.env`.
 
 The processor additionally gets `fm-sync.timer`, the recordings transfer for a
 two-box split: it pulls finalized episodes from the recorder host into

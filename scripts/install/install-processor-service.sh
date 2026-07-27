@@ -114,6 +114,8 @@ FM_PROCESSOR_CONFIG=
 #FM_PROCESSOR_ENGINE_PYTHON=
 # Per-episode annotation bundle root (empty = the launch default, ~/annotations):
 #FM_PROCESSOR_ANNOTATIONS_DIR=
+# Durable queued/running/generated/failed/blocked annotation attempt evidence:
+FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=~/fm-data-runs/annotation-attempts
 EOF
   fi
 
