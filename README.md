@@ -144,6 +144,10 @@ downloads and verifies content identities. The processor service retains each
 real-model attempt, including failed and GPU-blocked runs, under
 `~/fm-data-runs/annotation-attempts`; override that durable root with
 `FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR` in `/etc/fm-processor.env`.
+Human review receipts, corrected outputs, and learning records persist beside
+it under `~/fm-data-runs/annotation-{reviews,corrections,learning}`. Their
+`FM_PROCESSOR_ANNOTATION_*_DIR` settings are kept in the same environment file,
+so processor restarts and updater re-installs retain the full review lineage.
 
 The processor additionally gets `fm-sync.timer`, the recordings transfer for a
 two-box split: it pulls finalized episodes from the recorder host into

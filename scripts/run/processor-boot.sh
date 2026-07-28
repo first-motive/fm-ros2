@@ -13,9 +13,12 @@
 #   FM_PROCESSOR_OUTPUT_DIR=<dir>      per-episode processing output root
 #   FM_PROCESSOR_CONFIG=<file>         processing profile JSON (empty = engine default)
 #   FM_PROCESSOR_ENGINE_PYTHON=<exe>   interpreter for the dataset_process subprocess
+#                                      (default: the workspace .engine-venv when present)
 #   FM_PROCESSOR_ANNOTATIONS_DIR=<dir> per-episode annotation bundle root
 #   FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=<dir> durable attempt evidence root
-#                                      (default: the workspace .engine-venv when present)
+#   FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=<dir> durable human review receipts
+#   FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=<dir> durable corrected outputs
+#   FM_PROCESSOR_ANNOTATION_LEARNING_DIR=<dir> durable learning records
 #   FM_LAN_IP=<ip>                     pin the DDS LAN interface (else auto-detected)
 #
 # No `set -e`: this is a long-lived bring-up wrapper, and a non-matching grep in the
@@ -30,6 +33,9 @@ OUTPUT_DIR="${FM_PROCESSOR_OUTPUT_DIR:-~/processed}"
 CONFIG="${FM_PROCESSOR_CONFIG:-}"
 ANNOTATIONS_DIR="${FM_PROCESSOR_ANNOTATIONS_DIR:-}"
 ANNOTATION_ATTEMPTS_DIR="${FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR:-~/fm-data-runs/annotation-attempts}"
+ANNOTATION_REVIEWS_DIR="${FM_PROCESSOR_ANNOTATION_REVIEWS_DIR:-~/fm-data-runs/annotation-reviews}"
+ANNOTATION_CORRECTIONS_DIR="${FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR:-~/fm-data-runs/annotation-corrections}"
+ANNOTATION_LEARNING_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_DIR:-~/fm-data-runs/annotation-learning}"
 # The engine's dedicated venv isolates its numpy pin from other tenants of the
 # host (setup-processor.sh creates it); default to it whenever it exists.
 ENGINE_PYTHON="${FM_PROCESSOR_ENGINE_PYTHON:-}"
@@ -67,6 +73,9 @@ set -u
 # processor host, 2026-07-22.
 LAUNCH_ARGS=(recordings_dir:="$RECORDINGS_DIR" output_dir:="$OUTPUT_DIR")
 LAUNCH_ARGS+=(annotation_attempts_dir:="$ANNOTATION_ATTEMPTS_DIR")
+LAUNCH_ARGS+=(annotation_reviews_dir:="$ANNOTATION_REVIEWS_DIR")
+LAUNCH_ARGS+=(annotation_corrections_dir:="$ANNOTATION_CORRECTIONS_DIR")
+LAUNCH_ARGS+=(annotation_learning_dir:="$ANNOTATION_LEARNING_DIR")
 if [ -n "$CONFIG" ]; then
   LAUNCH_ARGS+=(config:="$CONFIG")
 fi
