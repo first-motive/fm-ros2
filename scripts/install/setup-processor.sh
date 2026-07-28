@@ -95,6 +95,9 @@ fi
 item "installing the annotation tooling (fm_data_annotate + media tier) into the venv ..."
 "$ENGINE_VENV/bin/pip" install --quiet -e src/fm_data/fm_data_annotate \
   -r src/fm_data/fm_data_annotate/requirements-media.txt
+item "verifying the bundle-bound review-media runtime ..."
+"$ENGINE_VENV/bin/python" -c \
+  'from PIL import Image; from fm_data_annotate.media import decode_camera_frames; from fm_data_dataset.core.review_media import serve_review_media'
 if [ "${FM_INSTALL_RLDS:-0}" = 1 ]; then
   item "installing the RLDS emit tier into the venv (TensorFlow + TFDS — large download) ..."
   "$ENGINE_VENV/bin/pip" install -r src/fm_data/fm_data_dataset/requirements-rlds.txt
