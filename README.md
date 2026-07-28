@@ -148,6 +148,12 @@ Human review receipts, corrected outputs, and learning records persist beside
 it under `~/fm-data-runs/annotation-{reviews,corrections,learning}`. Their
 `FM_PROCESSOR_ANNOTATION_*_DIR` settings are kept in the same environment file,
 so processor restarts and updater re-installs retain the full review lineage.
+The same supervisor serves exact review frames through the bounded
+`/process/review_media/{select,meta,image}` contract. Requests identify an
+episode, immutable annotation-bundle digest, and indexed frame or short range;
+the processor verifies the bundle, source recording, media index, and returned
+image digest. It never accepts a filesystem path or exposes a live camera
+subscription to the review window.
 
 The processor additionally gets `fm-sync.timer`, the recordings transfer for a
 two-box split: it pulls finalized episodes from the recorder host into
