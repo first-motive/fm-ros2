@@ -134,11 +134,16 @@ the role installer — merged PRs land on the box within one tick. A take or
 processing run in flight is never interrupted. Pause with
 `sudo systemctl stop fm-update-<role>.timer`.
 
-The processor can also carry the REAL annotation model (pinned Qwen2.5-VL
-weights + a locked GPU runtime, ~22 GB, NVIDIA hosts only) — opt-in because the
-default fake-adapter annotation lane needs none of it. Provision it with
+The processor can also carry the REAL annotation models: pinned Qwen3.5-9B is
+the preferred view, while pinned Qwen2.5-VL-7B remains an explicit rollback
+view. Each uses a descriptor-bound Python 3.11/CUDA runtime (NVIDIA hosts only);
+provisioning is opt-in because the default fake-adapter lane needs none of it.
+Provision the preferred view with
 `FM_INSTALL_QWEN=1` on the one-liner, later via
 `./scripts/install/setup-qwen.sh`, or from the desktop app's Process window.
+Use `./scripts/install/setup-qwen.sh --model qwen2.5-vl-7b` only when the
+rollback model is required. The setup script verifies the exact model revision
+and canonical file-inventory digest before promoting either view.
 Model execution itself stays approval-gated per run; provisioning only
 downloads and verifies content identities. The processor service retains each
 real-model attempt, including failed and GPU-blocked runs, under
