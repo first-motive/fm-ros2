@@ -12,13 +12,15 @@
 #   ~/fm-data-runs/_model-views/<view>.MODEL_INVENTORY.json    hashed inventory
 #   ~/fm-data-runs/_runtime/qwen-cu128/requirements.lock       runtime pins
 #
-# Opt-in on purpose: ~16 GB of weights plus ~6 GB of torch wheels, and only
-# GPU hosts benefit. Invoked by setup-processor.sh when FM_INSTALL_QWEN=1
+# Opt-in on purpose: each weights view is large, the shared torch wheel cache
+# adds several GB, and only GPU hosts benefit. Invoked by setup-processor.sh
+# when FM_INSTALL_QWEN=1
 # (one-liner: `curl … | FM_INSTALL_QWEN=1 bash -s -- --processor --service`),
 # by the process_supervisor's /process/provision command, or standalone.
 #
 # Usage:
-#   ./scripts/install/setup-qwen.sh            # provision (idempotent)
+#   ./scripts/install/setup-qwen.sh            # Qwen2.5 baseline (idempotent)
+#   ./scripts/install/setup-qwen.sh --model qwen3.5-9b
 #   ./scripts/install/setup-qwen.sh uninstall  # remove the weights view + lock copy
 set -euo pipefail
 
@@ -32,7 +34,7 @@ LOCK_DIR="$QWEN_ROOT/_runtime/qwen-cu128"
 LOCK_SRC="$ROOT/scripts/install/qwen/requirements-cu128.lock"
 TORCH_INDEX="https://download.pytorch.org/whl/cu128"
 MODEL_SOURCE="${FM_QWEN_MODEL_SOURCE:-$ROOT/src/fm_data/fm_data_annotate}"
-MODEL_KEY="qwen3.5-9b"
+MODEL_KEY="qwen2.5-vl-7b"
 REPO_ID=""
 REVISION=""
 EXPECTED_INVENTORY_SHA=""
@@ -47,7 +49,7 @@ usage() {
   cat <<'EOF'
 setup-qwen.sh — provision the real annotation model (opt-in, GPU hosts)
 
-  (no args)    install the preferred pinned Qwen3.5 model
+  (no args)    install the baseline pinned Qwen2.5 model
   --model KEY  explicitly select qwen3.5-9b or qwen2.5-vl-7b
   install      install uv, download + verify the selected Qwen weights view,
                install the locked cu128 runtime pins, prewarm the wheel cache
