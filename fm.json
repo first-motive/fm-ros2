@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "commands": {
+    "teleop": {
+      "script": "scripts/run/teleop.sh",
+      "help": "jog a robot arm through moveit servo"
+    },
+    "sim": {
+      "script": "scripts/run/sim.sh",
+      "help": "launch a robot in a ros2_control sim backend"
+    },
+    "foxglove": {
+      "script": "scripts/run/foxglove.sh",
+      "help": "run foxglove_bridge for foxglove studio (macos)"
+    }
+  }
+}
