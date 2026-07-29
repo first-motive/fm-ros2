@@ -41,7 +41,7 @@ install-processor-service.sh — install/remove the fm-processor boot service (L
   -h, --help   show this help
 
 The service runs scripts/run/processor-boot.sh as the installing user: it sources
-ROS + the workspace overlay + dds-lan.sh, then launches process_session.launch.py
+ROS + the workspace overlay + comms.sh, then launches process_session.launch.py
 (the process_supervisor node). Manifests land in ~/processed. Tune it via
 /etc/fm-processor.env (FM_PROCESSOR_RECORDINGS_DIR, FM_PROCESSOR_OUTPUT_DIR, ...).
 EOF

@@ -130,15 +130,20 @@ colcon build --symlink-install \
   src/fm_data/fm_data_annotate \
   --packages-select fm_data fm_data_dataset fm_data_record fm_data_annotate
 
-# 5. DDS LAN networking — pin FastDDS to the LAN interface so the /process/* topics reach the
-#    capture session's bridge (and, after the Jetson split, the recorder host). Auto-source it
-#    in every shell.
-item "wiring DDS LAN networking into ~/.bashrc ..."
-if ! grep -q "$ROOT/scripts/run/dds-lan.sh" "$HOME/.bashrc" 2>/dev/null; then
+# 5. Comms profile — the default (foxglove) pins FastDDS to the LAN interface so the
+#    /process/* topics reach the capture session's bridge (and, after the Jetson split, the
+#    recorder host). Auto-source it in every shell. A rig on another profile sets FM_COMMS
+#    or the .fm_ros2.json key.
+item "wiring the comms profile into ~/.bashrc ..."
+if ! grep -q "$ROOT/scripts/run/comms.sh" "$HOME/.bashrc" 2>/dev/null; then
+  # Drop the pre-comms.sh line a rig provisioned earlier still carries — comms.sh
+  # sources dds-lan.sh itself for the foxglove profile, so keeping both would pin
+  # DDS before the profile gets to choose.
+  sed -i '\#scripts/run/dds-lan.sh#d' "$HOME/.bashrc" 2>/dev/null || true
   {
     echo ""
-    echo "# fm_ros2 processor: pin DDS to the LAN so /process/* topics reach the capture bridge"
-    echo "source \"$ROOT/scripts/run/dds-lan.sh\""
+    echo "# fm_ros2 processor: the comms profile (default foxglove = DDS on the LAN)"
+    echo "source \"$ROOT/scripts/run/comms.sh\""
   } >> "$HOME/.bashrc"
 fi
 
@@ -185,7 +190,7 @@ Next — open a NEW terminal, then:
 
   source /opt/ros/humble/setup.bash
   source "$ROOT/install/setup.bash"          # the built dataset engine + supervisor
-  source "$ROOT/scripts/run/dds-lan.sh"      # DDS on the LAN (auto in new shells via ~/.bashrc)
+  source "$ROOT/scripts/run/comms.sh"        # comms profile (auto in new shells via ~/.bashrc)
 
   # The app-driven processing supervisor — one command:
   ros2 launch fm_data process_session.launch.py

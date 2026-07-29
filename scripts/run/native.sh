@@ -203,14 +203,15 @@ main() {
   # sourced. `pixi run` activates ROS; layer install/setup.bash on top, then exec
   # the console script via `ros2 run` (it installs under lib/, not on PATH).
   #
-  # Source dds-lan.sh FIRST so the launcher — and every process it dispatches via
-  # subprocess.run (which inherits this env) — joins the recorder rig's DDS graph:
-  # it pins FastDDS to the LAN interface and sets ROS_DOMAIN_ID/RMW, so the TUI can
-  # reach the rig's /vision/* + /capture/* topics over the network (extra NICs
-  # otherwise break delivery). Mirrors what recorder-boot.sh does rig-side.
-  # FM_LAN_IP=<ip> overrides a wrong auto-detect.
+  # Source the comms profile FIRST so the launcher — and every process it dispatches
+  # via subprocess.run (which inherits this env) — joins the recorder rig's graph on
+  # the same transport the rig uses. The default profile (foxglove) pins FastDDS to
+  # the LAN interface and sets ROS_DOMAIN_ID/RMW, so the TUI reaches the rig's
+  # /vision/* + /capture/* topics over the network (extra NICs otherwise break
+  # delivery). Mirrors what recorder-boot.sh does rig-side. FM_LAN_IP=<ip> overrides
+  # a wrong auto-detect; FM_COMMS=<profile> overrides the transport.
   exec pixi run bash -c \
-    'source scripts/run/dds-lan.sh && source install/setup.bash && exec ros2 run fm_tui fm_tui_launcher'
+    'source scripts/run/comms.sh && source install/setup.bash && exec ros2 run fm_tui fm_tui_launcher'
 }
 
 main "$@"

@@ -41,7 +41,7 @@ install-recorder-service.sh — install/remove the fm-recorder boot service (Lin
   -h, --help   show this help
 
 The service runs scripts/run/recorder-boot.sh as the installing user: it sources
-ROS + the workspace overlay + dds-lan.sh, then launches egocentric_record.launch.py
+ROS + the workspace overlay + comms.sh, then launches egocentric_record.launch.py
 (camera + tracker + recorder + foxglove bridge). Bags land in ~/recordings. Tune it
 via /etc/fm-recorder.env (FM_RECORDER_TRACKER, FM_LAN_IP, ...).
 EOF
