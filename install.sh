@@ -49,9 +49,9 @@ CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm_ros2"
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
 # install.sh and run.sh share one source of brand colour. `step` draws a numbered
 # header block as a rich rule; `item` prints a plain status line beneath it. Reach
-# the banner through `uv run --with` (pinned to fm-tools v0.2.0); fall back to a
+# the banner through `uv run --with` (pinned to fm-tools v0.3.0); fall back to a
 # plain header when uv is absent. Keep this pin in sync with run.sh.
-FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.2.0"
+FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.3.0"
 
 STEP=0
 step() {  # title  [role]
