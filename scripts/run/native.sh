@@ -22,7 +22,7 @@ source scripts/run/lib-buildtree.sh
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so this
 # path, run.sh, and install.sh share one source of brand colour. Same pattern as
 # scripts/run/container.sh — keep the pin in sync.
-FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.2.0"
+FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.3.0"
 
 STEP=0
 step() {  # title  [role]

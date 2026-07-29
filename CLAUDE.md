@@ -23,6 +23,21 @@ the `fm_ros2` workspace metapackage.
   changes only for tooling, the workspace metapackage, the `.repos` manifests,
   and docs.
 
+## fm CLI Contract
+
+`fm` mounts this repo's workflows as top-level verbs by reading `fm.json` at the
+repo root. A new user-facing workflow script must be declared there, or it stays
+unreachable from `fm`.
+
+- Declare it: add `"<verb>": {"script": "scripts/run/<name>.sh", "help": "<one line>"}`
+  under `commands` in `fm.json`.
+- Verify it: `fm doctor` fails on a declared script that is missing or not
+  executable, and warns on a `scripts/run/*.sh` that no manifest declares.
+
+Arguments are forwarded to the script verbatim — the CLI parses none of them, so
+the script stays the single source of truth for its own flags. See the `fm-cli`
+skill for the manifest schema and the full verb surface.
+
 ## Assembly
 
 ```bash
