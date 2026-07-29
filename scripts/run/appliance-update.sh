@@ -11,9 +11,9 @@
 #   scripts/run/appliance-update.sh recorder     # or: processor
 #
 # Safety posture:
-#   - busy gate: never updates mid-take (recent writes under the recordings
-#     dir) or mid-processing (a dataset_process subprocess is running); the
-#     next tick retries.
+#   - busy gate: never updates mid-take (recent episode writes, excluding the
+#     continuous tactile-raw stream) or mid-processing (a dataset_process
+#     subprocess is running); the next tick retries.
 #   - ff-only: a dirty or diverged repo is logged and left alone, never
 #     stashed, reset, or force-pulled.
 #   - flock: overlapping runs (timer + manual) collapse to one.
@@ -48,11 +48,19 @@ EOF
 _busy() {  # role
   case "$1" in
     recorder)
-      # A take in flight = recent file writes under the recordings dir (bag
-      # chunks + sessions.jsonl). Restarting the recorder then would kill it.
+      # A take in flight = recent episode writes under the recordings dir (bag
+      # chunks + sessions.jsonl). The tactile bridge writes continuously under
+      # tactile-raw even while the episode recorder is idle, so exclude that
+      # sibling evidence stream or this updater can never converge.
       local recdir="${FM_RECORDER_RECORDINGS_DIR:-$HOME/recordings}"
+      local active_file=""
       if [ -d "$recdir" ] && \
-         [ -n "$(find "$recdir" -mmin -"$_RECORDER_QUIET_MIN" -type f 2>/dev/null | head -1)" ]; then
+         active_file="$(
+           find "$recdir" \
+             -path "$recdir/tactile-raw" -prune -o \
+             -mmin -"$_RECORDER_QUIET_MIN" -type f -print -quit 2>/dev/null
+         )" && \
+         [ -n "$active_file" ]; then
         item "recorder busy (recent writes in $recdir) — skipping this tick"
         return 0
       fi
