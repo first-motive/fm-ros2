@@ -13,11 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check tracked files against disallowed patterns
+      - name: Check tracked files against disallowed repository names
         run: |
-          PATTERN="$(printf '%s' 'Zm0tZGF0YXxmbS1wb2xpY3l8Zm0tbGVhcm5pbmd8Zm0tYWlcYnxmbV92bHRh' | base64 -d)"
+          # Match exact private repository names, not operational paths such as
+          # the public processor's durable *-runs directories.
+          PATTERN="$(printf '%s' 'Zm0tZGF0YShbXls6YWxudW06XV8tXXwkKXxmbS1wb2xpY3koW15bOmFsbnVtOl1fLV18JCl8Zm0tbGVhcm5pbmcoW15bOmFsbnVtOl1fLV18JCl8Zm0tYWkoW15bOmFsbnVtOl1fLV18JCl8Zm1fdmx0YShbXls6YWxudW06XV8tXXwkKQ==' | base64 -d)"
           if git grep -InE "$PATTERN" -- . ':!.github/workflows/repo-hygiene.yml'; then
-            echo "::error::a tracked file matches a disallowed pattern"
+            echo "::error::a tracked file names a private repository"
             exit 1
           fi
           echo "ok"

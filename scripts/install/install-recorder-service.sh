@@ -74,6 +74,9 @@ do_install() {
 Description=First Motive egocentric recorder (camera + tracker + recorder + foxglove bridge)
 After=network-online.target
 Wants=network-online.target
+# Never permanently give up: an appliance that boots before the camera is plugged in
+# should keep retrying rather than land in a failed state.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -84,9 +87,6 @@ WorkingDirectory=$ROOT
 ExecStart=/bin/bash $WRAPPER
 Restart=on-failure
 RestartSec=5
-# Never permanently give up: an appliance that boots before the camera is plugged in
-# should keep retrying rather than land in a failed state.
-StartLimitIntervalSec=0
 
 [Install]
 WantedBy=multi-user.target
