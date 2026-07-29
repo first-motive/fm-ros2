@@ -37,6 +37,10 @@ ANNOTATION_ATTEMPTS_DIR="${FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR:-~/fm-data-runs/
 ANNOTATION_REVIEWS_DIR="${FM_PROCESSOR_ANNOTATION_REVIEWS_DIR:-~/fm-data-runs/annotation-reviews}"
 ANNOTATION_CORRECTIONS_DIR="${FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR:-~/fm-data-runs/annotation-corrections}"
 ANNOTATION_LEARNING_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_DIR:-~/fm-data-runs/annotation-learning}"
+ANNOTATION_ADJUDICATIONS_DIR="${FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR:-~/fm-data-runs/annotation-adjudications}"
+ANNOTATION_REVOCATIONS_DIR="${FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR:-~/fm-data-runs/annotation-revocations}"
+ANNOTATION_LEARNING_SNAPSHOTS_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR:-~/fm-data-runs/annotation-learning-snapshots}"
+ANNOTATION_IMPROVEMENT_RUNS_DIR="${FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR:-~/fm-data-runs/annotation-improvement-runs}"
 # The engine's dedicated venv isolates its numpy pin from other tenants of the
 # host (setup-processor.sh creates it); default to it whenever it exists.
 ENGINE_PYTHON="${FM_PROCESSOR_ENGINE_PYTHON:-}"
@@ -77,6 +81,10 @@ LAUNCH_ARGS+=(annotation_attempts_dir:="$ANNOTATION_ATTEMPTS_DIR")
 LAUNCH_ARGS+=(annotation_reviews_dir:="$ANNOTATION_REVIEWS_DIR")
 LAUNCH_ARGS+=(annotation_corrections_dir:="$ANNOTATION_CORRECTIONS_DIR")
 LAUNCH_ARGS+=(annotation_learning_dir:="$ANNOTATION_LEARNING_DIR")
+LAUNCH_ARGS+=(annotation_adjudications_dir:="$ANNOTATION_ADJUDICATIONS_DIR")
+LAUNCH_ARGS+=(annotation_revocations_dir:="$ANNOTATION_REVOCATIONS_DIR")
+LAUNCH_ARGS+=(annotation_learning_snapshots_dir:="$ANNOTATION_LEARNING_SNAPSHOTS_DIR")
+LAUNCH_ARGS+=(annotation_improvement_runs_dir:="$ANNOTATION_IMPROVEMENT_RUNS_DIR")
 if [ -n "$CONFIG" ]; then
   LAUNCH_ARGS+=(config:="$CONFIG")
 fi

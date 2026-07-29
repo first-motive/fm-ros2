@@ -154,6 +154,11 @@ Human review receipts, corrected outputs, and learning records persist beside
 it under `~/fm-data-runs/annotation-{reviews,corrections,learning}`. Their
 `FM_PROCESSOR_ANNOTATION_*_DIR` settings are kept in the same environment file,
 so processor restarts and updater re-installs retain the full review lineage.
+Adjudications, revocations, frozen learning snapshots, and reproducible
+improvement-run receipts persist in sibling
+`annotation-{adjudications,revocations,learning-snapshots,improvement-runs}`
+roots. The processor exposes only bounded read-only governance facts to
+Desktop; `fm-data` remains the writer and verifier authority.
 The same supervisor serves exact review frames through the bounded
 `/process/review_media/{select,meta,image}` contract. Requests identify an
 episode, immutable annotation-bundle digest, and indexed frame or short range;

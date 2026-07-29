@@ -116,10 +116,14 @@ FM_PROCESSOR_CONFIG=
 #FM_PROCESSOR_ANNOTATIONS_DIR=
 # Durable queued/running/generated/failed/blocked annotation attempt evidence:
 FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=~/fm-data-runs/annotation-attempts
-# Durable immutable review, correction, and learning lineage:
+# Durable immutable review, correction, learning, governance, and run lineage:
 FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=~/fm-data-runs/annotation-reviews
 FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=~/fm-data-runs/annotation-corrections
 FM_PROCESSOR_ANNOTATION_LEARNING_DIR=~/fm-data-runs/annotation-learning
+FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR=~/fm-data-runs/annotation-adjudications
+FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR=~/fm-data-runs/annotation-revocations
+FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR=~/fm-data-runs/annotation-learning-snapshots
+FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR=~/fm-data-runs/annotation-improvement-runs
 EOF
   fi
 
