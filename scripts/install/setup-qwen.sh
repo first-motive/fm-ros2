@@ -1,24 +1,26 @@
 #!/usr/bin/env bash
 # setup-qwen.sh — opt-in provisioning for the REAL annotation model on a
-# processor host: uv, the pinned Qwen2.5-VL-7B weights view (content-verified
-# against the known inventory identity), the locked cu128 torch runtime, and a
+# processor host: uv, an explicitly selected pinned Qwen weights view verified
+# against the known inventory identity, the locked cu128 torch runtime, and a
 # prewarmed wheel cache. After this, the approval-gated annotation lane
 # (fm_data_annotate's annotation_qwen_run) can execute on this box — this
 # script only DOWNLOADS; it never loads weights and never runs the model, so
 # the lane's human-approval gate is untouched.
 #
 # Layout matches the existing workstation evidence conventions:
-#   ~/fm-data-runs/_model-views/qwen2.5-vl-7b-<rev7>-<inv8>/   weights view
+#   ~/fm-data-runs/_model-views/<descriptor>-<rev8>-<inv8>/    weights view
 #   ~/fm-data-runs/_model-views/<view>.MODEL_INVENTORY.json    hashed inventory
 #   ~/fm-data-runs/_runtime/qwen-cu128/requirements.lock       runtime pins
 #
-# Opt-in on purpose: ~16 GB of weights plus ~6 GB of torch wheels, and only
-# GPU hosts benefit. Invoked by setup-processor.sh when FM_INSTALL_QWEN=1
+# Opt-in on purpose: each weights view is large, the shared torch wheel cache
+# adds several GB, and only GPU hosts benefit. Invoked by setup-processor.sh
+# when FM_INSTALL_QWEN=1
 # (one-liner: `curl … | FM_INSTALL_QWEN=1 bash -s -- --processor --service`),
 # by the process_supervisor's /process/provision command, or standalone.
 #
 # Usage:
-#   ./scripts/install/setup-qwen.sh            # provision (idempotent)
+#   ./scripts/install/setup-qwen.sh            # Qwen2.5 baseline (idempotent)
+#   ./scripts/install/setup-qwen.sh --model qwen3.5-9b
 #   ./scripts/install/setup-qwen.sh uninstall  # remove the weights view + lock copy
 set -euo pipefail
 
@@ -27,36 +29,64 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")/../.." && pwd)"
 # shellcheck disable=SC1091
 [ -f "$ROOT/lib.sh" ] && . "$ROOT/lib.sh" || item() { echo "$1"; }
 
-# The model pin — one revision, one content identity. The inventory SHA is the
-# canonical-JSON hash of the file inventory; a download that does not reproduce
-# it is refused (wrong revision, corrupt file, or upstream tampering).
-REPO_ID="Qwen/Qwen2.5-VL-7B-Instruct"
-REVISION="cc594898137f460bfe9f0759e9844b3ce807cfb5"
-EXPECTED_INVENTORY_SHA="8d5c9508bc873c2628aaf824f88414cefc486b120fb8d49887353b01c05a9548"
-VIEW_NAME="qwen2.5-vl-7b-${REVISION:0:8}-${EXPECTED_INVENTORY_SHA:0:8}"
-
 QWEN_ROOT="${FM_QWEN_ROOT:-$HOME/fm-data-runs}"
-VIEW_DIR="$QWEN_ROOT/_model-views/$VIEW_NAME"
-INVENTORY_FILE="$QWEN_ROOT/_model-views/$VIEW_NAME.MODEL_INVENTORY.json"
 LOCK_DIR="$QWEN_ROOT/_runtime/qwen-cu128"
 LOCK_SRC="$ROOT/scripts/install/qwen/requirements-cu128.lock"
 TORCH_INDEX="https://download.pytorch.org/whl/cu128"
-# Free space needed for a cold install: weights + wheel cache + slack.
-NEED_GB=30
+MODEL_SOURCE="${FM_QWEN_MODEL_SOURCE:-$ROOT/src/fm_data/fm_data_annotate}"
+MODEL_KEY="qwen2.5-vl-7b"
+REPO_ID=""
+REVISION=""
+EXPECTED_INVENTORY_SHA=""
+PYTHON_VERSION=""
+VIEW_NAME=""
+VIEW_DIR=""
+INVENTORY_FILE=""
+# Free space needed for a cold Qwen3.5 install: weights + wheel cache + slack.
+NEED_GB=40
 
 usage() {
   cat <<'EOF'
 setup-qwen.sh — provision the real annotation model (opt-in, GPU hosts)
 
-  (no args)    install uv, download + verify the pinned Qwen weights view,
+  (no args)    install the baseline pinned Qwen2.5 model
+  --model KEY  explicitly select qwen3.5-9b or qwen2.5-vl-7b
+  install      install uv, download + verify the selected Qwen weights view,
                install the locked cu128 runtime pins, prewarm the wheel cache
   uninstall    remove the weights view, its inventory, and the lock copy
                (uv and the shared uv cache are left alone)
   -h, --help   show this help
 
-Knobs: FM_QWEN_ROOT (default ~/fm-data-runs). Downloading needs the network;
+Knobs: FM_QWEN_ROOT (default ~/fm-data-runs), FM_QWEN_MODEL_SOURCE.
+Downloading needs the network;
 nothing here loads weights or runs the model — execution stays approval-gated.
 EOF
+}
+
+load_model_descriptor() {
+  [ -d "$MODEL_SOURCE" ] || {
+    echo "ERROR: fm_data_annotate model descriptor source missing: $MODEL_SOURCE" >&2
+    return 1
+  }
+  local fields=()
+  while IFS= read -r field; do
+    fields+=("$field")
+  done < <(
+      PYTHONPATH="$MODEL_SOURCE" "$(_engine_python)" \
+        -m fm_data_annotate.qwen_models "$MODEL_KEY" --fields
+    )
+  [ "${#fields[@]}" -eq 9 ] || {
+    echo "ERROR: Qwen model descriptor did not return the expected fields" >&2
+    return 1
+  }
+  MODEL_KEY="${fields[0]}"
+  REPO_ID="${fields[2]}"
+  REVISION="${fields[3]}"
+  EXPECTED_INVENTORY_SHA="${fields[4]}"
+  PYTHON_VERSION="${fields[6]}"
+  VIEW_NAME="$MODEL_KEY-${REVISION:0:8}-${EXPECTED_INVENTORY_SHA:0:8}"
+  VIEW_DIR="$QWEN_ROOT/_model-views/$VIEW_NAME"
+  INVENTORY_FILE="$QWEN_ROOT/_model-views/$VIEW_NAME.MODEL_INVENTORY.json"
 }
 
 _uv() {
@@ -115,11 +145,14 @@ do_install() {
     item "verifying the existing weights view against the pinned identity ..."
     _verify_and_write_inventory "$VIEW_DIR"
   else
-    item "downloading $REPO_ID @ ${REVISION:0:8} (~16 GB) ..."
+    item "downloading $REPO_ID @ ${REVISION:0:8} (large pinned model view) ..."
     local staging="$QWEN_ROOT/_model-views/.staging-$VIEW_NAME"
-    rm -rf "$staging"
-    mkdir -p "$staging"
-    _uv run --quiet --no-project --with huggingface_hub python - "$staging" <<PY
+    if [ -d "$staging" ]; then
+      item "reusing the existing staging download after full verification ..."
+    else
+      mkdir -p "$staging"
+      _uv run --quiet --python "$PYTHON_VERSION" --no-project \
+        --with huggingface_hub python - "$staging" <<PY
 import sys
 from huggingface_hub import snapshot_download
 snapshot_download(
@@ -128,6 +161,7 @@ snapshot_download(
     local_dir=sys.argv[1],
 )
 PY
+    fi
     item "verifying the download against the pinned inventory identity ..."
     _verify_and_write_inventory "$staging"
     rm -rf "$staging/.cache"
@@ -135,7 +169,7 @@ PY
     item "weights view promoted: $VIEW_DIR"
   fi
   item "prewarming the locked cu128 runtime (torch wheels, first time ~6 GB) ..."
-  _uv run --quiet --no-project \
+  _uv run --quiet --python "$PYTHON_VERSION" --no-project \
     --extra-index-url "$TORCH_INDEX" --index-strategy unsafe-best-match \
     --with-requirements "$LOCK_DIR/requirements.lock" \
     python -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())" \
@@ -169,7 +203,11 @@ for path in sorted(target.rglob("*")):
         continue
     if not path.is_file() or path.is_symlink():
         continue
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    hasher = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    digest = hasher.hexdigest()
     size = path.stat().st_size
     files.append({"path": rel.as_posix(), "sha256": digest, "size_bytes": size})
     total += size
@@ -200,11 +238,19 @@ do_uninstall() {
 }
 
 main() {
-  case "${1:-install}" in
-    -h|--help) usage ;;
+  local action="install"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -h|--help) usage; return 0 ;;
+      --model) MODEL_KEY="$2"; shift 2 ;;
+      install|uninstall) action="$1"; shift ;;
+      *) usage; echo; echo "ERROR: unknown argument '$1'" >&2; return 2 ;;
+    esac
+  done
+  load_model_descriptor
+  case "$action" in
     install) do_install ;;
     uninstall) do_uninstall ;;
-    *) usage; echo; echo "ERROR: unknown argument '$1'" >&2; exit 2 ;;
   esac
 }
 
