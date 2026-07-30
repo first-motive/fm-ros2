@@ -112,6 +112,10 @@ FM_RECORDER_LIDAR=auto
 FM_RECORDER_RECORD=true
 # Run the foxglove bridge here (:8765) for the Mac operator surface:
 FM_RECORDER_FOXGLOVE=true
+# Where episodes land. Also read by the auto-updater to tell "a take is in flight"
+# from "idle" — change both this and the recorder config together, or the updater
+# watches the wrong directory and converges during a take:
+#FM_RECORDER_RECORDINGS_DIR=/home/USER/recordings
 EOF
   fi
 

@@ -14,6 +14,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 MEDIAPIPE_VERSION="0.10.14"
+# Pinned ref for the tactile-glove overlay (fm_tactile_msgs + fm_tactile_bridge).
+# Override with FM_TACTILE_REF to test a branch before it is tagged.
+TACTILE_REF="${FM_TACTILE_REF:-v0.1.0}"
+# Snake-case checkout dir, matching src/fm_data and the external/ vendored sources:
+# the kebab repo slug is private and is never written into the tree in plaintext.
+TACTILE_DIR="src/external/fm_tactile"
 
 # 0. Require ROS 2 Humble — installing ROS itself is out of scope (distro-specific, heavy).
 if [ ! -f /opt/ros/humble/setup.bash ]; then
@@ -28,14 +34,17 @@ set +u; source /opt/ros/humble/setup.bash; set -u
 
 # 1. Camera drivers + compressed transport + build tooling (apt). usb_cam drives the
 #    two USB wrist cameras (fm_data_sensors cameras.launch.py prefers it on Linux).
-item "installing apt packages (RealSense + USB camera drivers, compressed transport, colcon, rosdep) ..."
+#    python3-serial is the tactile bridge's link to the ESP32 (fm_tactile_bridge declares
+#    it, but the rosdep step below is best-effort, so pin it here where it cannot be missed).
+item "installing apt packages (RealSense + USB camera drivers, compressed transport, colcon, rosdep, serial) ..."
 sudo apt-get update -qq
 sudo apt-get install -y \
   ros-humble-realsense2-camera ros-humble-usb-cam \
   ros-humble-compressed-image-transport \
   ros-humble-rosbag2-storage-mcap v4l-utils \
   python3-colcon-common-extensions python3-vcstool python3-rosdep python3-pip \
-  python3-opencv git curl cmake build-essential
+  python3-opencv git curl cmake build-essential \
+  python3-serial
 
 # 2. RealSense udev rules — required for the IMU (else it fails with Permission denied) and for
 #    non-root device access. Re-plug the camera after this.
@@ -69,13 +78,36 @@ if [ ! -d src/fm_data/.git ]; then
   }
 fi
 
+# 4c. Tactile glove overlay — the ESP32 receiver (fm_tactile_bridge) and its message package
+#     (fm_tactile_msgs) live in their own private repo. Cloned under src/ so colcon discovers
+#     it in the same workspace overlay the recorder builds into; src/ is gitignored here, so
+#     the checkout stays out of this repo's index (same shape as src/fm_data above).
+#
+#     Pinned to a tag, not a moving branch: the receiver owns a serial device and a systemd
+#     unit on a shared capture host, so an unattended auto-update must never change it silently.
+#     Partial clone — the repo also carries board gerbers, renders, and firmware archives that
+#     a recorder host has no use for.
+if [ ! -d "$TACTILE_DIR/.git" ]; then
+  _tactile_repo="$(printf '%s' 'Zm0tdGFjdGlsZQ==' | base64 -d)"
+  item "cloning the tactile glove overlay at $TACTILE_REF (needs first-motive org access) ..."
+  mkdir -p "$(dirname "$TACTILE_DIR")"
+  git clone --depth 1 --branch "$TACTILE_REF" --filter=blob:none \
+    "https://github.com/first-motive/${_tactile_repo}.git" "$TACTILE_DIR" || {
+    echo "ERROR: could not clone the tactile glove overlay at ref '$TACTILE_REF'. Ensure git" >&2
+    echo "       can reach the private first-motive org (gh auth login, or an SSH key) and" >&2
+    echo "       that the ref exists, then re-run." >&2
+    exit 1
+  }
+fi
+
 # 5. Build the tracker + the recorder/sensors only — no sim / robot-control / MoveIt / dataset
 #    engine. rosdep resolves system deps; failures there are non-fatal (the apt deps above cover
 #    the core path), so the build still proceeds.
-item "resolving deps + building tracker + recorder (fm_teleop_vision, fm_data_record, fm_data_sensors) ..."
+item "resolving deps + building tracker + recorder + tactile bridge ..."
 sudo rosdep init 2>/dev/null || true
 rosdep update 2>/dev/null || true
 rosdep install --from-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
+  "$TACTILE_DIR/ros2_ws/src" \
   --ignore-src -y --rosdistro humble 2>/dev/null || \
   item "rosdep install skipped/partial — continuing (apt deps above cover the core path)"
 # colcon --symlink-install builds ament_python via `setup.py develop --editable`; the pip installs
@@ -87,9 +119,13 @@ pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "set
 # stops there and never sees the nested fm_data_record / fm_data_sensors. List their dirs
 # explicitly as base-paths (mirrors the data engine's own README), alongside src/fm_teleop for
 # the tracker + its deps.
+# fm_tactile_bridge pulls fm_tactile_msgs transitively; the recorder needs that message
+# package on its PYTHONPATH too, or get_message() cannot import the type and it drops
+# /glove_left/tactile with a warning every tick.
 colcon build --symlink-install \
   --base-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
-  --packages-up-to fm_teleop_vision fm_data_record fm_data_sensors
+  "$TACTILE_DIR/ros2_ws/src" \
+  --packages-up-to fm_teleop_vision fm_data_record fm_data_sensors fm_tactile_bridge
 
 # 4b. --symlink-install can leave the model files in the package share dir as dangling symlinks;
 #     copy the real .task files in so hand_tracker (which resolves them from share) finds them.
@@ -151,6 +187,11 @@ fi
 if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   item "installing the recorder boot service (fm-recorder.service) ..."
   ./scripts/install/install-recorder-service.sh
+  # The tactile receiver is its own unit, not part of the recorder launch: it owns a
+  # serial port exclusively and must keep streaming (and keep its clock fit warm)
+  # while the recorder sits idle between takes.
+  item "installing the tactile glove receiver (fm-tactile.service) ..."
+  ./scripts/install/install-tactile-service.sh
   # An appliance keeps itself current: fetch every ~15 min, converge on merged
   # updates (a take in flight is never interrupted; see appliance-update.sh).
   item "installing the auto-update timer (fm-update-recorder.timer) ..."

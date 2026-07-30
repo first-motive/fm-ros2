@@ -50,6 +50,24 @@ jobs:
             || { echo "FAIL: install.sh uninstall did not reach 'selftest ok'"; exit 1; }
           echo "update + uninstall self-test OK"
 
+      # The appliance updater must tell "a take is in flight" from "idle". The
+      # tactile bridge appends to recordings/tactile-raw continuously, even while
+      # the recorder is idle, so the updater prunes that one directory — without
+      # the prune a glove-equipped rig can never converge on an update. The guard
+      # is a two-line find expression, easy to break in an unrelated edit.
+      - name: appliance updater busy gate (recorder)
+        run: bash scripts/ci/test-appliance-update.sh
+
+      # Every install script is Linux-only and mostly unreachable in CI, so a parse
+      # error would otherwise surface first on a real rig mid-provision.
+      - name: install scripts parse
+        run: |
+          set -euo pipefail
+          for s in scripts/install/*.sh scripts/run/*.sh; do
+            bash -n "$s" || { echo "FAIL: $s has a syntax error"; exit 1; }
+          done
+          echo "install/run script syntax OK"
+
   workspace:
     name: build + test + smoke (humble)
     runs-on: ubuntu-latest

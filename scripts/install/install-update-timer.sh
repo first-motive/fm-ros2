@@ -79,6 +79,11 @@ After=network-online.target
 Type=oneshot
 User=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
+# Read the role's env file so the updater sees the same tuned paths the role runs
+# with. FM_RECORDER_RECORDINGS_DIR matters most: appliance-update.sh reads it to
+# find the directory it must check for a take in flight, and without this the
+# updater would silently watch ~/recordings on a host that records elsewhere.
+EnvironmentFile=-/etc/fm-$role.env
 WorkingDirectory=$ROOT
 ExecStart=/bin/bash $WRAPPER $role
 EOF
