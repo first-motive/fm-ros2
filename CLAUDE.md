@@ -41,7 +41,7 @@ skill for the manifest schema and the full verb surface.
 ## Assembly
 
 ```bash
-vcs import < fm-ros2.repos     # pull container infra into docker/ + the four package repos into src/
+vcs import < fm-ros2.repos     # pull container infra into docker/, zenoh transport configs into comms/, the four package repos into src/
 vcs import < private-overlay.repos # private overlay — team members with access
 ./scripts/install/import-externals.sh      # vendor externals into external/
 ```

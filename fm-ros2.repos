@@ -1,7 +1,8 @@
 # vcs import < fm-ros2.repos   (run from the workspace root)
 #
-# Public-workspace assembly: pulls the shared container infra into docker/ and the
-# four public First Motive package repos into src/, each tracking main. Paths are
+# Public-workspace assembly: pulls the shared container infra into docker/, the
+# Zenoh transport configs into comms/, and the four public First Motive package
+# repos into src/, each tracking main. Paths are
 # relative to the workspace root, so import from the root (no `src` argument). A
 # private learning overlay lives in a separate manifest — team members with
 # access import it on top of this one; see docs/ARCHITECTURE.md. Externals
@@ -17,6 +18,17 @@ repositories:
     type: git
     url: https://github.com/first-motive/fm-docker.git
     version: v0.1.0
+  # Zenoh transport configs, systemd units, and deploy scripts. Imported into
+  # comms/ beside docker/ rather than src/: it carries no ROS packages and ships
+  # a COLCON_IGNORE, so colcon never descends into it. Only the zenoh comms
+  # profile reads it (scripts/run/comms-zenoh.sh); the default foxglove profile
+  # never touches it.
+  comms:
+    type: git
+    url: https://github.com/first-motive/fm-comms.git
+    # Tracks main until the first release is cut, then pins to that tag the way
+    # docker/ does — the transport must not move under a running fleet.
+    version: main
   src/fm_robot:
     type: git
     url: https://github.com/first-motive/fm-robot.git
