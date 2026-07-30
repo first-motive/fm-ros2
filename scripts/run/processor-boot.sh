@@ -20,6 +20,11 @@
 #   FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=<dir> durable human review receipts
 #   FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=<dir> durable corrected outputs
 #   FM_PROCESSOR_ANNOTATION_LEARNING_DIR=<dir> durable learning records
+#   FM_PROCESSOR_RELEASE_ROOT=<dir>     candidates, Packs, jobs, and deliveries
+#   FM_PROCESSOR_RELEASE_DATASET_EXPORTER=<exe> pinned real-dataset exporter
+#   FM_PROCESSOR_RELEASE_PACK_CONFIG=<file> reviewed Dataset Release Pack v2 config
+#   FM_PROCESSOR_RELEASE_HUGGINGFACE_CLI=<exe> pinned hf executable (optional)
+#   FM_PROCESSOR_RELEASE_HUGGINGFACE_REPOSITORY=<owner/name> approved private dataset
 #   FM_LAN_IP=<ip>                     pin the DDS LAN interface (else auto-detected)
 #
 # No `set -e`: this is a long-lived bring-up wrapper, and a non-matching grep in the
@@ -41,6 +46,11 @@ ANNOTATION_ADJUDICATIONS_DIR="${FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR:-~/fm-
 ANNOTATION_REVOCATIONS_DIR="${FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR:-~/fm-data-runs/annotation-revocations}"
 ANNOTATION_LEARNING_SNAPSHOTS_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR:-~/fm-data-runs/annotation-learning-snapshots}"
 ANNOTATION_IMPROVEMENT_RUNS_DIR="${FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR:-~/fm-data-runs/annotation-improvement-runs}"
+RELEASE_ROOT="${FM_PROCESSOR_RELEASE_ROOT:-~/dataset-releases}"
+RELEASE_DATASET_EXPORTER="${FM_PROCESSOR_RELEASE_DATASET_EXPORTER:-}"
+RELEASE_PACK_CONFIG="${FM_PROCESSOR_RELEASE_PACK_CONFIG:-}"
+RELEASE_HUGGINGFACE_CLI="${FM_PROCESSOR_RELEASE_HUGGINGFACE_CLI:-}"
+RELEASE_HUGGINGFACE_REPOSITORY="${FM_PROCESSOR_RELEASE_HUGGINGFACE_REPOSITORY:-}"
 # The engine's dedicated venv isolates its numpy pin from other tenants of the
 # host (setup-processor.sh creates it); default to it whenever it exists.
 ENGINE_PYTHON="${FM_PROCESSOR_ENGINE_PYTHON:-}"
@@ -85,6 +95,7 @@ LAUNCH_ARGS+=(annotation_adjudications_dir:="$ANNOTATION_ADJUDICATIONS_DIR")
 LAUNCH_ARGS+=(annotation_revocations_dir:="$ANNOTATION_REVOCATIONS_DIR")
 LAUNCH_ARGS+=(annotation_learning_snapshots_dir:="$ANNOTATION_LEARNING_SNAPSHOTS_DIR")
 LAUNCH_ARGS+=(annotation_improvement_runs_dir:="$ANNOTATION_IMPROVEMENT_RUNS_DIR")
+LAUNCH_ARGS+=(release_root:="$RELEASE_ROOT")
 if [ -n "$CONFIG" ]; then
   LAUNCH_ARGS+=(config:="$CONFIG")
 fi
@@ -93,6 +104,18 @@ if [ -n "$ENGINE_PYTHON" ]; then
 fi
 if [ -n "$ANNOTATIONS_DIR" ]; then
   LAUNCH_ARGS+=(annotations_dir:="$ANNOTATIONS_DIR")
+fi
+if [ -n "$RELEASE_DATASET_EXPORTER" ]; then
+  LAUNCH_ARGS+=(release_dataset_exporter:="$RELEASE_DATASET_EXPORTER")
+fi
+if [ -n "$RELEASE_PACK_CONFIG" ]; then
+  LAUNCH_ARGS+=(release_pack_config:="$RELEASE_PACK_CONFIG")
+fi
+if [ -n "$RELEASE_HUGGINGFACE_CLI" ]; then
+  LAUNCH_ARGS+=(release_huggingface_cli:="$RELEASE_HUGGINGFACE_CLI")
+fi
+if [ -n "$RELEASE_HUGGINGFACE_REPOSITORY" ]; then
+  LAUNCH_ARGS+=(release_huggingface_repository:="$RELEASE_HUGGINGFACE_REPOSITORY")
 fi
 # The app-triggerable real-model provisioning (/process/provision) runs this
 # workspace's own setup-qwen.sh; passing the path here keeps the supervisor
