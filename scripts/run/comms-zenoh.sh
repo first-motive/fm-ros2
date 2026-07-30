@@ -22,10 +22,16 @@ _fm_zenoh_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
 
-# Keep FastDDS for this first cut. Cyclone is the better fit under a bridge and
-# lands as its own step; changing the transport and the RMW at once would leave
-# any regression with two possible causes.
-export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+# Cyclone, not FastDDS. Under a bridge the DDS graph is loopback-only and small,
+# which is where Cyclone is the better fit — and zenoh-bridge-ros2dds is developed
+# and tested against it upstream. The foxglove profile keeps FastDDS, so the two
+# profiles differ in RMW as well as transport; that is deliberate, and it is why
+# a host must not mix them in one graph.
+#
+# Available natively via pixi (ros-humble-rmw-cyclonedds-cpp in pixi.toml) and in
+# the container (fm-docker's Dockerfile.base). A host missing it fails loudly at
+# node start rather than silently falling back.
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
 # Confine DDS to loopback. Cross-host traffic is the bridge's job now, so a DDS
 # participant that reaches the LAN would duplicate what Zenoh already carries —

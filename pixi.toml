@@ -37,6 +37,14 @@ ros-humble-tinyxml2-vendor = ">=0.7.6,<0.8"
 lodepng = ">=20220109,<20220110"
 trimesh = ">=4.12.2,<5"
 pycollada = ">=0.9.3,<0.10"
+# The alternate RMW the zenoh comms profile selects (scripts/run/comms-zenoh.sh).
+# ros-humble-desktop already pulls it in transitively; declared here because the
+# profile now depends on it directly, and a metapackage's transitive set is not a
+# contract. Unconditional rather than target-scoped — robostack-humble builds it on
+# every platform. Declaring it changes nothing at runtime: the default foxglove
+# profile stays on FastDDS. The container gets the same RMW from fm-docker's
+# Dockerfile.base.
+ros-humble-rmw-cyclonedds-cpp = ">=1.3.4,<2"
 
 # foxglove-bridge and spacenav have no win-64 build on robostack-humble, so both
 # are scoped to the platforms that have them. Native Windows therefore has no
