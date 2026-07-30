@@ -96,15 +96,25 @@ gh api repos/first-motive/fm-desktop/contents/install.sh --jq .content \
   | base64 --decode | bash
 ```
 
-**Recorder (Linux camera host)** — RealSense + hand tracker + episode recorder,
-streaming to the app over the LAN. Ubuntu 22.04 + ROS 2 Humble required;
-`--service` makes it a boot appliance (`fm-recorder.service`). Run from the
-directory that should own the checkout:
+**Recorder (Linux camera host)** — RealSense + hand tracker + tactile glove +
+episode recorder, streaming to the app over the LAN. Ubuntu 22.04 + ROS 2 Humble
+required; `--service` makes it a boot appliance (`fm-recorder.service` plus
+`fm-tactile.service` for the glove). The one-liner clones into the directory it
+runs from, so `cd` to the one that should own the checkout first:
 
 ```bash
+mkdir -p ~/jetson && cd ~/jetson
 curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh \
   | bash -s -- --recorder --service
 ```
+
+The tactile glove is a USB-tethered ESP32 reading five FSRs, published on
+`/glove_left/tactile` at 40 Hz and recorded into every episode. Its ESP32 must
+stay in one physical USB port: the CH340 adapter reports no serial number, so
+the stable `/dev/fm-tactile-left` name is pinned to the port. Override it with
+`FM_TACTILE_USB_PORT` before installing. The installer also masks
+`brltty-udev.service`, which otherwise claims the adapter as a Braille display
+before the receiver can open it.
 
 **Data processor (Linux)** — the dataset engine, the annotation tooling
 (`annotation_run` / `annotation_verify`), and the supervisor the desktop

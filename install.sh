@@ -118,8 +118,9 @@ Path (where the stack runs):
   --native            native ROS2 via pixi + RoboStack (default on macOS/Windows)
   --container         Docker + compose (default on Linux; tests/CI/parity elsewhere)
   --recorder          native Linux camera host: RealSense driver + hand tracker +
-                      episode recording, streaming to laptops over DDS. Ubuntu 22.04
-                      + ROS 2 Humble required. See docs/REALSENSE.md.
+                      tactile-glove receiver + episode recording, streaming to
+                      laptops over DDS. Ubuntu 22.04 + ROS 2 Humble required.
+                      See docs/REALSENSE.md.
   --processor         native Linux dataset-processing host: the fm_data engine +
                       process_supervisor, driven by the desktop app's Process
                       surface over /process/*. Its own workspace, deliberately
@@ -139,8 +140,10 @@ Options:
   --no-desktop        skip the First Motive app in the team-extras step (members)
   --no-ai             skip the AI harness in the team-extras step (members)
   --service           recorder/processor paths only: also install + enable + start
-                      the boot service (fm-recorder.service / fm-processor.service)
-                      so the host comes up in its role on boot — see docs/REALSENSE.md
+                      the boot services so the host comes up in its role on boot.
+                      Recorder: fm-recorder.service + fm-tactile.service (the glove
+                      receiver, with its udev rule); processor: fm-processor.service.
+                      Both add the auto-update timer + mDNS advert. See docs/REALSENSE.md
   --purge             uninstall only: also drop clean imported repos under src/
                       and external/ (dirty checkouts are kept)
   --dry-run           print what would happen, change nothing (uninstall)
@@ -181,6 +184,7 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "would remove the fm-tools lib cache ($CACHE_DIR)"
     item "would remove the persisted profile (.fm_ros2.json)"
     item "would remove the recorder boot service (fm-recorder.service), if installed"
+    item "would remove the tactile glove receiver (fm-tactile.service + its udev rule), if installed"
     item "would remove the processor boot service (fm-processor.service), if installed"
     [[ "$purge" == 1 ]] && item "would purge clean imported repos under src/ and external/ (dirty ones kept)"
     return 0
@@ -215,6 +219,10 @@ do_uninstall() {  # dry no_desktop no_ai purge
   if [[ "$(uname -s)" == Linux && -x scripts/install/install-recorder-service.sh ]]; then
     item "removing the recorder boot service (fm-recorder.service), if present ..."
     ./scripts/install/install-recorder-service.sh uninstall || true
+  fi
+  if [[ "$(uname -s)" == Linux && -x scripts/install/install-tactile-service.sh ]]; then
+    item "removing the tactile glove receiver (fm-tactile.service), if present ..."
+    ./scripts/install/install-tactile-service.sh uninstall || true
   fi
   if [[ "$(uname -s)" == Linux && -x scripts/install/install-processor-service.sh ]]; then
     item "removing the processor boot service (fm-processor.service), if present ..."
