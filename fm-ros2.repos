@@ -26,9 +26,10 @@ repositories:
   comms:
     type: git
     url: https://github.com/first-motive/fm-comms.git
-    # Tracks main until the first release is cut, then pins to that tag the way
-    # docker/ does — the transport must not move under a running fleet.
-    version: main
+    # Pinned to a release tag, the way docker/ is — the transport must not move
+    # under a running fleet, and a router and a bridge on different versions do
+    # not interoperate.
+    version: v0.1.0
   src/fm_robot:
     type: git
     url: https://github.com/first-motive/fm-robot.git
