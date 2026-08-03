@@ -83,7 +83,7 @@ source /opt/ros/humble/setup.bash
 source "$ROOT/install/setup.bash"
 # The comms profile — foxglove (dds-lan.sh) unless FM_COMMS or .fm_ros2.json says otherwise.
 # shellcheck disable=SC1091
-source "$ROOT/scripts/run/comms.sh"
+source "$ROOT/scripts/env/comms.sh"
 set -u
 
 # ros2 launch rejects an empty-valued argument ("malformed launch argument

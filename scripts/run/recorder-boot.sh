@@ -63,7 +63,7 @@ if [ "$LIDAR" = on ] && [ -f "$LIVOX_OVERLAY" ]; then
 fi
 # The comms profile — foxglove (dds-lan.sh) unless FM_COMMS or .fm_ros2.json says otherwise.
 # shellcheck disable=SC1091
-source "$ROOT/scripts/run/comms.sh"
+source "$ROOT/scripts/env/comms.sh"
 set -u
 
 exec ros2 launch fm_data_record egocentric_record.launch.py \

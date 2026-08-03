@@ -211,7 +211,7 @@ main() {
   # delivery). Mirrors what recorder-boot.sh does rig-side. FM_LAN_IP=<ip> overrides
   # a wrong auto-detect; FM_COMMS=<profile> overrides the transport.
   exec pixi run bash -c \
-    'source scripts/run/comms.sh && source install/setup.bash && exec ros2 run fm_tui fm_tui_launcher'
+    'source scripts/env/comms.sh && source install/setup.bash && exec ros2 run fm_tui fm_tui_launcher'
 }
 
 main "$@"

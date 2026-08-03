@@ -11,15 +11,15 @@
 # Profiles:
 #   foxglove   FastDDS pinned to the LAN interface (dds-lan.sh) under a
 #              foxglove_bridge WebSocket. The default — what every demo runs.
-#   <other>    scripts/run/comms-<other>.sh, when that file exists.
+#   <other>    scripts/env/comms-<other>.sh, when that file exists.
 #
 # An unknown profile warns and falls back to foxglove: a headless rig coming up
 # on the working default beats one that does not come up at all.
 #
 # Usage — SOURCE this in every ROS terminal on every machine:
-#     source scripts/run/comms.sh
+#     source scripts/env/comms.sh
 # Override for one run:
-#     FM_COMMS=zenoh source scripts/run/comms.sh
+#     FM_COMMS=zenoh source scripts/env/comms.sh
 
 # Self-locating: ~/.bashrc sources this from an arbitrary cwd, so the workspace
 # root (and with it .fm_ros2.json) is resolved from this file's own path.
@@ -43,7 +43,7 @@ if ! printf '%s' "$_fm_comms" | grep -Eq '^[a-z0-9][a-z0-9-]*$'; then
   _fm_comms=foxglove
 fi
 
-_fm_comms_script="$_fm_comms_root/scripts/run/comms-${_fm_comms}.sh"
+_fm_comms_script="$_fm_comms_root/scripts/env/comms-${_fm_comms}.sh"
 if [ "$_fm_comms" != foxglove ] && [ ! -f "$_fm_comms_script" ]; then
   echo "comms: unknown profile '$_fm_comms' (no $_fm_comms_script) — using foxglove." >&2
   _fm_comms=foxglove
@@ -51,7 +51,7 @@ fi
 
 if [ "$_fm_comms" = foxglove ]; then
   # shellcheck disable=SC1091
-  source "$_fm_comms_root/scripts/run/dds-lan.sh"
+  source "$_fm_comms_root/scripts/env/dds-lan.sh"
 else
   # shellcheck disable=SC1090
   source "$_fm_comms_script"

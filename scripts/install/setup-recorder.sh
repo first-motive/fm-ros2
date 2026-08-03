@@ -173,15 +173,18 @@ item "provisioning the Livox MID-360S stack (best-effort) ..."
 #    actually receives the stream (extra NICs otherwise break delivery). Auto-source it
 #    in every shell. A rig on another profile sets FM_COMMS or the .fm_ros2.json key.
 item "wiring the comms profile into ~/.bashrc ..."
-if ! grep -q 'scripts/run/comms.sh' "$HOME/.bashrc" 2>/dev/null; then
+if ! grep -Fq 'scripts/env/comms.sh' "$HOME/.bashrc" 2>/dev/null; then
   # Drop the pre-comms.sh line a rig provisioned earlier still carries — comms.sh
   # sources dds-lan.sh itself for the foxglove profile, so keeping both would pin
   # DDS before the profile gets to choose.
   sed -i '\#scripts/run/dds-lan.sh#d' "$HOME/.bashrc" 2>/dev/null || true
+  # Drop the line written before the profiles moved to scripts/env/. A rig
+  # provisioned then still sources scripts/run/comms.sh, which no longer exists.
+  sed -i '\#scripts/run/comms.sh#d' "$HOME/.bashrc" 2>/dev/null || true
   {
     echo ""
     echo "# fm_ros2 recorder: the comms profile (default foxglove = DDS on the LAN)"
-    echo "source \"$ROOT/scripts/run/comms.sh\""
+    echo "source \"$ROOT/scripts/env/comms.sh\""
   } >> "$HOME/.bashrc"
 fi
 
@@ -217,7 +220,7 @@ Next — plug the RealSense into a USB3 port, open a NEW terminal, then:
 
   source /opt/ros/humble/setup.bash
   source "$ROOT/install/setup.bash"          # the built tracker + recorder
-  source "$ROOT/scripts/run/comms.sh"        # comms profile (auto in new shells via ~/.bashrc)
+  source "$ROOT/scripts/env/comms.sh"        # comms profile (auto in new shells via ~/.bashrc)
 
   # Camera (/head RealSense) + hand tracker (metric depth Z) + recorder — one command:
   ros2 launch fm_data_record egocentric_record.launch.py

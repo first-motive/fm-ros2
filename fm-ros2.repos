@@ -21,7 +21,7 @@ repositories:
   # Zenoh transport configs, systemd units, and deploy scripts. Imported into
   # comms/ beside docker/ rather than src/: it carries no ROS packages and ships
   # a COLCON_IGNORE, so colcon never descends into it. Only the zenoh comms
-  # profile reads it (scripts/run/comms-zenoh.sh); the default foxglove profile
+  # profile reads it (scripts/env/comms-zenoh.sh); the default foxglove profile
   # never touches it.
   comms:
     type: git

@@ -37,7 +37,7 @@ ros-humble-tinyxml2-vendor = ">=0.7.6,<0.8"
 lodepng = ">=20220109,<20220110"
 trimesh = ">=4.12.2,<5"
 pycollada = ">=0.9.3,<0.10"
-# The alternate RMW the zenoh comms profile selects (scripts/run/comms-zenoh.sh).
+# The alternate RMW the zenoh comms profile selects (scripts/env/comms-zenoh.sh).
 # ros-humble-desktop already pulls it in transitively; declared here because the
 # profile now depends on it directly, and a metapackage's transitive set is not a
 # contract. Unconditional rather than target-scoped — robostack-humble builds it on

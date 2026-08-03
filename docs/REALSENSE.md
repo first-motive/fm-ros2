@@ -62,13 +62,13 @@ The Mac consumes over ROS 2 DDS — no librealsense on the Mac. Both machines: s
 
 Multiple NICs (Docker bridges on the Mac, Tailscale on Linux) break DDS delivery — discovery
 works but no data arrives, because FastDDS announces unreachable addresses. Fix: pin FastDDS to
-the LAN interface on **both** machines. `scripts/run/comms.sh` does this — it selects the comms
+the LAN interface on **both** machines. `scripts/env/comms.sh` does this — it selects the comms
 profile (foxglove by default, which is `dds-lan.sh`: auto-detect the LAN IP, write a FastDDS
 whitelist profile, export the env). **Source it in every ROS terminal on both machines**
 (Linux: before `ros2 launch`; Mac: inside `pixi shell`):
 
 ```bash
-source scripts/run/comms.sh       # or: FM_LAN_IP=192.168.1.x source scripts/run/comms.sh
+source scripts/env/comms.sh       # or: FM_LAN_IP=192.168.1.x source scripts/env/comms.sh
 ```
 
 To make it automatic, add that line to `~/.bashrc` (Linux) / your pixi shell init (Mac).
