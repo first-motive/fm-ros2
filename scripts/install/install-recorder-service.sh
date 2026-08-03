@@ -6,7 +6,7 @@
 #
 # This is the recorder role's Jetson-forward shape: a screenless companion computer
 # starts the stack itself; nothing is launched by hand. The unit runs
-# scripts/run/recorder-boot.sh (the boot-time source chain + launch) as the installing
+# scripts/service/recorder-boot.sh (the boot-time source chain + launch) as the installing
 # user, so bags land in that user's ~/recordings.
 #
 # Linux + systemd only, best-effort (warns + returns 0 elsewhere), idempotent. Invoked
@@ -24,7 +24,7 @@ cd "$ROOT"
 
 UNIT=/etc/systemd/system/fm-recorder.service
 ENVFILE=/etc/fm-recorder.env
-WRAPPER="$ROOT/scripts/run/recorder-boot.sh"
+WRAPPER="$ROOT/scripts/service/recorder-boot.sh"
 
 # Run the service as the human who installed it, not root — so ~/recordings and the
 # RealSense udev access resolve to their account. SUDO_USER covers a `sudo ./install.sh`.
@@ -40,7 +40,7 @@ install-recorder-service.sh — install/remove the fm-recorder boot service (Lin
   uninstall    stop + disable + remove the unit and its env file
   -h, --help   show this help
 
-The service runs scripts/run/recorder-boot.sh as the installing user: it sources
+The service runs scripts/service/recorder-boot.sh as the installing user: it sources
 ROS + the workspace overlay + comms.sh, then launches egocentric_record.launch.py
 (camera + tracker + recorder + foxglove bridge). Bags land in ~/recordings. Tune it
 via /etc/fm-recorder.env (FM_RECORDER_TRACKER, FM_LAN_IP, ...).

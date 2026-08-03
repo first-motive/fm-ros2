@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install-sync-timer.sh — install (or remove) the recordings-sync timer on a
-# processor host: fm-sync.timer runs scripts/run/recordings-sync.sh every ~5
+# processor host: fm-sync.timer runs scripts/service/recordings-sync.sh every ~5
 # minutes, pulling finalized episodes from the recorder host's recordings dir
 # into this host's (index-driven, busy-gated; see recordings-sync.sh).
 #
@@ -24,7 +24,7 @@ cd "$ROOT"
 UNIT=/etc/systemd/system/fm-sync.service
 TIMER=/etc/systemd/system/fm-sync.timer
 ENVFILE=/etc/fm-sync.env
-WRAPPER="$ROOT/scripts/run/recordings-sync.sh"
+WRAPPER="$ROOT/scripts/service/recordings-sync.sh"
 
 SERVICE_USER="${SUDO_USER:-$USER}"
 # `|| true`: getent is Linux-only and this must not kill --help on other hosts.

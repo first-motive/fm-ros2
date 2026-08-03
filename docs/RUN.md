@@ -53,8 +53,8 @@ the workspace overlay before launching.
 | `--desktop` | First Motive macOS app | prefer a GUI over the terminal launcher (macOS) |
 
 The OS default maps `Darwin` / Windows → native and `Linux` → container. Remaining
-args forward to the chosen path script (`scripts/run/native.sh` or
-`scripts/run/container.sh`) — run either with `-h` for its own flags.
+args forward to the chosen path script (`scripts/internal/native.sh` or
+`scripts/internal/container.sh`) — run either with `-h` for its own flags.
 
 ### Path-Specific Flags
 

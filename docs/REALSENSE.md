@@ -62,13 +62,13 @@ The Mac consumes over ROS 2 DDS — no librealsense on the Mac. Both machines: s
 
 Multiple NICs (Docker bridges on the Mac, Tailscale on Linux) break DDS delivery — discovery
 works but no data arrives, because FastDDS announces unreachable addresses. Fix: pin FastDDS to
-the LAN interface on **both** machines. `scripts/run/comms.sh` does this — it selects the comms
+the LAN interface on **both** machines. `scripts/env/comms.sh` does this — it selects the comms
 profile (foxglove by default, which is `dds-lan.sh`: auto-detect the LAN IP, write a FastDDS
 whitelist profile, export the env). **Source it in every ROS terminal on both machines**
 (Linux: before `ros2 launch`; Mac: inside `pixi shell`):
 
 ```bash
-source scripts/run/comms.sh       # or: FM_LAN_IP=192.168.1.x source scripts/run/comms.sh
+source scripts/env/comms.sh       # or: FM_LAN_IP=192.168.1.x source scripts/env/comms.sh
 ```
 
 To make it automatic, add that line to `~/.bashrc` (Linux) / your pixi shell init (Mac).
@@ -88,7 +88,7 @@ machine (above) and sync the bags.
 The end state is a **screenless companion computer** (a Jetson; today's Linux box stands in for it)
 that boots straight into recording-ready — no login, no `ros2 launch` by hand. `install.sh
 --recorder --service` installs a **systemd service** (`fm-recorder.service`) that runs
-`scripts/run/recorder-boot.sh` on every boot: it sources ROS + the workspace overlay + `comms.sh`,
+`scripts/service/recorder-boot.sh` on every boot: it sources ROS + the workspace overlay + `comms.sh`,
 then launches the whole stack via `egocentric_record.launch.py` —
 
     head camera (/head + aligned depth) + hand tracker + recorder (armed, idle) + foxglove bridge (:8765)

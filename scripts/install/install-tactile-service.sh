@@ -165,7 +165,7 @@ User=$SERVICE_USER
 Group=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
 WorkingDirectory=$ROOT
-ExecStart=/bin/bash -lc 'source /opt/ros/humble/setup.bash && source $ROOT/install/setup.bash && source $ROOT/scripts/run/dds-lan.sh && exec ros2 launch fm_tactile_bridge receiver.launch.py config:=$CONFIG_FILE'
+ExecStart=/bin/bash -lc 'source /opt/ros/humble/setup.bash && source $ROOT/install/setup.bash && source $ROOT/scripts/env/dds-lan.sh && exec ros2 launch fm_tactile_bridge receiver.launch.py config:=$CONFIG_FILE'
 Restart=on-failure
 RestartSec=2
 TimeoutStopSec=10

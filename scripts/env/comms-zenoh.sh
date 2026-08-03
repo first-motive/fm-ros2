@@ -16,7 +16,7 @@
 #     vcs import < fm-ros2.repos
 #
 # Override the domain as usual:
-#     ROS_DOMAIN_ID=7 FM_COMMS=zenoh source scripts/run/comms.sh
+#     ROS_DOMAIN_ID=7 FM_COMMS=zenoh source scripts/env/comms.sh
 
 _fm_zenoh_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 

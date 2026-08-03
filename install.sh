@@ -518,7 +518,7 @@ main() {
     ./scripts/install/native.sh --viewer "$viewer"
   else
     # Container: the fm-app image carries ROS + rviz, so only foxglove needs a host
-    # install. rviz renders in the container over VNC (scripts/run/rviz-vnc.sh) and
+    # install. rviz renders in the container over VNC (scripts/internal/rviz-vnc.sh) and
     # none installs nothing — so the host viewer install is foxglove-only.
     step "Install Viewer"
     if [[ "$viewer" == foxglove ]]; then

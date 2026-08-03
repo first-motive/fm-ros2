@@ -30,13 +30,13 @@
 # curl|bash never half-runs.
 set -euo pipefail
 
-# Reach the repo root — this script now lives two levels down in scripts/run/.
+# Reach the repo root — this script now lives two levels down in scripts/internal/.
 cd "$(dirname "$0")/../.."
 
 # Shared build-tree guard (foreign-toolchain tree detection + clear). Sourced from
 # the repo root, where we just cd'd. See the preflight in main().
-# shellcheck source=scripts/run/lib-buildtree.sh
-source scripts/run/lib-buildtree.sh
+# shellcheck source=scripts/internal/lib-buildtree.sh
+source scripts/internal/lib-buildtree.sh
 
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
 # run.sh and the TUIs share one source of brand colour. `step` draws a numbered
@@ -154,14 +154,14 @@ open_views_when_ready() {
 
 # Serve the macOS rviz view over VNC. rviz has no native macOS build and cannot
 # render over XQuartz's indirect GLX on Apple Silicon, so it renders inside the
-# container against Xvfb + software GL (llvmpipe); scripts/run/rviz-vnc.sh starts that
+# container against Xvfb + software GL (llvmpipe); scripts/internal/rviz-vnc.sh starts that
 # display and a noVNC bridge, and this opens the host browser at the container's
 # address. OrbStack routes the host to the container IP, so no published port is
 # needed. The launcher starts rviz itself on the shared DISPLAY (:99, set on its
 # exec) when the operator picks a robot description. macOS GUI path; reads COMPOSE
 # / SERVICE set by main (dynamic scope).
 open_rviz_vnc() {
-  "${COMPOSE[@]}" exec -d "$SERVICE" bash /ws/scripts/run/rviz-vnc.sh
+  "${COMPOSE[@]}" exec -d "$SERVICE" bash /ws/scripts/internal/rviz-vnc.sh
   local ip url i
   ip=$("${COMPOSE[@]}" exec -T "$SERVICE" hostname -I 2>/dev/null | awk '{print $1}')
   url="http://${ip:-localhost}:6080/vnc.html?autoconnect=1&resize=scale"

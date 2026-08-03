@@ -12,6 +12,10 @@
     "foxglove": {
       "script": "scripts/run/foxglove.sh",
       "help": "run foxglove_bridge for foxglove studio (macos)"
+    },
+    "view-robot": {
+      "script": "scripts/run/view-robot.sh",
+      "help": "render a robot urdf in foxglove studio"
     }
   }
 }

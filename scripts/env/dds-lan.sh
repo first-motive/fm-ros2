@@ -8,9 +8,9 @@
 # but no data ever arrives. Restricting FastDDS to the real LAN interface fixes it.
 #
 # Usage — SOURCE this in every ROS terminal on BOTH machines (before ros2 ...):
-#     source scripts/run/dds-lan.sh
+#     source scripts/env/dds-lan.sh
 # Override auto-detection if it picks the wrong IP:
-#     FM_LAN_IP=192.168.1.42 source scripts/run/dds-lan.sh
+#     FM_LAN_IP=192.168.1.42 source scripts/env/dds-lan.sh
 
 _fm_lan_ip() {
   if [ -n "${FM_LAN_IP:-}" ]; then echo "$FM_LAN_IP"; return; fi

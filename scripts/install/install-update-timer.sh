@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install-update-timer.sh — install (or remove) the appliance auto-update timer
 # for one role: fm-update-<role>.timer fires fm-update-<role>.service every
-# ~15 minutes, which runs scripts/run/appliance-update.sh — fetch, and only when
+# ~15 minutes, which runs scripts/service/appliance-update.sh — fetch, and only when
 # a repo is behind, fast-forward + re-run the role installer (rebuild + service
 # restart). A merged PR lands on the box within one tick; an up-to-date box
 # does nothing but a fetch.
@@ -24,7 +24,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT/lib.sh"          # item()
 cd "$ROOT"
 
-WRAPPER="$ROOT/scripts/run/appliance-update.sh"
+WRAPPER="$ROOT/scripts/service/appliance-update.sh"
 
 SERVICE_USER="${SUDO_USER:-$USER}"
 # `|| true`: getent is Linux-only and this must not kill --help on other hosts.
@@ -39,7 +39,7 @@ install-update-timer.sh — install/remove the appliance auto-update timer (Linu
   uninstall recorder|processor    stop + disable + remove the role's timer
   -h, --help                      show this help
 
-The timer runs scripts/run/appliance-update.sh <role>: fetch the workspace and
+The timer runs scripts/service/appliance-update.sh <role>: fetch the workspace and
 role repos, fast-forward when behind, re-run the role installer. Busy takes and
 in-flight processing runs are never interrupted (the script's busy gate skips
 the tick). Pause anytime: sudo systemctl stop fm-update-<role>.timer

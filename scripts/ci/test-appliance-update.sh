@@ -44,7 +44,7 @@ touch "$TMP_DIR/recordings/tactile-raw/continuous.tactile.csv"
 output="$(
   FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/recordings" \
     PATH="$TMP_DIR/bin:$PATH" \
-    "$ROOT/scripts/run/appliance-update.sh" recorder
+    "$ROOT/scripts/service/appliance-update.sh" recorder
 )"
 if ! grep -qx "up to date" <<< "$output"; then
   printf 'continuous tactile evidence must not block updates; got: %s\n' \
@@ -57,7 +57,7 @@ touch "$TMP_DIR/recordings/episode-active/chunk_0.mcap"
 output="$(
   FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/recordings" \
     PATH="$TMP_DIR/bin:$PATH" \
-    "$ROOT/scripts/run/appliance-update.sh" recorder
+    "$ROOT/scripts/service/appliance-update.sh" recorder
 )"
 if ! grep -q "recorder busy (recent writes" <<< "$output"; then
   printf 'recent episode writes must block updates; got: %s\n' "$output" >&2

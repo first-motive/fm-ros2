@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared build-tree guard for the fm_ros2 run paths. Sourced by
-# scripts/run/container.sh and scripts/run/native.sh — never executed.
+# scripts/internal/container.sh and scripts/internal/native.sh — never executed.
 #
 # colcon bakes the absolute workspace prefix into the generated install/ setup
 # scripts (install/setup.sh hardcodes COLCON_CURRENT_PREFIX). The container

@@ -6,7 +6,7 @@
 # the DDS LAN profile explicitly, then execs the recorder launch. It is the boot-time
 # equivalent of the three `source` lines setup-recorder.sh prints for an interactive
 # terminal, so the screenless camera host (a Linux box now, a Jetson later) starts the
-# whole stack itself. Runnable by hand too: `bash scripts/run/recorder-boot.sh`.
+# whole stack itself. Runnable by hand too: `bash scripts/service/recorder-boot.sh`.
 #
 # Knobs (set in /etc/fm-recorder.env, the unit's EnvironmentFile):
 #   FM_RECORDER_TRACKER=on|off      run the hand tracker (off for a MediaPipe-less host)
@@ -63,7 +63,7 @@ if [ "$LIDAR" = on ] && [ -f "$LIVOX_OVERLAY" ]; then
 fi
 # The comms profile — foxglove (dds-lan.sh) unless FM_COMMS or .fm_ros2.json says otherwise.
 # shellcheck disable=SC1091
-source "$ROOT/scripts/run/comms.sh"
+source "$ROOT/scripts/env/comms.sh"
 set -u
 
 exec ros2 launch fm_data_record egocentric_record.launch.py \

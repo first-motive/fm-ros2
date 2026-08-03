@@ -37,7 +37,7 @@ ros-humble-tinyxml2-vendor = ">=0.7.6,<0.8"
 lodepng = ">=20220109,<20220110"
 trimesh = ">=4.12.2,<5"
 pycollada = ">=0.9.3,<0.10"
-# The alternate RMW the zenoh comms profile selects (scripts/run/comms-zenoh.sh).
+# The alternate RMW the zenoh comms profile selects (scripts/env/comms-zenoh.sh).
 # ros-humble-desktop already pulls it in transitively; declared here because the
 # profile now depends on it directly, and a metapackage's transitive set is not a
 # contract. Unconditional rather than target-scoped — robostack-humble builds it on
@@ -70,7 +70,7 @@ ros-humble-spacenav = ">=3.3.0,<4"
 ros-humble-image-transport-plugins = "*"
 
 # Build the full colcon workspace (src/ + external/) from the host via
-# scripts/run/native-build.sh, which points CMake's FindPython at the env interpreter
+# scripts/internal/native-build.sh, which points CMake's FindPython at the env interpreter
 # (rosidl_generator_py cannot otherwise locate the conda Python's dev component on
 # osx-arm64, and the failure aborts the whole build) and, on macOS, heals the
 # controller_manager bug + adds -dead_strip_dylibs (see that script). PYTHONWARNINGS
@@ -78,7 +78,7 @@ ros-humble-image-transport-plugins = "*"
 # spam (same pattern install.sh uses for the pkg_resources warning) until the
 # package repos drop the deprecated tests_require from their setup.py.
 [tasks.build]
-cmd = "bash scripts/run/native-build.sh"
+cmd = "bash scripts/internal/native-build.sh"
 env = { PYTHONWARNINGS = "ignore:Unknown distribution option:UserWarning" }
 
 # Run the fm_ package tests natively.

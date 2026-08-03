@@ -61,10 +61,10 @@ main() {
   FM_SELFTEST=1 ./run.sh             | grep -q 'run.sh dispatch resolved (path=native'
   FM_SELFTEST=1 ./run.sh --container | grep -q 'run.sh dispatch resolved (path=container'
   # The native run path itself resolves the viewer from the profile.
-  FM_SELFTEST=1 ./scripts/run/native.sh | grep -q 'native run resolved (viewer=rviz'
+  FM_SELFTEST=1 ./scripts/internal/native.sh | grep -q 'native run resolved (viewer=rviz'
   # The launcher's V-toggle (.fm_tui.json) outranks the install profile.
   printf '{"viewer":"none"}\n' > "$TUI_PATH"
-  FM_SELFTEST=1 ./scripts/run/native.sh | grep -q 'native run resolved (viewer=none'
+  FM_SELFTEST=1 ./scripts/internal/native.sh | grep -q 'native run resolved (viewer=none'
   rm -f "$TUI_PATH"
   printf '{"path":"bogus","viewer":"rviz"}\n' > "$PROFILE_PATH"
   if ./run.sh >/dev/null 2>&1; then

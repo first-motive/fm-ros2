@@ -7,7 +7,7 @@
 # equivalent of the three `source` lines setup-processor.sh prints for an interactive
 # terminal, so the processor host serves /process/* itself, including bounded
 # bundle-bound review media, and the desktop app's Process surface drives it.
-# Runnable by hand too: `bash scripts/run/processor-boot.sh`.
+# Runnable by hand too: `bash scripts/service/processor-boot.sh`.
 #
 # Knobs (set in /etc/fm-processor.env, the unit's EnvironmentFile):
 #   FM_PROCESSOR_RECORDINGS_DIR=<dir>  recorder output dir with sessions.jsonl + bags
@@ -83,7 +83,7 @@ source /opt/ros/humble/setup.bash
 source "$ROOT/install/setup.bash"
 # The comms profile — foxglove (dds-lan.sh) unless FM_COMMS or .fm_ros2.json says otherwise.
 # shellcheck disable=SC1091
-source "$ROOT/scripts/run/comms.sh"
+source "$ROOT/scripts/env/comms.sh"
 set -u
 
 # ros2 launch rejects an empty-valued argument ("malformed launch argument
