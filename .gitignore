@@ -22,6 +22,9 @@ src/
 # Shared container infra, imported from fm-docker (vcs import < fm-ros2.repos)
 docker/
 
+# Zenoh transport configs, imported from fm-comms (vcs import < fm-ros2.repos)
+comms/
+
 # Private overlay manifest — kept out of the public repo
 private-overlay.repos
 

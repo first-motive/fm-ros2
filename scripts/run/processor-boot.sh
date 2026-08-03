@@ -60,9 +60,10 @@ if [ -z "$ENGINE_PYTHON" ] && [ -x "$ROOT/.engine-venv/bin/python" ]; then
   ENGINE_PYTHON="$ROOT/.engine-venv/bin/python"
 fi
 
-# At boot the LAN interface may not be up yet, so dds-lan.sh would find no IP to pin
-# and fall back to default DDS. Wait (bounded, ~30s) for a private-LAN address before
-# sourcing it. FM_LAN_IP short-circuits the wait (dds-lan.sh honours it directly).
+# At boot the LAN interface may not be up yet, so the foxglove profile's dds-lan.sh
+# would find no IP to pin and fall back to default DDS. Wait (bounded, ~30s) for a
+# private-LAN address before sourcing the profile. FM_LAN_IP short-circuits the wait
+# (dds-lan.sh honours it directly).
 if [ -z "${FM_LAN_IP:-}" ]; then
   for _i in $(seq 1 30); do
     if hostname -I 2>/dev/null | tr ' ' '\n' \
@@ -80,8 +81,9 @@ set +u
 source /opt/ros/humble/setup.bash
 # shellcheck disable=SC1091
 source "$ROOT/install/setup.bash"
+# The comms profile — foxglove (dds-lan.sh) unless FM_COMMS or .fm_ros2.json says otherwise.
 # shellcheck disable=SC1091
-source "$ROOT/scripts/run/dds-lan.sh"
+source "$ROOT/scripts/run/comms.sh"
 set -u
 
 # ros2 launch rejects an empty-valued argument ("malformed launch argument
