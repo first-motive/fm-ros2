@@ -88,7 +88,7 @@ machine (above) and sync the bags.
 The end state is a **screenless companion computer** (a Jetson; today's Linux box stands in for it)
 that boots straight into recording-ready — no login, no `ros2 launch` by hand. `install.sh
 --recorder --service` installs a **systemd service** (`fm-recorder.service`) that runs
-`scripts/run/recorder-boot.sh` on every boot: it sources ROS + the workspace overlay + `comms.sh`,
+`scripts/service/recorder-boot.sh` on every boot: it sources ROS + the workspace overlay + `comms.sh`,
 then launches the whole stack via `egocentric_record.launch.py` —
 
     head camera (/head + aligned depth) + hand tracker + recorder (armed, idle) + foxglove bridge (:8765)

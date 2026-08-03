@@ -6,7 +6,7 @@
 #
 # The processing sibling of install-recorder-service.sh: the recorder checkout moves to
 # a Jetson later while this role stays on the strong Linux host, each in its own
-# workspace. The unit runs scripts/run/processor-boot.sh (the boot-time source chain +
+# workspace. The unit runs scripts/service/processor-boot.sh (the boot-time source chain +
 # launch) as the installing user, so output lands in that user's ~/processed.
 #
 # Linux + systemd only, best-effort (warns + returns 0 elsewhere), idempotent. Invoked
@@ -24,7 +24,7 @@ cd "$ROOT"
 
 UNIT=/etc/systemd/system/fm-processor.service
 ENVFILE=/etc/fm-processor.env
-WRAPPER="$ROOT/scripts/run/processor-boot.sh"
+WRAPPER="$ROOT/scripts/service/processor-boot.sh"
 
 # Run the service as the human who installed it, not root — so ~/recordings and
 # ~/processed resolve to their account. SUDO_USER covers a `sudo ./install.sh`.
@@ -40,7 +40,7 @@ install-processor-service.sh — install/remove the fm-processor boot service (L
   uninstall    stop + disable + remove the unit and its env file
   -h, --help   show this help
 
-The service runs scripts/run/processor-boot.sh as the installing user: it sources
+The service runs scripts/service/processor-boot.sh as the installing user: it sources
 ROS + the workspace overlay + comms.sh, then launches process_session.launch.py
 (the process_supervisor node). Manifests land in ~/processed. Tune it via
 /etc/fm-processor.env (FM_PROCESSOR_RECORDINGS_DIR, FM_PROCESSOR_OUTPUT_DIR, ...).

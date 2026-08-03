@@ -7,7 +7,7 @@
 # equivalent of the three `source` lines setup-processor.sh prints for an interactive
 # terminal, so the processor host serves /process/* itself, including bounded
 # bundle-bound review media, and the desktop app's Process surface drives it.
-# Runnable by hand too: `bash scripts/run/processor-boot.sh`.
+# Runnable by hand too: `bash scripts/service/processor-boot.sh`.
 #
 # Knobs (set in /etc/fm-processor.env, the unit's EnvironmentFile):
 #   FM_PROCESSOR_RECORDINGS_DIR=<dir>  recorder output dir with sessions.jsonl + bags

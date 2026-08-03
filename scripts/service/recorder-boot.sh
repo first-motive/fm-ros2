@@ -6,7 +6,7 @@
 # the DDS LAN profile explicitly, then execs the recorder launch. It is the boot-time
 # equivalent of the three `source` lines setup-recorder.sh prints for an interactive
 # terminal, so the screenless camera host (a Linux box now, a Jetson later) starts the
-# whole stack itself. Runnable by hand too: `bash scripts/run/recorder-boot.sh`.
+# whole stack itself. Runnable by hand too: `bash scripts/service/recorder-boot.sh`.
 #
 # Knobs (set in /etc/fm-recorder.env, the unit's EnvironmentFile):
 #   FM_RECORDER_TRACKER=on|off      run the hand tracker (off for a MediaPipe-less host)

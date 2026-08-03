@@ -38,7 +38,7 @@ usage() {
   cat <<'EOF'
 recordings-sync.sh — pull finalized recordings from the recorder host
 
-  scripts/run/recordings-sync.sh          # run one sync pass (timer entry point)
+  scripts/service/recordings-sync.sh          # run one sync pass (timer entry point)
   -h, --help                              # show this help
 
 Configure /etc/fm-sync.env: FM_SYNC_SOURCE=user@host:path (or a local path for

@@ -8,7 +8,7 @@
 # restart). Boxes converge on merged PRs within one tick — no push infra, no
 # secrets beyond the git credentials already on the host.
 #
-#   scripts/run/appliance-update.sh recorder     # or: processor
+#   scripts/service/appliance-update.sh recorder     # or: processor
 #
 # Safety posture:
 #   - busy gate: never updates mid-take (recent episode writes, excluding the
@@ -35,7 +35,7 @@ usage() {
   cat <<'EOF'
 appliance-update.sh — pull + rebuild + restart one appliance role when behind
 
-  scripts/run/appliance-update.sh recorder|processor
+  scripts/service/appliance-update.sh recorder|processor
   -h, --help   show this help
 
 Fetches the workspace and role repos; exits quietly when everything is current.
