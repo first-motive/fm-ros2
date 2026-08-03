@@ -23,11 +23,32 @@ the `fm_ros2` workspace metapackage.
   changes only for tooling, the workspace metapackage, the `.repos` manifests,
   and docs.
 
+## Script Taxonomy
+
+A script's directory declares what kind of thing it is. Put a new script in the
+one that matches how it is invoked:
+
+| Directory           | Holds                                              | In `fm.json` |
+| ------------------- | -------------------------------------------------- | ------------ |
+| `scripts/run/`      | workflows a person types                           | always       |
+| `scripts/env/`      | profiles sourced into a shell, never executed      | never        |
+| `scripts/service/`  | entry points systemd units and timers own          | never        |
+| `scripts/internal/` | scripts other scripts call, never invoked directly | never        |
+| `scripts/install/`  | provisioning steps `install.sh` drives             | never        |
+| `scripts/ci/`       | checks the CI workflows run                        | never        |
+| `scripts/dev/`      | maintainer utilities, run by hand and rarely       | never        |
+
+One rule follows from it, and `fm doctor` enforces it:
+
+```
+scripts/run/*.sh  ⟺  a verb in fm.json     (nothing else lives there)
+```
+
 ## fm CLI Contract
 
 `fm` mounts this repo's workflows as top-level verbs by reading `fm.json` at the
-repo root. A new user-facing workflow script must be declared there, or it stays
-unreachable from `fm`.
+repo root. A new workflow script in `scripts/run/` must be declared there, or it
+stays unreachable from `fm`.
 
 - Declare it: add `"<verb>": {"script": "scripts/run/<name>.sh", "help": "<one line>"}`
   under `commands` in `fm.json`.
