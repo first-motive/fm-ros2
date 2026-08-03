@@ -11,17 +11,17 @@
 # Wrapped in main() and called on the last line so a truncated pipe never half-runs.
 set -euo pipefail
 
-# Reach the repo root — this script lives two levels down in scripts/run/.
+# Reach the repo root — this script lives two levels down in scripts/internal/.
 cd "$(dirname "$0")/../.."
 
 # Shared build-tree guard (foreign-toolchain tree detection + clear). Sourced from
 # the repo root, where we just cd'd. See the preflight in main().
-# shellcheck source=scripts/run/lib-buildtree.sh
-source scripts/run/lib-buildtree.sh
+# shellcheck source=scripts/internal/lib-buildtree.sh
+source scripts/internal/lib-buildtree.sh
 
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so this
 # path, run.sh, and install.sh share one source of brand colour. Same pattern as
-# scripts/run/container.sh — keep the pin in sync.
+# scripts/internal/container.sh — keep the pin in sync.
 FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.3.0"
 
 STEP=0
@@ -42,7 +42,7 @@ usage() {
   cat <<'EOF'
 native.sh — build + launch the fm_ros2 stack natively via pixi (macOS / Windows)
 
-Usage: ./scripts/run/native.sh [--no-foxglove] [-h]
+Usage: ./scripts/internal/native.sh [--no-foxglove] [-h]
 
   --no-foxglove   skip auto-opening the browser viewer (Foxglove Studio or the
                   fm_viewer panel)

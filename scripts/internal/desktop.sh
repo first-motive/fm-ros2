@@ -19,7 +19,7 @@ usage() {
   cat <<'EOF'
 desktop.sh — launch First Motive, the native macOS app (dispatched by run.sh --desktop)
 
-Usage: ./scripts/run/desktop.sh [-h]
+Usage: ./scripts/internal/desktop.sh [-h]
 
 Opens the installed app at /Applications/First Motive.app. Launch only — it does
 not build or install. Install First Motive first: ./install.sh (team members), or

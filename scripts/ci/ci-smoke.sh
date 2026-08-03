@@ -284,12 +284,12 @@ PY
   sleep 2
 }
 
-# Bring up the headless rviz VNC path (scripts/run/rviz-vnc.sh) and assert its two
+# Bring up the headless rviz VNC path (scripts/internal/rviz-vnc.sh) and assert its two
 # halves: the noVNC HTTP port binds, and rviz renders on the virtual display with
 # software GL. This covers the container-side of the macOS rviz viewer; the host
 # browser-open in run.sh is not exercised here.
 assert_rviz_vnc() {
-  if ! bash "$ROOT/scripts/run/rviz-vnc.sh" >/tmp/rviz_vnc.log 2>&1; then
+  if ! bash "$ROOT/scripts/internal/rviz-vnc.sh" >/tmp/rviz_vnc.log 2>&1; then
     fail "rviz-vnc: server did not start (see /tmp/rviz_vnc.log)"
     return
   fi

@@ -121,7 +121,7 @@ rviz2 → Xvfb :99 (llvmpipe GL) → x11vnc → noVNC :6080 → browser
 No host viewer install and no XQuartz. When `rviz` is the default on macOS,
 `run.sh`:
 
-1. runs [`scripts/run/rviz-vnc.sh`](../scripts/run/rviz-vnc.sh) in the container to start
+1. runs [`scripts/internal/rviz-vnc.sh`](../scripts/internal/rviz-vnc.sh) in the container to start
    Xvfb + x11vnc + noVNC,
 2. launches rviz on `DISPLAY=:99` with `LIBGL_ALWAYS_SOFTWARE=1`,
 3. opens the browser at `http://<container-ip>:6080/vnc.html`, and

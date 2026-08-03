@@ -32,7 +32,7 @@ Usage: ./run.sh [--native|--container|--desktop] [path-specific args...] [-h|--h
 
 With no path flag, the profile in .fm_ros2.json decides; absent that, the OS
 default applies (macOS/Windows -> native, Linux -> container). Remaining args are
-forwarded to the chosen path — see ./scripts/run/native.sh -h or container.sh -h.
+forwarded to the chosen path — see ./scripts/internal/native.sh -h or ./scripts/internal/container.sh -h.
 EOF
 }
 
@@ -54,7 +54,7 @@ main() {
   # The app is a launch target beside the paths, not a path itself — dispatch it
   # straight to its script (it resolves its own checkout + toolchain, and carries
   # its own FM_SELFTEST hook, so this dispatch happens before the path selftest below).
-  if [[ "${1:-}" == --desktop ]]; then shift; exec ./scripts/run/desktop.sh "$@"; fi
+  if [[ "${1:-}" == --desktop ]]; then shift; exec ./scripts/internal/desktop.sh "$@"; fi
 
   local forced=""
   # Peel a leading path flag; everything else forwards to the path script.
@@ -81,7 +81,7 @@ main() {
 
   case "$path" in
     native)
-      exec ./scripts/run/native.sh "$@"
+      exec ./scripts/internal/native.sh "$@"
       ;;
     container)
       if is_windows; then
@@ -90,7 +90,7 @@ main() {
         echo "       Linux container path from a WSL2 shell instead." >&2
         return 1
       fi
-      exec ./scripts/run/container.sh "$@"
+      exec ./scripts/internal/container.sh "$@"
       ;;
     *)
       echo "error: unknown path '$path' in .fm_ros2.json (want native|container)" >&2

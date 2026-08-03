@@ -37,7 +37,7 @@ _fm_comms_profile() {
 
 _fm_comms="$(_fm_comms_profile)"
 # The profile name becomes a path segment, so hold it to the shape a filename can
-# take — otherwise a stray value walks out of scripts/run/ and sources something else.
+# take — otherwise a stray value walks out of scripts/env/ and sources something else.
 if ! printf '%s' "$_fm_comms" | grep -Eq '^[a-z0-9][a-z0-9-]*$'; then
   echo "comms: invalid profile name '$_fm_comms' (want lowercase, digits, dashes) — using foxglove." >&2
   _fm_comms=foxglove

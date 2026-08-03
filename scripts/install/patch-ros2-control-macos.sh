@@ -17,7 +17,7 @@
 #
 # Idempotent + self-healing: safe to re-run — it skips the build when the env dylib
 # is already ours, and rebuilds+swaps if a `pixi install` restored the stock binary.
-# Called by run.sh's native path (scripts/run/native-build.sh) before every build and
+# Called by run.sh's native path (scripts/internal/native-build.sh) before every build and
 # is a no-op off macOS. Every failure path leaves the stock binary untouched and
 # exits 0 so it never blocks a build.
 set -euo pipefail
