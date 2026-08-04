@@ -90,6 +90,14 @@ main() {
     gazebo|isaac|real) OVERLAY=docker/compose.linux.yaml ;;
   esac
 
+  # CI self-test hook: args validated and the overlay picked — stop before the
+  # vcs import, the Docker runtime bring-up, and the launch, none of which CI can
+  # do without hardware. Proves `fm sim` reaches this script and parses its flags.
+  if [[ -n "${FM_SELFTEST:-}" ]]; then
+    echo "selftest ok: sim resolved (robot=$ROBOT, backend=$BACKEND, task_env=$TASK_ENV)"
+    return 0
+  fi
+
   cd "$(dirname "$0")/../.."
 
   # fm-ros2 consumes the published fm-app full-stack image and sources the compose

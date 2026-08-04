@@ -44,6 +44,14 @@ main() {
 
   fm_bridge_validate_port "$PORT"
 
+  # CI self-test hook: flags parsed and validated — stop before the vcs import and
+  # the bridge launch, neither of which CI can do without the container stack.
+  # Proves `fm foxglove` reaches this script and parses its flags.
+  if [[ -n "${FM_SELFTEST:-}" ]]; then
+    echo "selftest ok: foxglove resolved (mode=$MODE, port=$PORT)"
+    return 0
+  fi
+
   # Run from the repo root so the relative compose paths resolve.
   cd "$(dirname "$0")/../.."
 
