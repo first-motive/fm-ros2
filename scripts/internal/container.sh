@@ -42,13 +42,13 @@ source scripts/internal/lib-buildtree.sh
 # run.sh and the TUIs share one source of brand colour. `step` draws a numbered
 # header block as a rich rule; `item` prints a plain status line beneath it. The
 # first steps run on the host before the container exists, so reach the banner
-# through `uv run --with` (pinned to fm-tools v0.3.0). Fall back to a plain
+# through `uv run --with` (pinned to fm-tools v0.4.1). Fall back to a plain
 # header when uv is absent.
-FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.3.0"
+FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.4.1"
 # lib.sh is owned by fm-tools; fetch it from the same pinned tag for the host
-# checks (fm_detect_os). The container runtime is delegated to fm-docker v0.1.0.
-FM_TOOLS_RAW="https://raw.githubusercontent.com/first-motive/fm-tools/v0.3.0"
-FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.0"
+# checks (fm_detect_os). The container runtime is delegated to fm-docker v0.1.1.
+FM_TOOLS_RAW="https://raw.githubusercontent.com/first-motive/fm-tools/v0.4.1"
+FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.1"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm_ros2"
 
 # Load the shared bootstrap library (fm-tools lib.sh) for fm_detect_os. Reuse a

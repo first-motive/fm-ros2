@@ -94,6 +94,6 @@ depends-on = ["build"]
 [pypi-dependencies]
 textual = "==0.74.0"
 rich = ">=15.0.0, <16"
-fm-tools = { git = "https://github.com/first-motive/fm-tools", tag = "v0.3.0" }
+fm-tools = { git = "https://github.com/first-motive/fm-tools", tag = "v0.4.1" }
 mujoco = ">=3.10.0, <4"
 mediapipe = "==0.10.14"
