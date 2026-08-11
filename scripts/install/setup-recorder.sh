@@ -107,6 +107,7 @@ item "resolving deps + building tracker + recorder + tactile bridge ..."
 sudo rosdep init 2>/dev/null || true
 rosdep update 2>/dev/null || true
 rosdep install --from-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
+  src/fm_data/fm_data_watchdog src/fm_data/fm_data_episode_qa \
   "$TACTILE_DIR/ros2_ws/src" \
   --ignore-src -y --rosdistro humble 2>/dev/null || \
   item "rosdep install skipped/partial — continuing (apt deps above cover the core path)"
@@ -122,10 +123,18 @@ pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "set
 # fm_tactile_bridge pulls fm_tactile_msgs transitively; the recorder needs that message
 # package on its PYTHONPATH too, or get_message() cannot import the type and it drops
 # /glove_left/tactile with a warning every tick.
+# fm_data_watchdog + fm_data_episode_qa are the rig monitors. They are built here
+# but launched by their own units (fm-watchdog / fm-episode-qa), NOT by the
+# recorder launch: a monitor that can crash-loop the recorder is a bad monitor,
+# which this appliance demonstrated on 2026-08-11 when a launch entry for an
+# unbuilt package took the rig down. Building them is inert on its own — nothing
+# starts until a unit does.
 colcon build --symlink-install \
   --base-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
+  src/fm_data/fm_data_watchdog src/fm_data/fm_data_episode_qa \
   "$TACTILE_DIR/ros2_ws/src" \
-  --packages-up-to fm_teleop_vision fm_data_record fm_data_sensors fm_tactile_bridge
+  --packages-up-to fm_teleop_vision fm_data_record fm_data_sensors fm_tactile_bridge \
+  fm_data_watchdog fm_data_episode_qa
 
 # 4b. --symlink-install can leave the model files in the package share dir as dangling symlinks;
 #     copy the real .task files in so hand_tracker (which resolves them from share) finds them.
@@ -200,6 +209,18 @@ if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   # while the recorder sits idle between takes.
   item "installing the tactile glove receiver (fm-tactile.service) ..."
   ./scripts/install/install-tactile-service.sh
+  # The rig monitors get their OWN units, not entries in the recorder launch: a
+  # monitor composed into egocentric_record.launch.py shares the recorder's fate,
+  # and on 2026-08-11 exactly that took capture down to add health monitoring.
+  #
+  # `|| item ...` is deliberate and load-bearing. This script runs under `set -e`
+  # via the auto-updater, so an un-guarded failure here would abort the recorder's
+  # own install mid-converge. Health monitoring must never be able to break
+  # capture — not when it runs, and not when it installs.
+  item "installing the rig monitor services (fm-watchdog, fm-episode-qa) ..."
+  ./scripts/install/install-monitors-service.sh || \
+    item "WARNING: monitor services failed to install — capture is unaffected; \
+re-run ./scripts/install/install-monitors-service.sh to retry"
   # An appliance keeps itself current: fetch every ~15 min, converge on merged
   # updates (a take in flight is never interrupted; see appliance-update.sh).
   item "installing the auto-update timer (fm-update-recorder.timer) ..."
