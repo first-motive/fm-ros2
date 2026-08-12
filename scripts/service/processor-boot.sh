@@ -20,6 +20,7 @@
 #   FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=<dir> durable human review receipts
 #   FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=<dir> durable corrected outputs
 #   FM_PROCESSOR_ANNOTATION_LEARNING_DIR=<dir> durable learning records
+#   FM_PROCESSOR_AWS_INFERENCE_SCRIPT=<file> AWS annotation adapter (optional)
 #   FM_PROCESSOR_RELEASE_ROOT=<dir>     candidates, Packs, jobs, and deliveries
 #   FM_PROCESSOR_RELEASE_DATASET_EXPORTER=<exe> pinned real-dataset exporter
 #   FM_PROCESSOR_RELEASE_PYTHON=<exe>   pinned Python for Pack and strict loaders
@@ -47,6 +48,7 @@ ANNOTATION_ADJUDICATIONS_DIR="${FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR:-~/fm-
 ANNOTATION_REVOCATIONS_DIR="${FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR:-~/fm-data-runs/annotation-revocations}"
 ANNOTATION_LEARNING_SNAPSHOTS_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR:-~/fm-data-runs/annotation-learning-snapshots}"
 ANNOTATION_IMPROVEMENT_RUNS_DIR="${FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR:-~/fm-data-runs/annotation-improvement-runs}"
+AWS_INFERENCE_SCRIPT="${FM_PROCESSOR_AWS_INFERENCE_SCRIPT:-}"
 RELEASE_ROOT="${FM_PROCESSOR_RELEASE_ROOT:-~/dataset-releases}"
 RELEASE_DATASET_EXPORTER="${FM_PROCESSOR_RELEASE_DATASET_EXPORTER:-}"
 RELEASE_PYTHON="${FM_PROCESSOR_RELEASE_PYTHON:-}"
@@ -131,4 +133,7 @@ LAUNCH_ARGS+=(provision_script:="$ROOT/scripts/install/setup-qwen.sh")
 # App-approved real annotation stages through the annotation package's own
 # staging script in this workspace's source tree.
 LAUNCH_ARGS+=(stage_script:="$ROOT/src/fm_data/fm_data_annotate/scripts/stage_qwen_run.sh")
+if [ -n "$AWS_INFERENCE_SCRIPT" ]; then
+  LAUNCH_ARGS+=(aws_inference_script:="$AWS_INFERENCE_SCRIPT")
+fi
 exec ros2 launch fm_data process_session.launch.py "${LAUNCH_ARGS[@]}"
