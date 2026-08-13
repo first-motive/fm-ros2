@@ -97,10 +97,13 @@ gh api repos/first-motive/fm-desktop/contents/install.sh --jq .content \
 ```
 
 **Recorder (Linux camera host)** — RealSense + hand tracker + tactile glove +
-episode recorder, streaming to the app over the LAN. Ubuntu 22.04 + ROS 2 Humble
-required; `--service` makes it a boot appliance (`fm-recorder.service` plus
-`fm-tactile.service` for the glove). The one-liner clones into the directory it
-runs from, so `cd` to the one that should own the checkout first:
+episode recorder, streaming to the app over the LAN. Ubuntu 22.04 required; a
+fresh host (a just-flashed Jetson on JetPack 6) gets ROS 2 Humble installed
+automatically, any other distro must bring its own. `--service` makes it a boot
+appliance (`fm-recorder.service` plus `fm-tactile.service` for the glove).
+Bringing up a brand-new Jetson? Follow [docs/JETSON.md](docs/JETSON.md)
+end-to-end. The one-liner clones into the directory it runs from, so `cd` to
+the one that should own the checkout first:
 
 ```bash
 mkdir -p ~/jetson && cd ~/jetson
@@ -111,10 +114,13 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
 The tactile glove is a USB-tethered ESP32 reading five FSRs, published on
 `/glove_left/tactile` at 40 Hz and recorded into every episode. Its ESP32 must
 stay in one physical USB port: the CH340 adapter reports no serial number, so
-the stable `/dev/fm-tactile-left` name is pinned to the port. Override it with
-`FM_TACTILE_USB_PORT` before installing. The installer also masks
-`brltty-udev.service`, which otherwise claims the adapter as a Braille display
-before the receiver can open it.
+the stable `/dev/fm-tactile-left` name is pinned to the port. The installer
+detects the port from the plugged-in board (set `FM_TACTILE_USB_PORT` to name
+it explicitly); with no board plugged it writes a vendor-only rule and the pin
+is added by re-running `install-tactile-service.sh` once the glove sits in its
+permanent port. The installer also masks `brltty-udev.service`, which
+otherwise claims the adapter as a Braille display before the receiver can open
+it.
 
 **Data processor (Linux)** — the dataset engine, the annotation tooling
 (`annotation_run` / `annotation_verify`), and the supervisor the desktop
@@ -137,12 +143,19 @@ private repos over git auth, and the app installer fetches its release through
 advert (`_fm-rig._tcp`, role-tagged) so the desktop app's Settings lists the rig
 by hostname — no typed IPs. Every box provisioned with a role one-liner shows up
 on its own; both roles on one box advertise as two entries at the same address.
+The advert also carries the box's release (`ver`/`data`/`teleop` TXT records),
+which Settings shows on each discovered rig — the at-a-glance check that a
+fleet update actually landed.
 
-`--service` also enables auto-update on the Linux roles: `fm-update-<role>.timer`
-fetches every ~15 minutes and, when a repo is behind, fast-forwards and re-runs
-the role installer — merged PRs land on the box within one tick. A take or
-processing run in flight is never interrupted. Pause with
-`sudo systemctl stop fm-update-<role>.timer`.
+`--service` also puts the box on the release channel: the install pins the
+workspace and role repos to their newest `v*` tag, and `fm-update-<role>.timer`
+fetches tags every ~15 minutes, moving only when a newer release tag exists —
+cutting a release rolls the fleet within one tick, while merged-but-untagged
+main never moves a box. A take or processing run in flight is never
+interrupted. Pause with `sudo systemctl stop fm-update-<role>.timer`. Because
+those ticks run unattended, `--service` also grants the installing user
+passwordless sudo (`/etc/sudoers.d/010-fm-appliance`); set `FM_NO_SUDOERS=1`
+to opt out — updates then need a manual re-run of the role installer.
 
 The processor can also carry the REAL annotation models: pinned Qwen2.5-VL-7B
 remains the product baseline and rollback, while pinned Qwen3.5-9B is a

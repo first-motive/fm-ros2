@@ -21,11 +21,30 @@ TACTILE_REF="${FM_TACTILE_REF:-v0.1.0}"
 # the kebab repo slug is private and is never written into the tree in plaintext.
 TACTILE_DIR="src/external/fm_tactile"
 
-# 0. Require ROS 2 Humble — installing ROS itself is out of scope (distro-specific, heavy).
+# 0. ROS 2 Humble. A fresh appliance host (a just-flashed Jetson on JetPack 6)
+#    arrives without it, so install it here when the host is Ubuntu 22.04 — the
+#    one distro Humble binaries target. Any other host keeps the hard
+#    requirement: picking a ROS build for arbitrary distros stays out of scope.
 if [ ! -f /opt/ros/humble/setup.bash ]; then
-  echo "ERROR: ROS 2 Humble not found at /opt/ros/humble." >&2
-  echo "       Install it first: https://docs.ros.org/en/humble/Installation.html" >&2
-  exit 1
+  _os_id="$(. /etc/os-release 2>/dev/null && echo "${ID:-}")"
+  _os_ver="$(. /etc/os-release 2>/dev/null && echo "${VERSION_ID:-}")"
+  if [ "$_os_id" = ubuntu ] && [ "$_os_ver" = 22.04 ]; then
+    item "installing ROS 2 Humble (ros-base + dev tools) ..."
+    sudo apt-get update -qq
+    sudo apt-get install -y software-properties-common curl
+    sudo add-apt-repository -y universe >/dev/null
+    sudo curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+      -o /usr/share/keyrings/ros-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu jammy main" \
+      | sudo tee /etc/apt/sources.list.d/ros2.list >/dev/null
+    sudo apt-get update -qq
+    sudo apt-get install -y ros-humble-ros-base ros-dev-tools
+  else
+    echo "ERROR: ROS 2 Humble not found at /opt/ros/humble, and this host is not" >&2
+    echo "       Ubuntu 22.04 (the one distro its binaries target). Install it first:" >&2
+    echo "       https://docs.ros.org/en/humble/Installation.html" >&2
+    exit 1
+  fi
 fi
 # ROS setup scripts reference unset AMENT_* vars, which `set -u` treats as an error — drop
 # nounset just around the source, then restore it.
@@ -98,6 +117,16 @@ if [ ! -d "$TACTILE_DIR/.git" ]; then
     echo "       that the ref exists, then re-run." >&2
     exit 1
   }
+fi
+
+# 4d. Appliance release channel (--service): pin the role repos to their newest
+#     release tag, so the box starts where the auto-updater will keep it (the
+#     updater converges tag-to-tag; see appliance-update.sh). A repo with no v*
+#     tag yet, or with local changes, is left where it is. A plain --recorder
+#     (a dev checkout) is never moved.
+if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
+  pin_release src/fm_data
+  pin_release src/fm_teleop
 fi
 
 # 5. Build the tracker + the recorder/sensors only — no sim / robot-control / MoveIt / dataset
@@ -202,6 +231,11 @@ fi
 #    camera + tracker + recorder (armed, idle) + foxglove bridge on boot, driven
 #    remotely from a Mac. A plain --recorder just builds; the appliance is opt-in.
 if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
+  # The auto-update timer below re-runs this installer unattended, and its
+  # apt/systemd/udev steps are all sudo — grant the appliance user passwordless
+  # sudo first (FM_NO_SUDOERS=1 opts out; updates then need a manual re-run).
+  item "granting passwordless sudo for unattended updates (FM_NO_SUDOERS=1 skips) ..."
+  ./scripts/install/install-appliance-sudoers.sh
   item "installing the recorder boot service (fm-recorder.service) ..."
   ./scripts/install/install-recorder-service.sh
   # The tactile receiver is its own unit, not part of the recorder launch: it owns a

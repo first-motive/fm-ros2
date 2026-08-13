@@ -20,11 +20,29 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT/lib.sh"          # item(), spin()
 cd "$ROOT"
 
-# 0. Require ROS 2 Humble — installing ROS itself is out of scope (distro-specific, heavy).
+# 0. ROS 2 Humble. A fresh appliance host arrives without it, so install it here
+#    when the host is Ubuntu 22.04 — the one distro Humble binaries target
+#    (setup-recorder.sh pattern). Any other host keeps the hard requirement.
 if [ ! -f /opt/ros/humble/setup.bash ]; then
-  echo "ERROR: ROS 2 Humble not found at /opt/ros/humble." >&2
-  echo "       Install it first: https://docs.ros.org/en/humble/Installation.html" >&2
-  exit 1
+  _os_id="$(. /etc/os-release 2>/dev/null && echo "${ID:-}")"
+  _os_ver="$(. /etc/os-release 2>/dev/null && echo "${VERSION_ID:-}")"
+  if [ "$_os_id" = ubuntu ] && [ "$_os_ver" = 22.04 ]; then
+    item "installing ROS 2 Humble (ros-base + dev tools) ..."
+    sudo apt-get update -qq
+    sudo apt-get install -y software-properties-common curl
+    sudo add-apt-repository -y universe >/dev/null
+    sudo curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+      -o /usr/share/keyrings/ros-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu jammy main" \
+      | sudo tee /etc/apt/sources.list.d/ros2.list >/dev/null
+    sudo apt-get update -qq
+    sudo apt-get install -y ros-humble-ros-base ros-dev-tools
+  else
+    echo "ERROR: ROS 2 Humble not found at /opt/ros/humble, and this host is not" >&2
+    echo "       Ubuntu 22.04 (the one distro its binaries target). Install it first:" >&2
+    echo "       https://docs.ros.org/en/humble/Installation.html" >&2
+    exit 1
+  fi
 fi
 # ROS setup scripts reference unset AMENT_* vars, which `set -u` treats as an error — drop
 # nounset just around the source, then restore it.
@@ -53,6 +71,14 @@ if [ ! -d src/fm_data/.git ]; then
     echo "       SSH key), then re-run." >&2
     exit 1
   }
+fi
+
+# 2b. Appliance release channel (--service): pin the engine to its newest release
+#     tag, so the box starts where the auto-updater will keep it (setup-recorder.sh
+#     pattern). Untagged or locally-changed repos are left alone; a plain
+#     --processor dev checkout is never moved.
+if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
+  pin_release src/fm_data
 fi
 
 # 3. Engine Python tiers, in a DEDICATED venv ($ROOT/.engine-venv) — never the shared
@@ -155,6 +181,11 @@ fi
 #    process_supervisor up on boot, driven remotely from the desktop app's Process surface.
 #    A plain --processor just builds; the appliance is opt-in.
 if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
+  # The auto-update timer below re-runs this installer unattended, and its
+  # apt/systemd steps are all sudo — grant the appliance user passwordless
+  # sudo first (FM_NO_SUDOERS=1 opts out; updates then need a manual re-run).
+  item "granting passwordless sudo for unattended updates (FM_NO_SUDOERS=1 skips) ..."
+  ./scripts/install/install-appliance-sudoers.sh
   item "installing the processor boot service (fm-processor.service) ..."
   ./scripts/install/install-processor-service.sh
   # An appliance keeps itself current: fetch every ~15 min, converge on merged
