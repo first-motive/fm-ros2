@@ -1,52 +1,66 @@
 # Jetson Recorder Bring-Up
 
 From a boxed Jetson Orin Nano dev kit to a recording-ready appliance the
-desktop app discovers on its own: one flash, one login, one command. The
-recorder role's end state has always been a screenless companion computer (see
-[REALSENSE.md](REALSENSE.md)); this is that move.
+desktop app discovers on its own: flash a card on the Mac, insert it, power
+on. The recorder role's end state has always been a screenless companion
+computer (see [REALSENSE.md](REALSENSE.md)); this is that move.
 
 ## What You Need
 
-- Jetson Orin Nano dev kit + its power supply.
-- Storage: an NVMe SSD (recommended — RGB-D MCAP recording is write-heavy) or
-  a 64 GB+ microSD.
-- A monitor + keyboard for the first-boot wizard (removed afterwards).
-- Network to the rig LAN: the dev kit's Ethernet or its Wi-Fi module, on the
-  **same subnet as the operator Mac** — mDNS discovery does not cross subnets.
-- A GitHub account with `first-motive` org access.
+- Jetson Orin Nano dev kit + its power supply, with r36.x firmware in QSPI
+  (any board that has run JetPack 6 qualifies).
+- A Mac with an SD reader and a 64 GB+ microSD card.
+- Network to the rig LAN: the dev kit's Ethernet, or Wi-Fi credentials passed
+  at flash time — on the **same subnet as the operator Mac**, since mDNS
+  discovery does not cross subnets.
+- A GitHub account with `first-motive` org access (a token baked at flash
+  time, or `gh auth login` after boot).
 - The sensors: RealSense head camera, the two Sonix wrist cameras, the tactile
   glove (ESP32/CH340), and optionally the Livox MID-360 with a USB 3
   Ethernet adapter (it needs its own interface — see below).
 
-## 1. Flash JetPack 6
+## 1. Flash the Card (on the Mac)
 
-Ubuntu 22.04 is required (it is what JetPack 6 ships), so flash JetPack 6.x:
-
-- **microSD**: download the JetPack 6 SD-card image from NVIDIA's JetPack
-  page, write it with Balena Etcher, insert, power on.
-- **NVMe (recommended)**: flash from a Linux host over USB-C with NVIDIA SDK
-  Manager, targeting the SSD.
-
-In the first-boot wizard: create the appliance user, set a meaningful hostname
-(e.g. `fm-jetson` — it becomes the name in the app's Settings and the `.local`
-address the app dials), and join the rig LAN. Confirm the base:
+Ubuntu 22.04 is still the required base; it now comes from Canonical's
+preinstalled server image for Tegra
+(`ubuntu-22.04-preinstalled-server-arm64+tegra-jetson.img.xz`), not JetPack.
+[fm-setup](https://github.com/first-motive/fm-setup)'s `fm flash` writes and
+preconfigures the card in one step:
 
 ```bash
-lsb_release -rs        # 22.04
+fm flash --device /dev/diskN \
+  [--wifi ssid:psk] [--tailscale-authkey tskey-...] [--gh-token github_pat_...]
 ```
 
-## 2. Basics + Org Auth
+See fm-setup's README for the flag details and the firmware caveat. The card
+carries everything: the OS install, the `fm-jetson` hostname, the `fm` user
+with your ssh keys injected (password login locked), and the first-boot
+provisioning — no monitor, no keyboard, no first-boot wizard.
 
-The role installer clones private repos and the auto-updater keeps fetching
-them, so put durable credentials on the box first:
+## 2. First Boot
+
+Insert the card, power on, and wait. The board provisions itself: cloud-init
+joins the network, then runs fm-setup's `--jetson` layer (Docker, ROS 2
+Humble base, udev rules, DDS tuning, Tailscale). Watch it from the Mac:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y git curl gh
+ssh fm@fm-jetson.local
+tail -f /var/log/fm-first-boot.log
+```
+
+With a `--gh-token` baked at flash time, first boot also installs the
+recorder role and `fm-recorder.service` comes up on its own — skip to step 4.
+Without one, first boot ends at the fm-setup layer; put durable credentials
+on the box over ssh, then run the one-liner in step 3:
+
+```bash
 gh auth login          # the org member account, HTTPS
 gh auth setup-git      # persists the credential helper for git
 ```
 
 ## 3. The One-Liner
+
+The manual/dev path — what a baked `--gh-token` runs for you at first boot:
 
 ```bash
 mkdir -p ~/jetson && cd ~/jetson
@@ -113,15 +127,13 @@ journalctl -u fm-recorder -f
 ## 6. LiDAR (Livox MID-360)
 
 The LiDAR (192.168.1.131) needs the host at 192.168.1.10 on a **dedicated
-interface** — never add a second 192.168.1.x/24 to the live LAN NIC (the
-return-path blackhole only a reboot heals). On the Jetson that dedicated
-interface is a USB 3 Ethernet adapter:
+interface** — on the Jetson, a USB 3 Ethernet adapter. Never add a second
+192.168.1.x/24 to the live LAN NIC: the return-path blackhole it creates
+heals only on reboot. fm-setup's verb configures the dedicated interface via
+netplan; `--remove` undoes it:
 
 ```bash
-nmcli con add type ethernet ifname <adapter-if> con-name fm-lidar \
-  ipv4.method manual ipv4.addresses 192.168.1.10/32 \
-  ipv4.routes "192.168.1.131/32" ipv4.never-default yes ipv6.method disabled
-nmcli con up fm-lidar
+fm lidar-net <adapter-if>     # or ./run.sh lidar-net <adapter-if> from an fm-setup checkout
 ```
 
 The installer already built the vendor driver overlay (`~/ws_livox`), so
