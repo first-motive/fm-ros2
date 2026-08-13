@@ -35,6 +35,10 @@ main() {
   local ROOT
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
+  # Keep the smoke on the same endpoint contract as appliance services. CI has
+  # no /etc/fm-bridge.env, so this resolves to the compatibility default 8765.
+  # shellcheck disable=SC1091
+  source "$ROOT/scripts/env/bridge.sh"
 
   # ROS setup files reference unbound vars; relax `set -u` only across sourcing.
   set +u
@@ -54,7 +58,8 @@ main() {
   echo "==> launch sim_loop + foxglove bridge"
   ros2 run fm_sim_core sim_loop &
   PIDS+=($!)
-  ros2 run foxglove_bridge foxglove_bridge --ros-args -p port:=8765 -p address:=0.0.0.0 &
+  ros2 run foxglove_bridge foxglove_bridge --ros-args \
+    -p "port:=$FM_BRIDGE_PORT" -p address:=0.0.0.0 &
   PIDS+=($!)
 
   echo "==> wait for graph to settle"
@@ -64,9 +69,9 @@ main() {
   timeout 15 ros2 topic echo /joint_states sensor_msgs/msg/JointState --once >/dev/null
   echo "    /joint_states OK"
 
-  echo "==> assert foxglove bridge port 8765 listening"
-  timeout 10 bash -c 'until (exec 3<>/dev/tcp/127.0.0.1/8765) 2>/dev/null; do sleep 1; done'
-  echo "    ws://localhost:8765 OK"
+  echo "==> assert foxglove bridge port $FM_BRIDGE_PORT listening"
+  timeout 10 bash -c "until (exec 3<>/dev/tcp/127.0.0.1/$FM_BRIDGE_PORT) 2>/dev/null; do sleep 1; done"
+  echo "    ws://localhost:$FM_BRIDGE_PORT OK"
 
   echo "==> SMOKE GREEN"
 }

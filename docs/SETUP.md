@@ -127,7 +127,9 @@ docker compose -f docker/compose.yaml -f docker/compose.macos.yaml up
 ```
 
 Then open Foxglove Studio and connect to `ws://localhost:8765`. Topics appear once
-the bringup launch is running.
+the bringup launch is running. Linux appliance services persist their endpoint in
+`/etc/fm-bridge.env`; use the configured value when a tower keeps the bridge on a
+different port (for example, `8766` when Axol owns `8765`).
 
 ## Common tasks
 
@@ -205,7 +207,9 @@ The studio capture rig uses two USB RGB wrist cameras, driven by the
 
 - **`docker info` does not mention OrbStack** — another Docker provider is active.
   Switch to OrbStack so builds use the arm64 path.
-- **Foxglove will not connect** — confirm the stack is up and port 8765 is mapped
-  (it is, in `compose.macos.yaml`). Check the bridge node is running.
+- **Foxglove will not connect** — confirm the stack is up and the configured bridge
+  port is mapped (the local compose default is 8765). On a Linux appliance, read
+  `/etc/fm-bridge.env` and run `python3 scripts/internal/bridge-probe.py`; then
+  check the owning systemd service.
 - **`vcs import` fails** — pins in `external.repos` are placeholders. Edit them to
   real tags before importing.

@@ -111,6 +111,15 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
   | bash -s -- --recorder --service
 ```
 
+When Axol already owns `:8765`, persist the First Motive bridge on `:8766` and
+install its standalone owner during the same recorder setup:
+
+```bash
+cd ~/jetson/fm_ros2
+FM_BRIDGE_PORT=8766 FM_INSTALL_FOXGLOVE_SERVICE=1 \
+  ./install.sh --recorder --service
+```
+
 The tactile glove is a USB-tethered ESP32 reading five FSRs, published on
 `/glove_left/tactile` at 40 Hz and recorded into every episode. Its ESP32 must
 stay in one physical USB port: the CH340 adapter reports no serial number, so
@@ -233,6 +242,18 @@ The native path builds and launches on the host (rviz2 renders natively; Foxglov
 Studio connects to the in-env bridge at `ws://localhost:8765`). The container path
 builds inside the dev container — see [SETUP.md](docs/SETUP.md) for its compose
 commands.
+
+On a Linux recorder appliance, the bridge endpoint is persisted in
+`/etc/fm-bridge.env` (`FM_BRIDGE_PORT=8765` by default). If Axol owns `:8765`,
+install the standalone owner on another port; the installer disables the
+recorder's embedded bridge and keeps the choice across updater runs:
+
+```bash
+./scripts/install/install-foxglove-service.sh --port 8766
+```
+
+The service and Avahi advert both read that file. Use
+`scripts/internal/bridge-probe.py` to check the configured local listener.
 
 [Setup](docs/SETUP.md) · [externals](docs/EXTERNALS.md) · [Foxglove](docs/FOXGLOVE.md)
 · [all guides](docs/README.md). Per-package detail in each `<package>/README.md`.

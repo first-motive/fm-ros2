@@ -6,8 +6,34 @@ node can be running and publishing yet sit in a DDS scope the bridge cannot see.
 often discovers only a fraction of the graph, which yields false failures.
 """
 import base64, json, os, socket, sys
+from pathlib import Path
 
-HOST, PORT = "127.0.0.1", 8765
+DEFAULT_PORT = 8765
+DEFAULT_ENV_FILE = "/etc/fm-bridge.env"
+
+
+def configured_port():
+    """Read the durable bridge file, then the environment, then the default."""
+    raw = os.environ.get("FM_BRIDGE_PORT")
+    env_file = os.environ.get("FM_BRIDGE_ENV_FILE", DEFAULT_ENV_FILE)
+    try:
+        for line in Path(env_file).read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("FM_BRIDGE_PORT="):
+                raw = line.split("=", 1)[1].strip().strip('"').strip("'")
+                break
+    except OSError:
+        pass
+    try:
+        port = int(raw or DEFAULT_PORT)
+    except ValueError as exc:
+        raise ValueError(f"FM_BRIDGE_PORT must be an integer, got {raw!r}") from exc
+    if not 1 <= port <= 65535:
+        raise ValueError(f"FM_BRIDGE_PORT must be between 1 and 65535, got {port}")
+    return port
+
+
+HOST, PORT = "127.0.0.1", configured_port()
 WANT = sys.argv[1:] or ["/watchdog/active", "/episode_qa/session"]
 
 

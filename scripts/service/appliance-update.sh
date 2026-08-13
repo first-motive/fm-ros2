@@ -29,6 +29,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 [ -f "$ROOT/lib.sh" ] && . "$ROOT/lib.sh" || item() { echo "$1"; }
+# Keep the update wrapper usable during a first converge, before the new shared
+# env file exists. Once bridge.sh is present it remains authoritative.
+FM_BRIDGE_ENV_FILE="${FM_BRIDGE_ENV_FILE:-/etc/fm-bridge.env}"
+FM_BRIDGE_PORT="${FM_BRIDGE_PORT:-8765}"
+FM_BRIDGE_OWNER="${FM_BRIDGE_OWNER:-embedded}"
+# shellcheck disable=SC1091
+if [ -f "$ROOT/scripts/env/bridge.sh" ]; then
+  # The timer EnvironmentFile and this direct source deliberately converge on
+  # the same durable endpoint. A missing file resolves to the compatibility
+  # default and is created by the role installer when services are installed.
+  . "$ROOT/scripts/env/bridge.sh"
+fi
 
 # Seconds of recordings-dir quiet required before a recorder update proceeds.
 _RECORDER_QUIET_MIN=2
@@ -167,7 +179,11 @@ main() {
   # deps + rebuild + service restart (the same command a human runs).
   item "changes pulled — re-running the $role installer ..."
   cd "$ROOT"
-  FM_INSTALL_SERVICE=1 "./scripts/install/setup-$role.sh"
+  FM_INSTALL_SERVICE=1 \
+    FM_BRIDGE_ENV_FILE="${FM_BRIDGE_ENV_FILE:-/etc/fm-bridge.env}" \
+    FM_BRIDGE_PORT="$FM_BRIDGE_PORT" \
+    FM_BRIDGE_OWNER="$FM_BRIDGE_OWNER" \
+    "./scripts/install/setup-$role.sh"
   item "appliance updated ($role)"
 }
 

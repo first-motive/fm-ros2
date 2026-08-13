@@ -10,6 +10,34 @@ use the helper to serve the port:
 ./scripts/run/foxglove.sh -p 9000   # custom in-container bridge port
 ```
 
+## Configured bridge endpoint
+
+Linux appliance services share one durable endpoint file:
+`/etc/fm-bridge.env`. A new install defaults to `FM_BRIDGE_PORT=8765`, which
+keeps existing desktop and local-container callers compatible. The file may
+persist another port, for example `8766` when Axol reserves `8765`:
+
+```bash
+./scripts/install/install-bridge-config.sh --port 8766 --owner standalone
+./scripts/install/install-foxglove-service.sh --port 8766
+python3 scripts/internal/bridge-probe.py
+```
+
+`fm-foxglove.service` is then the only bridge owner. The standalone installer
+sets `FM_RECORDER_FOXGLOVE=false` in `/etc/fm-recorder.env`, writes the same
+configured port into the service and Avahi paths, and leaves the shared file in
+place during uninstall and updater re-installs. A recorder boot with an older
+`fm-data` checkout can keep the embedded bridge only at the historic default;
+the boot script passes `foxglove_port:=<configured port>` when that launch
+argument is available and refuses a non-default embedded port otherwise.
+
+If startup reports a port conflict, inspect the listener before changing the
+configuration:
+
+```bash
+sudo ss -ltnp 'sport = :8766'
+```
+
 | Mode | Command | Container | ROS graph |
 |------|---------|-----------|-----------|
 | shared (default) | `up -d` + `exec` | long-lived | shared with sim / other `exec` sessions |

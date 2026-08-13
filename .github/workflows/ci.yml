@@ -58,6 +58,12 @@ jobs:
       - name: appliance updater busy gate (recorder)
         run: bash scripts/ci/test-appliance-update.sh
 
+      # The bridge endpoint is shared by systemd, Avahi, the updater, and the
+      # standalone Foxglove owner. Keep the persisted-port behavior and probe
+      # independent of a ROS/systemd host so this catches regressions in CI.
+      - name: bridge endpoint config and probe
+        run: bash scripts/ci/test-bridge-config.sh
+
       # Every install script is Linux-only and mostly unreachable in CI, so a parse
       # error would otherwise surface first on a real rig mid-provision.
       - name: install scripts parse

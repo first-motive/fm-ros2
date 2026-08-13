@@ -144,6 +144,9 @@ Options:
                       Recorder: fm-recorder.service + fm-tactile.service (the glove
                       receiver, with its udev rule); processor: fm-processor.service.
                       Both add the auto-update timer + mDNS advert. See docs/REALSENSE.md
+                      For Axol towers, set FM_BRIDGE_PORT=8766 and
+                      FM_INSTALL_FOXGLOVE_SERVICE=1 to make fm-foxglove.service the
+                      standalone bridge owner while the recorder stays disabled.
   --purge             uninstall only: also drop clean imported repos under src/
                       and external/ (dirty checkouts are kept)
   --dry-run           print what would happen, change nothing (uninstall)

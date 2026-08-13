@@ -16,6 +16,10 @@
 # host in throwaway mode (--service-ports remaps) but not in shared mode.
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck disable=SC1091
+source "$ROOT/scripts/env/bridge.sh"
+
 usage() {
   cat <<'EOF'
 Usage: scripts/run/foxglove.sh [-t] [-p PORT]
@@ -26,7 +30,7 @@ EOF
 }
 
 main() {
-  local MODE=shared PORT=8765 SERVICE=fm opt
+  local MODE=shared PORT="$FM_BRIDGE_PORT" SERVICE=fm opt
   local OPTIND=1
   while getopts ":tp:h" opt; do
     case "$opt" in
@@ -37,6 +41,8 @@ main() {
       :)  echo "Option -$OPTARG needs a value" >&2; usage; return 2 ;;
     esac
   done
+
+  fm_bridge_validate_port "$PORT"
 
   # Run from the repo root so the relative compose paths resolve.
   cd "$(dirname "$0")/../.."

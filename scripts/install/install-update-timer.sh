@@ -85,6 +85,10 @@ Environment=HOME=$SERVICE_HOME
 # find the directory it must check for a take in flight, and without this the
 # updater would silently watch ~/recordings on a host that records elsewhere.
 EnvironmentFile=-/etc/fm-$role.env
+# The bridge endpoint is shared by the role installer, Avahi, and the standalone
+# Foxglove service. Loading it here makes a timer-triggered converge use the same
+# persisted port as an interactive install.
+EnvironmentFile=-/etc/fm-bridge.env
 WorkingDirectory=$ROOT
 ExecStart=/bin/bash $WRAPPER $role
 EOF

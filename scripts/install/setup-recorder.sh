@@ -11,6 +11,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT/lib.sh"          # item(), spin()
+# shellcheck disable=SC1091
+. "$ROOT/scripts/env/bridge.sh"
 cd "$ROOT"
 
 MEDIAPIPE_VERSION="0.10.14"
@@ -228,8 +230,9 @@ fi
 
 # 6. Boot service (opt-in via install.sh --recorder --service -> FM_INSTALL_SERVICE=1).
 #    Installs a systemd unit so this host comes up as a headless recorder appliance:
-#    camera + tracker + recorder (armed, idle) + foxglove bridge on boot, driven
-#    remotely from a Mac. A plain --recorder just builds; the appliance is opt-in.
+#    camera + tracker + recorder (armed, idle) plus either the default embedded
+#    bridge or the persisted standalone owner, driven remotely from a Mac. A plain
+#    --recorder just builds; the appliance is opt-in.
 if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   # The auto-update timer below re-runs this installer unattended, and its
   # apt/systemd/udev steps are all sudo — grant the appliance user passwordless
@@ -238,6 +241,18 @@ if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   ./scripts/install/install-appliance-sudoers.sh
   item "installing the recorder boot service (fm-recorder.service) ..."
   ./scripts/install/install-recorder-service.sh
+
+  # A tower can reserve 8765 for Axol and keep the First Motive bridge on a
+  # different persisted port. The standalone installer is opt-in on first
+  # provisioning (FM_INSTALL_FOXGLOVE_SERVICE=1), then becomes self-preserving:
+  # every later updater run sees FM_BRIDGE_OWNER=standalone and reinstalls it.
+  if [ "$FM_BRIDGE_OWNER" = standalone ] || [ "${FM_INSTALL_FOXGLOVE_SERVICE:-0}" = 1 ]; then
+    item "installing the standalone Foxglove bridge (fm-foxglove.service) ..."
+    ./scripts/install/install-foxglove-service.sh --port "$FM_BRIDGE_PORT"
+    # Reload the file in case the standalone installer created it on this run.
+    # shellcheck disable=SC1091
+    . "$ROOT/scripts/env/bridge.sh"
+  fi
   # The tactile receiver is its own unit, not part of the recorder launch: it owns a
   # serial port exclusively and must keep streaming (and keep its clock fit warm)
   # while the recorder sits idle between takes.
@@ -303,6 +318,6 @@ Next — plug the RealSense into a USB3 port, open a NEW terminal, then:
 
   # Installed the boot service (--service)? Then the stack above already runs on boot —
   # just drive REC/STOP from a Mac and watch the service:
-  #   open src/fm_app/fm_viewer/webgui/index.html?ws=ws://<this-host-ip>:8765
+  #   open src/fm_app/fm_viewer/webgui/index.html?ws=ws://<this-host-ip>:$FM_BRIDGE_PORT
   #   systemctl status fm-recorder    |    journalctl -u fm-recorder -f
 EOF

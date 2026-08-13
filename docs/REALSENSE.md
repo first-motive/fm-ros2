@@ -91,7 +91,7 @@ that boots straight into recording-ready — no login, no `ros2 launch` by hand.
 `scripts/service/recorder-boot.sh` on every boot: it sources ROS + the workspace overlay + `comms.sh`,
 then launches the whole stack via `egocentric_record.launch.py` —
 
-    head camera (/head + aligned depth) + hand tracker + recorder (armed, idle) + foxglove bridge (:8765)
+    head camera (/head + aligned depth) + hand tracker + recorder (armed, idle) + optional embedded Foxglove bridge
 
 The recorder comes up **armed but idle**: it waits for a REC command and records nothing until one
 arrives. Nothing needs a display on the host.
@@ -124,9 +124,24 @@ sudo systemctl restart fm-recorder                 # apply an /etc/fm-recorder.e
 Drive **REC/STOP from a Mac** on the same network (nothing runs on the host's screen):
 
 ```
-open src/fm_app/fm_viewer/webgui/index.html?ws=ws://<host-ip>:8765
-# or point Foxglove Studio at ws://<host-ip>:8765
+open src/fm_app/fm_viewer/webgui/index.html?ws=ws://<host-ip>:<FM_BRIDGE_PORT>
+# or point Foxglove Studio at ws://<host-ip>:<FM_BRIDGE_PORT>
 ```
+
+The port is `8765` by default and is persisted in `/etc/fm-bridge.env`. On a
+tower where Axol owns `8765`, make the First Motive bridge the standalone owner
+on `8766`:
+
+```bash
+./scripts/install/install-foxglove-service.sh --port 8766
+python3 scripts/internal/bridge-probe.py
+```
+
+This sets `FM_RECORDER_FOXGLOVE=false`, so `fm-recorder.service` does not start
+a second bridge. The Avahi advert and updater use the same persisted file. The
+recorder boot script passes the configured port to a newer `fm-data` launch when
+its validated `foxglove_port` argument exists; an older checkout remains
+compatible only with the default embedded port.
 
 The REC/STOP button publishes `/capture/record` (Bool); `/capture/status` shows recording/idle.
 Episodes land in **`~/recordings`** on the host — depth never crosses the network.
@@ -139,7 +154,14 @@ Episodes land in **`~/recordings`** on the host — depth never crosses the netw
 | `FM_RECORDER_TRACKER` | `on` | set `off` where MediaPipe won't install (some Jetsons) — still captures RGB-D + IMU |
 | `FM_RECORDER_LIDAR` | `auto` | Livox MID-360: `auto` runs it exactly when the vendor overlay (`~/ws_livox`) is built; set `off` until the LiDAR's dedicated interface is configured |
 | `FM_RECORDER_RECORD` | `true` | `false` = preview (camera + bridge + status, no capture) |
-| `FM_RECORDER_FOXGLOVE` | `true` | `false` if a Mac-side app owns `:8765` |
+| `FM_RECORDER_FOXGLOVE` | `true` | `false` when `fm-foxglove.service` is the standalone owner |
+
+### Tune — `/etc/fm-bridge.env`
+
+| Knob | Default | Use |
+|---|---|---|
+| `FM_BRIDGE_PORT` | `8765` | TCP port used by the embedded or standalone bridge and Avahi |
+| `FM_BRIDGE_OWNER` | `embedded` | `embedded` for the recorder launch, `standalone` for `fm-foxglove.service` |
 
 ### Remove
 
