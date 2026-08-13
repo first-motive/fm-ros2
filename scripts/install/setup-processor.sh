@@ -18,6 +18,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT/lib.sh"          # item(), spin()
+# shellcheck disable=SC1091
+. "$ROOT/scripts/env/bridge.sh"
 cd "$ROOT"
 
 # 0. Require ROS 2 Humble — installing ROS itself is out of scope (distro-specific, heavy).

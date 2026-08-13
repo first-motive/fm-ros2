@@ -13,7 +13,9 @@
 #   FM_RECORDER_LIDAR=auto|on|off   Livox MID-360S (auto = on iff the vendor driver
 #                                   overlay ~/ws_livox is built on this host)
 #   FM_RECORDER_RECORD=true|false   arm the recorder (true = armed+idle, waits for REC)
-#   FM_RECORDER_FOXGLOVE=true|false run the foxglove bridge here (:8765)
+#   FM_RECORDER_FOXGLOVE=true|false run the embedded foxglove bridge (default :8765)
+#   FM_BRIDGE_PORT=<port>          shared endpoint from /etc/fm-bridge.env
+#   FM_BRIDGE_OWNER=embedded|standalone  which process owns that endpoint
 #   FM_LAN_IP=<ip>                  pin the DDS LAN interface (else auto-detected)
 #
 # No `set -e`: this is a long-lived bring-up wrapper, and a non-matching grep in the
@@ -22,6 +24,11 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck disable=SC1091
+if ! source "$ROOT/scripts/env/bridge.sh"; then
+  echo "recorder-boot: invalid bridge configuration; refusing to start" >&2
+  exit 78
+fi
 
 TRACKER="${FM_RECORDER_TRACKER:-on}"
 RECORD="${FM_RECORDER_RECORD:-true}"
@@ -66,5 +73,45 @@ fi
 source "$ROOT/scripts/env/comms.sh"
 set -u
 
-exec ros2 launch fm_data_record egocentric_record.launch.py \
-  tracker:="$TRACKER" record:="$RECORD" use_foxglove:="$FOXGLOVE" lidar:="$LIDAR"
+case "$FOXGLOVE" in
+  true|false) ;;
+  *)
+    echo "recorder-boot: FM_RECORDER_FOXGLOVE must be true or false, got '$FOXGLOVE'" >&2
+    exit 78
+    ;;
+esac
+
+LAUNCH_ARGS=(
+  tracker:="$TRACKER"
+  record:="$RECORD"
+  use_foxglove:="$FOXGLOVE"
+  lidar:="$LIDAR"
+)
+
+if [ "$FOXGLOVE" = true ]; then
+  if [ "$FM_BRIDGE_OWNER" = standalone ]; then
+    echo "recorder-boot: FM_BRIDGE_OWNER=standalone but FM_RECORDER_FOXGLOVE=true;" >&2
+    echo "  disable the embedded bridge so fm-foxglove.service is the only owner." >&2
+    exit 78
+  fi
+
+  # fm-data now exposes foxglove_port with validation. Keep an older checkout
+  # compatible at the historic default, but never pretend it can bind a custom
+  # configured port when its launch file still hard-codes 8765.
+  launch_args="$(ros2 launch fm_data_record egocentric_record.launch.py --show-args 2>/dev/null || true)"
+  if grep -q 'foxglove_port' <<<"$launch_args"; then
+    LAUNCH_ARGS+=(foxglove_port:="$FM_BRIDGE_PORT")
+  elif [ "$FM_BRIDGE_PORT" != "$FM_BRIDGE_DEFAULT_PORT" ]; then
+    echo "recorder-boot: configured bridge port $FM_BRIDGE_PORT needs a newer fm-data" >&2
+    echo "  (egocentric_record.launch.py has no foxglove_port argument); install" >&2
+    echo "  fm-foxglove.service or update fm-data before enabling the embedded bridge." >&2
+    exit 78
+  fi
+
+  if ! fm_bridge_require_free "$FM_BRIDGE_PORT"; then
+    echo "recorder-boot: embedded bridge preflight failed" >&2
+    exit 78
+  fi
+fi
+
+exec ros2 launch fm_data_record egocentric_record.launch.py "${LAUNCH_ARGS[@]}"

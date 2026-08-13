@@ -20,16 +20,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 . "$ROOT/lib.sh"          # item()
+# shellcheck disable=SC1091
+. "$ROOT/scripts/env/bridge.sh"
 cd "$ROOT"
 
 UNIT=/etc/systemd/system/fm-recorder.service
 ENVFILE=/etc/fm-recorder.env
+BRIDGE_ENV="${FM_BRIDGE_ENV_FILE:-/etc/fm-bridge.env}"
 WRAPPER="$ROOT/scripts/service/recorder-boot.sh"
 
 # Run the service as the human who installed it, not root — so ~/recordings and the
 # RealSense udev access resolve to their account. SUDO_USER covers a `sudo ./install.sh`.
 SERVICE_USER="${SUDO_USER:-$USER}"
-SERVICE_HOME="$(getent passwd "$SERVICE_USER" 2>/dev/null | cut -d: -f6)"
+# `getent` is Linux-only; keep --help and the platform guard usable on macOS.
+SERVICE_HOME="$(getent passwd "$SERVICE_USER" 2>/dev/null | cut -d: -f6 || true)"
 [ -n "$SERVICE_HOME" ] || SERVICE_HOME="$HOME"
 
 usage() {
@@ -42,8 +46,9 @@ install-recorder-service.sh — install/remove the fm-recorder boot service (Lin
 
 The service runs scripts/service/recorder-boot.sh as the installing user: it sources
 ROS + the workspace overlay + comms.sh, then launches egocentric_record.launch.py
-(camera + tracker + recorder + foxglove bridge). Bags land in ~/recordings. Tune it
-via /etc/fm-recorder.env (FM_RECORDER_TRACKER, FM_LAN_IP, ...).
+(camera + tracker + recorder + optional embedded Foxglove bridge). The shared
+bridge endpoint is /etc/fm-bridge.env (default port 8765). Bags land in
+~/recordings. Tune the recorder via /etc/fm-recorder.env.
 EOF
 }
 
@@ -68,10 +73,28 @@ do_install() {
     return 1
   fi
 
-  item "writing $UNIT (User=$SERVICE_USER, HOME=$SERVICE_HOME, workspace=$ROOT) ..."
+  # Create the shared file only when absent; this is what lets a tower keep its
+  # 8766 choice when the updater re-runs this installer after a pull.
+  FM_BRIDGE_ENV_FILE="$BRIDGE_ENV" ./scripts/install/install-bridge-config.sh
+  # shellcheck disable=SC1091
+  . "$ROOT/scripts/env/bridge.sh"
+  local recorder_foxglove_default=true
+  [ "$FM_BRIDGE_OWNER" = standalone ] && recorder_foxglove_default=false
+
+  # A standalone owner must be applied before the service restart. Do not
+  # clobber an explicit false in the normal embedded/default mode.
+  if [ "$FM_BRIDGE_OWNER" = standalone ] && [ -f "$ENVFILE" ]; then
+    if sudo grep -q '^FM_RECORDER_FOXGLOVE=' "$ENVFILE"; then
+      sudo sed -i -E 's#^FM_RECORDER_FOXGLOVE=.*#FM_RECORDER_FOXGLOVE=false#' "$ENVFILE"
+    else
+      printf 'FM_RECORDER_FOXGLOVE=false\n' | sudo tee -a "$ENVFILE" >/dev/null
+    fi
+  fi
+
+  item "writing $UNIT (User=$SERVICE_USER, HOME=$SERVICE_HOME, workspace=$ROOT, bridge=$FM_BRIDGE_PORT) ..."
   sudo tee "$UNIT" >/dev/null <<EOF
 [Unit]
-Description=First Motive egocentric recorder (camera + tracker + recorder + foxglove bridge)
+Description=First Motive egocentric recorder (camera + tracker + recorder)
 After=network-online.target
 Wants=network-online.target
 # Never permanently give up: an appliance that boots before the camera is plugged in
@@ -83,6 +106,7 @@ Type=simple
 User=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
 EnvironmentFile=-$ENVFILE
+EnvironmentFile=-$BRIDGE_ENV
 WorkingDirectory=$ROOT
 ExecStart=/bin/bash $WRAPPER
 Restart=on-failure
@@ -96,7 +120,7 @@ EOF
   # host's tuned values (FM_LAN_IP, tracker off, ...).
   if [ ! -f "$ENVFILE" ]; then
     item "writing $ENVFILE (config knobs — edit, then restart the service to apply) ..."
-    sudo tee "$ENVFILE" >/dev/null <<'EOF'
+    sudo tee "$ENVFILE" >/dev/null <<EOF
 # fm-recorder.service knobs — edit, then: sudo systemctl restart fm-recorder
 #
 # Pin the DDS LAN interface if auto-detection picks the wrong IP at boot:
@@ -110,8 +134,9 @@ FM_RECORDER_TRACKER=on
 FM_RECORDER_LIDAR=auto
 # Arm the recorder (true = armed + idle, waits for a REC command):
 FM_RECORDER_RECORD=true
-# Run the foxglove bridge here (:8765) for the Mac operator surface:
-FM_RECORDER_FOXGLOVE=true
+# Run the embedded foxglove bridge here (fixed to the default port by older
+# fm-data checkouts). Set false when fm-foxglove.service is the standalone owner:
+FM_RECORDER_FOXGLOVE=$recorder_foxglove_default
 # Where episodes land. Also read by the auto-updater to tell "a take is in flight"
 # from "idle" — change both this and the recorder config together, or the updater
 # watches the wrong directory and converges during a take:
@@ -134,8 +159,8 @@ fm-recorder.service installed and started — it now comes up on every boot.
   config:  sudo nano $ENVFILE   (then: sudo systemctl restart fm-recorder)
 
 From a Mac on the same network, drive REC/STOP against this host's foxglove bridge:
-  open src/fm_app/fm_viewer/webgui/index.html?ws=ws://<this-host-ip>:8765
-  (or point Foxglove Studio at ws://<this-host-ip>:8765). Bags land in ~/recordings.
+  open src/fm_app/fm_viewer/webgui/index.html?ws=ws://<this-host-ip>:$FM_BRIDGE_PORT
+  (or point Foxglove Studio at ws://<this-host-ip>:$FM_BRIDGE_PORT). Bags land in ~/recordings.
 EOF
 }
 

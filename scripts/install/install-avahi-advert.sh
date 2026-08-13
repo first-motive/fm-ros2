@@ -28,9 +28,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")/../.." && pwd)"
 # shellcheck disable=SC1091
 [ -f "$ROOT/lib.sh" ] && . "$ROOT/lib.sh" || item() { echo "$1"; }
+# shellcheck disable=SC1091
+[ -f "$ROOT/scripts/env/bridge.sh" ] && . "$ROOT/scripts/env/bridge.sh"
 
 SERVICE_TYPE="_fm-rig._tcp"
+BRIDGE_ENV="${FM_BRIDGE_ENV_FILE:-/etc/fm-bridge.env}"
 BRIDGE_PORT="${FM_BRIDGE_PORT:-8765}"
+FM_BRIDGE_OWNER="${FM_BRIDGE_OWNER:-embedded}"
 
 usage() {
   cat <<'EOF'
@@ -41,7 +45,9 @@ install-avahi-advert.sh — mDNS advert for a rig role (Linux + avahi)
   -h, --help              show this help
 
 The desktop app browses _fm-rig._tcp and offers discovered rigs in Settings.
-Override the advertised bridge port with FM_BRIDGE_PORT (default 8765).
+The port comes from /etc/fm-bridge.env (FM_BRIDGE_PORT, default 8765), the
+same durable file used by the service and updater. Use install-bridge-config.sh
+to change it; a role re-install does not overwrite it.
 EOF
 }
 
@@ -56,6 +62,16 @@ _require_linux() {
 do_install() {  # role
   local role="$1"
   _require_linux || return 0
+
+  # Persist a first-run/default value, while preserving a tower's existing
+  # 8766 choice. This also makes a manually-run Avahi installer converge with
+  # the same source of truth as the systemd units.
+  if [ -x "$ROOT/scripts/install/install-bridge-config.sh" ]; then
+    FM_BRIDGE_ENV_FILE="$BRIDGE_ENV" "$ROOT/scripts/install/install-bridge-config.sh"
+    # shellcheck disable=SC1091
+    . "$ROOT/scripts/env/bridge.sh"
+  fi
+  BRIDGE_PORT="$FM_BRIDGE_PORT"
 
   # avahi-daemon ships on desktop Ubuntu but not on every server image.
   if ! command -v avahi-daemon >/dev/null 2>&1; then
@@ -80,6 +96,7 @@ do_install() {  # role
     <txt-record>role=${role}</txt-record>
     <txt-record>host=${host_fqdn}</txt-record>
     <txt-record>port=${BRIDGE_PORT}</txt-record>
+    <txt-record>bridge_owner=${FM_BRIDGE_OWNER}</txt-record>
   </service>
 </service-group>
 EOF

@@ -20,16 +20,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 . "$ROOT/lib.sh"          # item()
+# shellcheck disable=SC1091
+. "$ROOT/scripts/env/bridge.sh"
 cd "$ROOT"
 
 UNIT=/etc/systemd/system/fm-processor.service
 ENVFILE=/etc/fm-processor.env
+BRIDGE_ENV="${FM_BRIDGE_ENV_FILE:-/etc/fm-bridge.env}"
 WRAPPER="$ROOT/scripts/service/processor-boot.sh"
 
 # Run the service as the human who installed it, not root — so ~/recordings and
 # ~/processed resolve to their account. SUDO_USER covers a `sudo ./install.sh`.
 SERVICE_USER="${SUDO_USER:-$USER}"
-SERVICE_HOME="$(getent passwd "$SERVICE_USER" 2>/dev/null | cut -d: -f6)"
+# `getent` is Linux-only; keep --help and the platform guard usable on macOS.
+SERVICE_HOME="$(getent passwd "$SERVICE_USER" 2>/dev/null | cut -d: -f6 || true)"
 [ -n "$SERVICE_HOME" ] || SERVICE_HOME="$HOME"
 
 usage() {
@@ -44,6 +48,7 @@ The service runs scripts/service/processor-boot.sh as the installing user: it so
 ROS + the workspace overlay + comms.sh, then launches process_session.launch.py
 (the process_supervisor node). Manifests land in ~/processed. Tune it via
 /etc/fm-processor.env (FM_PROCESSOR_RECORDINGS_DIR, FM_PROCESSOR_OUTPUT_DIR, ...).
+The shared Foxglove/Avahi endpoint is persisted separately in /etc/fm-bridge.env.
 EOF
 }
 
@@ -68,6 +73,12 @@ do_install() {
     return 1
   fi
 
+  # Processor discovery adverts use the same durable endpoint file as the
+  # recorder and standalone bridge. Preserve an existing tower override.
+  FM_BRIDGE_ENV_FILE="$BRIDGE_ENV" ./scripts/install/install-bridge-config.sh
+  # shellcheck disable=SC1091
+  . "$ROOT/scripts/env/bridge.sh"
+
   item "writing $UNIT (User=$SERVICE_USER, HOME=$SERVICE_HOME, workspace=$ROOT) ..."
   sudo tee "$UNIT" >/dev/null <<EOF
 [Unit]
@@ -83,6 +94,7 @@ Type=simple
 User=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
 EnvironmentFile=-$ENVFILE
+EnvironmentFile=-$BRIDGE_ENV
 WorkingDirectory=$ROOT
 ExecStart=/bin/bash $WRAPPER
 Restart=on-failure
