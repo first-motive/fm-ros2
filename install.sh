@@ -286,16 +286,33 @@ ensure_git() {
 
 # vcs (vcstool) drives the imports. Prefer one already on PATH; otherwise install
 # it with uv so the `vcs` import-externals.sh shells out to is also available.
-# Hosts with neither (a fresh Jetson) fall back to apt on Linux — no Python
-# tooling bootstrap needed there.
+# Hosts with neither (a fresh Jetson) fall back to apt, then pip: python3-vcstool
+# is NOT in the Ubuntu archive — it resolves only where the ROS apt repo is
+# already present (a re-provisioned rig), so a bare box takes the pip path
+# (found live on the first fresh Jetson, 2026-08-13).
 ensure_vcs() {
   command -v vcs >/dev/null 2>&1 && return
   if ! command -v uv >/dev/null 2>&1; then
     if [[ "$(uname -s)" == Linux ]] && command -v apt-get >/dev/null 2>&1; then
-      say "installing vcstool via apt (no uv on this host) ..."
+      say "installing vcstool (no uv on this host) ..."
       sudo apt-get update -qq
-      sudo apt-get install -y python3-vcstool
-      return
+      if ! sudo apt-get install -y python3-vcstool 2>/dev/null; then
+        say "no apt candidate for python3-vcstool — installing via pip ..."
+        sudo apt-get install -y python3-pip
+        # vcstool imports pkg_resources, which setuptools 81 dropped — pin it.
+        pip3 install --user --quiet vcstool "setuptools<81"
+        # pip --user drops the console script into the user base bin, which is
+        # not on PATH mid-script on a fresh box.
+        local user_bin
+        user_bin="$(python3 -m site --user-base)/bin"
+        case ":$PATH:" in
+          *":$user_bin:"*) ;;
+          *) export PATH="$user_bin:$PATH" ;;
+        esac
+      fi
+      command -v vcs >/dev/null 2>&1 && return
+      echo "error: could not install vcstool — install it manually (pip3 install vcstool) and re-run." >&2
+      exit 1
     fi
     echo "error: need vcstool or uv on PATH — install uv (https://docs.astral.sh/uv/)" >&2
     exit 1
