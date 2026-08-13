@@ -56,17 +56,34 @@ _write_unit() {
 Description=$description
 After=network-online.target
 Wants=network-online.target
-# Deliberately NOT Requires=/BindsTo= fm-recorder.service: a monitor must be able to
-# run, fail, and restart without touching capture. An absent recorder is itself a
-# finding the watchdog reports.
+# ORDER after the recorder, but do not DEPEND on it. After= only sequences startup;
+# Requires=/BindsTo= would couple fate, and a monitor must be able to run, fail and
+# restart without touching capture (an absent recorder is itself a finding the
+# watchdog reports). The ordering exists because this appliance pins FastDDS to one
+# interface with useBuiltinTransports=false, and a participant that joins while the
+# recorder's own participants are still coming up can end up in a separate discovery
+# scope — nodes run, publish, and are visible to nobody.
+After=fm-recorder.service
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
-EnvironmentFile=-$ENVFILE
 WorkingDirectory=$ROOT
+# The RECORDER's env file FIRST, the monitors' own SECOND. Order matters twice:
+#
+# FM_LAN_IP lives in /etc/fm-recorder.env and pins FastDDS to one interface. A
+# monitor that does not read it lets dds-lan.sh auto-detect, which on a
+# multi-homed host picks a DIFFERENT address than the recorder — two DDS scopes
+# on one machine, every service reporting healthy, and nothing visible to the
+# operator surface. That cost two days on fmtower: recorder pinned to .28,
+# monitors auto-detecting .10.
+#
+# Later entries win, so listing the monitors' file second keeps monitor-specific
+# values (FM_MONITORS_*) authoritative while inheriting the shared DDS setting.
+EnvironmentFile=-/etc/fm-recorder.env
+EnvironmentFile=-$ENVFILE
 ExecStart=/bin/bash $WRAPPER $role
 Restart=on-failure
 RestartSec=10
