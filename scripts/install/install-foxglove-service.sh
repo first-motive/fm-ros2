@@ -101,6 +101,7 @@ EnvironmentFile=-$RECORDER_ENV
 EnvironmentFile=-$BRIDGE_ENV
 WorkingDirectory=$ROOT
 ExecStart=/bin/bash $WRAPPER
+TimeoutStopSec=15
 Restart=on-failure
 RestartSec=5
 
