@@ -57,4 +57,8 @@ grep -q 'foxglove_port:=' "$ROOT/scripts/service/recorder-boot.sh"
 grep -q 'FM_BRIDGE_PORT' "$ROOT/scripts/service/recorder-boot.sh"
 grep -q 'needs a newer fm-data' "$ROOT/scripts/service/recorder-boot.sh"
 
+# The standalone bridge must use the recorder's pinned DDS LAN interface.
+# Otherwise a multihomed tower can start the bridge on a separate DDS graph.
+grep -Fq 'EnvironmentFile=-$RECORDER_ENV' "$ROOT/scripts/install/install-foxglove-service.sh"
+
 echo "test-bridge-config: passed"
