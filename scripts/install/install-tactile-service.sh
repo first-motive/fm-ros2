@@ -41,11 +41,39 @@ OVERLAY="$ROOT/src/external/fm_tactile"
 
 # Physical USB port the ESP32 lives on, as udev's KERNELS attribute (`udevadm info -a
 # -n /dev/ttyUSB0 | grep KERNELS` on the host reports it). Needed because the CH340
-# carries no serial number. Default matches the first recorder tower.
-USB_PORT="${FM_TACTILE_USB_PORT:-3-1}"
+# carries no serial number — but the right port differs per host (3-1 on the first
+# tower, something else on a Jetson), so there is no baked default. Resolution order:
+#   1. FM_TACTILE_USB_PORT (explicit) — always wins.
+#   2. Exactly one CH340 tty plugged in right now — its port is derived and pinned.
+#   3. Nothing plugged in — the rule matches vendor/product only (fine while the
+#      glove is this host's only CH340); re-run with the board in its permanent
+#      port to pin it, mandatory before a second CH340 device ever shares the host.
+USB_PORT="${FM_TACTILE_USB_PORT:-}"
 # CH340 (QinHeng) vendor/product — the adapter on the production glove board.
 USB_VENDOR="${FM_TACTILE_USB_VENDOR:-1a86}"
 USB_PRODUCT="${FM_TACTILE_USB_PRODUCT:-7523}"
+
+# Print the KERNELS-style USB port (e.g. 3-1, 1-2.4) of every CH340 tty present:
+# walk each ttyUSB device's sysfs chain up past the interface (the `:`-suffixed
+# dir) to the USB device node, whose basename is exactly what KERNELS matches.
+_ch340_ports() {
+  local dev p base
+  for dev in /dev/ttyUSB*; do
+    [ -e "$dev" ] || continue
+    p="$(udevadm info -q property -n "$dev" 2>/dev/null)" || continue
+    grep -q "^ID_VENDOR_ID=$USB_VENDOR$" <<<"$p" || continue
+    grep -q "^ID_MODEL_ID=$USB_PRODUCT$" <<<"$p" || continue
+    p="$(readlink -f "/sys/class/tty/${dev#/dev/}/device")"
+    while [ -n "$p" ] && [ "$p" != / ]; do
+      base="$(basename "$p")"
+      case "$base" in
+        *:*) ;;
+        [0-9]*-*) echo "$base"; break ;;
+      esac
+      p="$(dirname "$p")"
+    done
+  done
+}
 
 # Run the service as the human who installed it, not root — the audit CSVs land beside
 # the recorder's bags in that user's ~/recordings, and dialout group access is theirs.
@@ -64,7 +92,9 @@ install-tactile-service.sh — install/remove the fm-tactile glove receiver (Lin
   -h, --help   show this help
 
 Environment:
-  FM_TACTILE_USB_PORT      physical USB port for the ESP32 (udev KERNELS), default 3-1
+  FM_TACTILE_USB_PORT      physical USB port for the ESP32 (udev KERNELS). Unset:
+                           auto-detected from a plugged-in CH340; with none
+                           plugged, the rule matches vendor/product only
   FM_TACTILE_USB_VENDOR    USB idVendor,  default 1a86 (CH340)
   FM_TACTILE_USB_PRODUCT   USB idProduct, default 7523 (CH340)
 
@@ -98,15 +128,39 @@ do_install() {
 
   # 1. Stable device name. Without it the board lands on whichever /dev/ttyUSB* is
   #    free at boot and the unit points at the wrong device (or a modem, or nothing).
-  item "writing $UDEV_RULE (ESP32 on USB port $USB_PORT -> $DEVICE_LINK) ..."
+  #    Resolve the port pin per the order documented at USB_PORT above — a wrong
+  #    baked-in port is the known silent-glove-death trap when the host changes.
+  if [ -z "$USB_PORT" ]; then
+    local -a found=()
+    while IFS= read -r _p; do [ -n "$_p" ] && found+=("$_p"); done < <(_ch340_ports)
+    if [ "${#found[@]}" = 1 ]; then
+      USB_PORT="${found[0]}"
+      item "detected the glove's CH340 on USB port $USB_PORT — pinning the rule to it"
+    elif [ "${#found[@]}" = 0 ]; then
+      item "no CH340 plugged in — writing a vendor/product-only rule (no port pin)."
+      item "  Once the glove sits in its permanent port, re-run this script to pin it:"
+      item "  ./scripts/install/install-tactile-service.sh"
+    else
+      echo "ERROR: ${#found[@]} CH340 devices present (${found[*]}) — cannot tell which is" >&2
+      echo "       the glove. Re-run with the port named explicitly, e.g.:" >&2
+      echo "       FM_TACTILE_USB_PORT=${found[0]} ./scripts/install/install-tactile-service.sh" >&2
+      return 1
+    fi
+  fi
+  local match_port=""
+  [ -n "$USB_PORT" ] && match_port=", KERNELS==\"$USB_PORT\""
+  item "writing $UDEV_RULE (ESP32 ${USB_PORT:+on USB port $USB_PORT }-> $DEVICE_LINK) ..."
   sudo tee "$UDEV_RULE" >/dev/null <<EOF
 # First Motive tactile glove — stable name for the ESP32's USB-serial adapter.
 #
 # The CH340 on this board reports no factory USB serial number, so identity alone
-# cannot tell two boards apart. Match the vendor/product AND the physical port the
-# board is kept in. Moving it to another port needs this rule regenerated with
-# FM_TACTILE_USB_PORT set to the new port.
-SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*", ATTRS{idVendor}=="$USB_VENDOR", ATTRS{idProduct}=="$USB_PRODUCT", KERNELS=="$USB_PORT", SYMLINK+="${DEVICE_LINK#/dev/}", GROUP="dialout", MODE="0660"
+# cannot tell two boards apart. The installer therefore pins the physical port the
+# board is kept in when it can (a plugged-in board, or FM_TACTILE_USB_PORT); a
+# rule with no KERNELS pin was written with no board present and matches any
+# CH340 — fine for a single-glove host, but re-run the installer with the board
+# in its permanent port before a second CH340 device ever shares this host.
+# Moving the board to another port needs this rule regenerated the same way.
+SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*", ATTRS{idVendor}=="$USB_VENDOR", ATTRS{idProduct}=="$USB_PRODUCT"$match_port, SYMLINK+="${DEVICE_LINK#/dev/}", GROUP="dialout", MODE="0660"
 EOF
 
   # 2. brltty grabs any CH340 as a Braille display within a second of plug-in, before
@@ -188,8 +242,14 @@ fm-tactile.service installed and started — it now comes up on every boot.
   stream:  ros2 topic hz /glove_left/tactile   (expect 38-42 Hz)
   config:  sudo nano $CONFIG_FILE  (then: sudo systemctl restart fm-tactile)
 
-Keep the ESP32 in USB port $USB_PORT — the CH340 has no serial number, so the stable
-device name depends on it. Do not open a serial monitor while the service is running.
+$(if [ -n "$USB_PORT" ]; then
+  echo "Keep the ESP32 in USB port $USB_PORT — the CH340 has no serial number, so the stable"
+  echo "device name depends on it. Do not open a serial monitor while the service is running."
+else
+  echo "No port pin yet (no board was plugged in) — once the glove sits in its permanent"
+  echo "port, re-run this script to pin it. Do not open a serial monitor while the"
+  echo "service is running."
+fi)
 EOF
 }
 

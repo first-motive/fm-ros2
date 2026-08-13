@@ -104,6 +104,15 @@ arrives. Nothing needs a display on the host.
 ./scripts/install/install-recorder-service.sh
 ```
 
+`--service` also puts the box on the **release channel**: the role repos are
+pinned to their newest `v*` tag, and `fm-update-recorder.timer` moves the box
+only when a newer release tag is cut (see `appliance-update.sh`). The mDNS
+advert bakes the release into its TXT records, so the desktop app's Settings
+shows what each rig runs. Unattended updates need passwordless sudo, which the
+installer grants via `/etc/sudoers.d/010-fm-appliance` (`FM_NO_SUDOERS=1` opts
+out). A brand-new Jetson goes from box to recording-ready with
+[JETSON.md](JETSON.md).
+
 ### Operate + watch
 
 ```bash
@@ -128,6 +137,7 @@ Episodes land in **`~/recordings`** on the host — depth never crosses the netw
 |---|---|---|
 | `FM_LAN_IP` | (auto) | pin the DDS LAN interface if boot-time auto-detect picks the wrong IP |
 | `FM_RECORDER_TRACKER` | `on` | set `off` where MediaPipe won't install (some Jetsons) — still captures RGB-D + IMU |
+| `FM_RECORDER_LIDAR` | `auto` | Livox MID-360: `auto` runs it exactly when the vendor overlay (`~/ws_livox`) is built; set `off` until the LiDAR's dedicated interface is configured |
 | `FM_RECORDER_RECORD` | `true` | `false` = preview (camera + bridge + status, no capture) |
 | `FM_RECORDER_FOXGLOVE` | `true` | `false` if a Mac-side app owns `:8765` |
 

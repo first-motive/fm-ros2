@@ -8,6 +8,10 @@
 #   role=recorder|processor   which Settings field the rig fills
 #   host=<hostname>.local     the address the app should dial
 #   port=8765                 the foxglove bridge port
+#   ver=<workspace release>   fm-ros2 checkout: the exact v* tag, or describe's
+#                             tag-N-gsha / bare sha before any tag exists
+#   data=<engine release>     the data-engine checkout, same format
+#   teleop=<teleop release>   recorder only: the teleop checkout, same format
 #
 # host= is baked at install time; the appliance auto-updater re-runs the role
 # setup (which re-runs this) after every pull, so a renamed host re-advertises
@@ -53,6 +57,13 @@ _require_linux() {
   return 0
 }
 
+# Release identity for a TXT record: the exact tag when the checkout sits on
+# one, else describe's tag-N-gsha (or the bare sha before any tag exists).
+# Empty when the dir is not a git checkout — the record is then omitted.
+_release_of() {  # dir
+  git -C "$1" describe --tags --always 2>/dev/null || true
+}
+
 do_install() {  # role
   local role="$1"
   _require_linux || return 0
@@ -66,6 +77,21 @@ do_install() {  # role
 
   local advert="/etc/avahi/services/fm-${role}.service"
   local host_fqdn="$(hostname).local"
+
+  # Release TXT records — the workspace plus the role repos this box carries.
+  # Baked at write time; the auto-updater re-runs the role setup (and so this
+  # script) after every converge, so the advert follows the box's release and
+  # the desktop app can show whether the fleet actually updated.
+  local ver_records="" rel
+  rel="$(_release_of "$ROOT")"
+  [ -n "$rel" ] && ver_records="${ver_records}    <txt-record>ver=${rel}</txt-record>\n"
+  rel="$(_release_of "$ROOT/src/fm_data")"
+  [ -n "$rel" ] && ver_records="${ver_records}    <txt-record>data=${rel}</txt-record>\n"
+  if [ "$role" = recorder ]; then
+    rel="$(_release_of "$ROOT/src/fm_teleop")"
+    [ -n "$rel" ] && ver_records="${ver_records}    <txt-record>teleop=${rel}</txt-record>\n"
+  fi
+
   item "writing $advert (${SERVICE_TYPE}, host=$host_fqdn, port=$BRIDGE_PORT) ..."
   # %h expands to the hostname in the visible instance name, keeping names
   # unique when many boxes advertise the same role on one network.
@@ -80,6 +106,7 @@ do_install() {  # role
     <txt-record>role=${role}</txt-record>
     <txt-record>host=${host_fqdn}</txt-record>
     <txt-record>port=${BRIDGE_PORT}</txt-record>
+$(printf '%b' "$ver_records")
   </service>
 </service-group>
 EOF

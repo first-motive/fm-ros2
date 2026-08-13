@@ -186,6 +186,7 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "would remove the recorder boot service (fm-recorder.service), if installed"
     item "would remove the tactile glove receiver (fm-tactile.service + its udev rule), if installed"
     item "would remove the processor boot service (fm-processor.service), if installed"
+    item "would remove the appliance sudoers drop-in (010-fm-appliance), if installed"
     [[ "$purge" == 1 ]] && item "would purge clean imported repos under src/ and external/ (dirty ones kept)"
     return 0
   fi
@@ -241,6 +242,10 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "removing the rig mDNS adverts (fm-recorder/fm-processor), if present ..."
     ./scripts/install/install-avahi-advert.sh uninstall || true
   fi
+  if [[ "$(uname -s)" == Linux && -x scripts/install/install-appliance-sudoers.sh ]]; then
+    item "removing the appliance sudoers drop-in, if present ..."
+    ./scripts/install/install-appliance-sudoers.sh uninstall || true
+  fi
 
   # The persisted profile is bootstrap-owned transient state, written by install
   # and consumed by run.sh. Drop it on teardown so a stale path/viewer never routes
@@ -264,11 +269,34 @@ do_uninstall() {  # dry no_desktop no_ai purge
   fi
 }
 
+# git drives the clone and every import. Present on any dev box, but a freshly
+# flashed appliance host (a new Jetson) may not have it — apt it in there rather
+# than failing the one-liner at its very first step.
+ensure_git() {
+  command -v git >/dev/null 2>&1 && return
+  if [[ "$(uname -s)" == Linux ]] && command -v apt-get >/dev/null 2>&1; then
+    say "installing git via apt ..."
+    sudo apt-get update -qq
+    sudo apt-get install -y git
+    return
+  fi
+  echo "error: git is required — install it and re-run." >&2
+  exit 1
+}
+
 # vcs (vcstool) drives the imports. Prefer one already on PATH; otherwise install
 # it with uv so the `vcs` import-externals.sh shells out to is also available.
+# Hosts with neither (a fresh Jetson) fall back to apt on Linux — no Python
+# tooling bootstrap needed there.
 ensure_vcs() {
   command -v vcs >/dev/null 2>&1 && return
   if ! command -v uv >/dev/null 2>&1; then
+    if [[ "$(uname -s)" == Linux ]] && command -v apt-get >/dev/null 2>&1; then
+      say "installing vcstool via apt (no uv on this host) ..."
+      sudo apt-get update -qq
+      sudo apt-get install -y python3-vcstool
+      return
+    fi
     echo "error: need vcstool or uv on PATH — install uv (https://docs.astral.sh/uv/)" >&2
     exit 1
   fi
@@ -425,6 +453,7 @@ main() {
   # upstream: --ff-only refuses on local commits, divergence, or a dirty tree, so it
   # never resets their work. A refusal is fine — warn and carry on with their tree.
   step "Clone fm-ros2"
+  ensure_git
   if [[ -f fm-ros2.repos && -d .git ]]; then
     # ./install.sh from inside a checkout: this tree IS the workspace — nothing
     # to clone. No pull either: the running script belongs to this tree, and
@@ -446,6 +475,22 @@ main() {
     # --quiet: the item line above already narrates this; git's clone progress is
     # the only raw child output in the flow, so silence it for a uniform transcript.
     git clone --quiet --depth 1 ${REPO_REF:+--branch "$REPO_REF"} "$REPO_URL" "$TARGET"
+    # Appliance roles install from the latest release tag, not main HEAD: the
+    # auto-updater converges tag-to-tag, so the install must start on the same
+    # channel. FM_REPO_REF still pins an explicit ref, and a repo with no
+    # release tag yet stays on the default branch. Tag tips are fetched shallow
+    # to match the --depth 1 clone.
+    if [[ ( "$path" == recorder || "$path" == processor ) && -z "$REPO_REF" ]]; then
+      local reltag
+      git -C "$TARGET" fetch --quiet --depth 1 origin '+refs/tags/*:refs/tags/*' 2>/dev/null || true
+      reltag="$(git -C "$TARGET" tag -l 'v[0-9]*' --sort=-v:refname | head -1)"
+      if [[ -n "$reltag" ]]; then
+        item "pinning the workspace to release $reltag ..."
+        git -C "$TARGET" -c advice.detachedHead=false checkout --quiet "$reltag"
+      else
+        item "no release tag on the workspace yet — staying on the default branch"
+      fi
+    fi
   fi
   cd "$TARGET"
 

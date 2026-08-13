@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # install-update-timer.sh — install (or remove) the appliance auto-update timer
 # for one role: fm-update-<role>.timer fires fm-update-<role>.service every
-# ~15 minutes, which runs scripts/service/appliance-update.sh — fetch, and only when
-# a repo is behind, fast-forward + re-run the role installer (rebuild + service
-# restart). A merged PR lands on the box within one tick; an up-to-date box
-# does nothing but a fetch.
+# ~15 minutes, which runs scripts/service/appliance-update.sh — fetch tags, and
+# only when a newer v* release tag exists, check it out + re-run the role
+# installer (rebuild + service restart). A cut release lands on the box within
+# one tick; an up-to-date box does nothing but a fetch.
 #
 # Units are per-role because one host can carry both roles in separate
 # workspaces (the current shared box does): each timer converges its own
@@ -39,10 +39,11 @@ install-update-timer.sh — install/remove the appliance auto-update timer (Linu
   uninstall recorder|processor    stop + disable + remove the role's timer
   -h, --help                      show this help
 
-The timer runs scripts/service/appliance-update.sh <role>: fetch the workspace and
-role repos, fast-forward when behind, re-run the role installer. Busy takes and
-in-flight processing runs are never interrupted (the script's busy gate skips
-the tick). Pause anytime: sudo systemctl stop fm-update-<role>.timer
+The timer runs scripts/service/appliance-update.sh <role>: fetch release tags
+for the workspace and role repos, check out a newer v* tag when one exists,
+re-run the role installer. Busy takes and in-flight processing runs are never
+interrupted (the script's busy gate skips the tick). Pause anytime:
+sudo systemctl stop fm-update-<role>.timer
 EOF
 }
 

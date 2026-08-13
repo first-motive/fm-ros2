@@ -2,11 +2,12 @@
 # appliance-update.sh — converge one appliance workspace to latest, safely.
 #
 # The pull half of the appliance auto-update: fm-update-<role>.timer (installed
-# by install-update-timer.sh) runs this every ~15 minutes. It fetches the
-# workspace repo and its role repos, and only when something is actually behind
-# does it fast-forward and re-run the role installer (rebuild + service
-# restart). Boxes converge on merged PRs within one tick — no push infra, no
-# secrets beyond the git credentials already on the host.
+# by install-update-timer.sh) runs this every ~15 minutes. It fetches tags for
+# the workspace repo and its role repos, and only when a NEWER RELEASE TAG
+# exists does it check that tag out and re-run the role installer (rebuild +
+# service restart). Appliances ride the release channel: cutting a v* tag rolls
+# the fleet within one tick; merged-but-untagged main never moves a box. No
+# push infra, no secrets beyond the git credentials already on the host.
 #
 #   scripts/service/appliance-update.sh recorder     # or: processor
 #
@@ -14,8 +15,9 @@
 #   - busy gate: never updates mid-take (recent episode writes, excluding the
 #     continuous tactile-raw stream) or mid-processing (a dataset_process
 #     subprocess is running); the next tick retries.
-#   - ff-only: a dirty or diverged repo is logged and left alone, never
-#     stashed, reset, or force-pulled.
+#   - clean moves only: a repo is only ever checked out onto a newer v* tag
+#     when it has no tracked modifications; anything else is logged and left
+#     alone, never stashed, reset, or force-pulled.
 #   - flock: overlapping runs (timer + manual) collapse to one.
 #   - main()-wrap: the running copy survives its own file being replaced by
 #     the pull it performs (bash parses the whole function before executing).
@@ -38,9 +40,10 @@ appliance-update.sh — pull + rebuild + restart one appliance role when behind
   scripts/service/appliance-update.sh recorder|processor
   -h, --help   show this help
 
-Fetches the workspace and role repos; exits quietly when everything is current.
-When behind: fast-forwards (dirty/diverged repos are skipped with a warning)
-and re-runs `./install.sh --<role> --service`. Driven by fm-update-<role>.timer.
+Fetches release tags for the workspace and role repos; exits quietly when every
+repo sits on its newest v* tag. When a newer tag exists: checks it out (dirty
+repos and repos with no tags are skipped with a warning) and re-runs the role
+installer. Driven by fm-update-<role>.timer.
 EOF
 }
 
@@ -77,25 +80,39 @@ _busy() {  # role
   return 1
 }
 
-# Fetch one repo; report its state: current | behind | held (dirty/diverged).
+# lib.sh normally provides this; keep an inline fallback so the script stays
+# runnable over `ssh 'bash -s'` with no workspace file to source.
+command -v latest_release_tag >/dev/null 2>&1 || \
+  latest_release_tag() { git -C "$1" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null | head -1; }
+
+# Fetch one repo's tags; report its release-channel state:
+#   current        HEAD is the newest v* tag
+#   behind <tag>   a newer v* tag exists — check it out
+#   untagged       no v* tag yet — the release channel has no target here
+#   held           dirty or unfetchable — never moved
 _repo_state() {  # dir
   local dir="$1"
-  git -C "$dir" fetch -q origin 2>/dev/null || { echo held; return; }
+  # Tag tips only, shallow when the repo is shallow (--depth 1 appliance
+  # clones stay lean). --force: a re-cut tag moves.
+  local -a depth=()
+  [ -f "$(git -C "$dir" rev-parse --git-dir)/shallow" ] && depth=(--depth 1)
+  git -C "$dir" fetch -q --force ${depth[@]+"${depth[@]}"} origin \
+    '+refs/tags/*:refs/tags/*' 2>/dev/null || { echo held; return; }
+  local target
+  target="$(latest_release_tag "$dir")"
+  [ -n "$target" ] || { echo untagged; return; }
   # Tracked modifications only: untracked artifacts living in the checkout (the
   # engine venv, logs, caches) must never wedge the updater — git itself refuses
-  # an ff that would overwrite an untracked file, which is the only unsafe case.
-  # (.engine-venv/ wedged the first tick before it was gitignored, 2026-07-23.)
+  # a checkout that would overwrite an untracked file, which is the only unsafe
+  # case. (.engine-venv/ wedged the first tick before it was gitignored, 2026-07-23.)
   if [ -n "$(git -C "$dir" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
     echo held
     return
   fi
-  local head upstream base
+  local head tagc
   head="$(git -C "$dir" rev-parse HEAD)"
-  upstream="$(git -C "$dir" rev-parse '@{u}' 2>/dev/null)" || { echo held; return; }
-  [ "$head" = "$upstream" ] && { echo current; return; }
-  base="$(git -C "$dir" merge-base HEAD '@{u}')"
-  # Behind only (base == HEAD) fast-forwards; ahead or diverged is held.
-  [ "$base" = "$head" ] && echo behind || echo held
+  tagc="$(git -C "$dir" rev-parse "$target^{commit}" 2>/dev/null)" || { echo held; return; }
+  [ "$head" = "$tagc" ] && echo current || echo "behind $target"
 }
 
 main() {
@@ -127,13 +144,16 @@ main() {
     [ -d "$dir/.git" ] || continue
     state="$(_repo_state "$dir")"
     case "$state" in
-      behind)
-        item "updating $(basename "$dir") ..."
-        git -C "$dir" merge --ff-only '@{u}' >/dev/null
+      behind\ *)
+        item "updating $(basename "$dir") -> ${state#behind } ..."
+        git -C "$dir" -c advice.detachedHead=false checkout -q "${state#behind }"
         updated=1
         ;;
+      untagged)
+        item "WARNING: $(basename "$dir") has no release tag yet — left alone (cut a v* tag to put it on the release channel)"
+        ;;
       held)
-        item "WARNING: $(basename "$dir") is dirty, diverged, or unfetchable — left alone"
+        item "WARNING: $(basename "$dir") is dirty or unfetchable — left alone"
         ;;
     esac
   done
