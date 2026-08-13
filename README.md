@@ -98,8 +98,9 @@ gh api repos/first-motive/fm-desktop/contents/install.sh --jq .content \
 
 **Recorder (Linux camera host)** — RealSense + hand tracker + tactile glove +
 episode recorder, streaming to the app over the LAN. Ubuntu 22.04 required; a
-fresh host (a just-flashed Jetson on JetPack 6) gets ROS 2 Humble installed
-automatically, any other distro must bring its own. `--service` makes it a boot
+fresh host (a Jetson just flashed with Canonical's Ubuntu 22.04 tegra image)
+gets ROS 2 Humble installed automatically, any other distro must bring its
+own. `--service` makes it a boot
 appliance (`fm-recorder.service` plus `fm-tactile.service` for the glove).
 Bringing up a brand-new Jetson? Follow [docs/JETSON.md](docs/JETSON.md)
 end-to-end. The one-liner clones into the directory it runs from, so `cd` to
