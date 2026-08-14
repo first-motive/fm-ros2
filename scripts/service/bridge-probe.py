@@ -12,7 +12,7 @@ DEFAULT_PORT = 8765
 DEFAULT_ENV_FILE = "/etc/fm-bridge.env"
 
 
-def configured_port():
+def _configured_port():
     """Read the durable bridge file, then the environment, then the default."""
     raw = os.environ.get("FM_BRIDGE_PORT")
     env_file = os.environ.get("FM_BRIDGE_ENV_FILE", DEFAULT_ENV_FILE)
@@ -33,7 +33,7 @@ def configured_port():
     return port
 
 
-HOST, PORT = "127.0.0.1", configured_port()
+HOST, PORT = "127.0.0.1", _configured_port()
 WANT = sys.argv[1:] or ["/watchdog/active", "/episode_qa/session"]
 
 
@@ -110,4 +110,5 @@ def main():
     return 1 if missing or not topics else 0
 
 
-sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())

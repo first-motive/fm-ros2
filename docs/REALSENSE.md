@@ -139,7 +139,7 @@ python3 scripts/internal/bridge-probe.py
 
 This sets `FM_RECORDER_FOXGLOVE=false`, so `fm-recorder.service` does not start
 a second bridge. The Avahi advert and updater use the same persisted file. The
-recorder boot script passes the configured port to a newer `fm-data` launch when
+recorder boot script passes the configured port to a newer recorder package launch when
 its validated `foxglove_port` argument exists; an older checkout remains
 compatible only with the default embedded port.
 

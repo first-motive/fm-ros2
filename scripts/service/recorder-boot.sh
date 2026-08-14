@@ -95,16 +95,16 @@ if [ "$FOXGLOVE" = true ]; then
     exit 78
   fi
 
-  # fm-data now exposes foxglove_port with validation. Keep an older checkout
+  # The recorder package now exposes foxglove_port with validation. Keep an older checkout
   # compatible at the historic default, but never pretend it can bind a custom
   # configured port when its launch file still hard-codes 8765.
   launch_args="$(ros2 launch fm_data_record egocentric_record.launch.py --show-args 2>/dev/null || true)"
   if grep -q 'foxglove_port' <<<"$launch_args"; then
     LAUNCH_ARGS+=(foxglove_port:="$FM_BRIDGE_PORT")
   elif [ "$FM_BRIDGE_PORT" != "$FM_BRIDGE_DEFAULT_PORT" ]; then
-    echo "recorder-boot: configured bridge port $FM_BRIDGE_PORT needs a newer fm-data" >&2
+    echo "recorder-boot: configured bridge port $FM_BRIDGE_PORT needs a newer recorder package" >&2
     echo "  (egocentric_record.launch.py has no foxglove_port argument); install" >&2
-    echo "  fm-foxglove.service or update fm-data before enabling the embedded bridge." >&2
+    echo "  fm-foxglove.service or update the recorder package before enabling the embedded bridge." >&2
     exit 78
   fi
 
