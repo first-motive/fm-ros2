@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Shared narration helpers for the fm_ros2 scripts. Sourced, never executed.
 #
-# install.sh carries inline copies of these: it runs curl-piped before the clone
-# exists, so it has no repo file to source. When editing here, mirror the change
-# into install.sh.
+# This file is the only copy. install.sh runs curl-piped before the clone exists,
+# so it fetches this file and evals it (see load_lib there) rather than carrying
+# duplicates that drift.
 
 # Status line under a step header — one place to restyle later.
 item() { echo "$1"; }
