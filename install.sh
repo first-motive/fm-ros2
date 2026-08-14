@@ -43,6 +43,9 @@ REPO_URL="https://github.com/first-motive/fm-ros2.git"
 # Branch/tag to clone (default: the repo's default branch). CI sets FM_REPO_REF to
 # the PR branch so the installer tests the ref under review, not the merged main.
 REPO_REF="${FM_REPO_REF:-}"
+# Raw base for files this script needs before the clone exists (lib.sh). Tracks
+# FM_REPO_REF so a CI run fetches the ref under review, not main.
+RAW_BASE="https://raw.githubusercontent.com/first-motive/fm-ros2/${REPO_REF:-main}"
 TARGET="fm_ros2"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm_ros2"
 
@@ -65,37 +68,33 @@ step() {  # title  [role]
     echo "== $STEP. $1 =="
   fi
 }
-item() { echo "$1"; }  # status line under a step — inline copy of lib.sh's item
-
-# Run a long command with live feedback. TTY: fork it, spin a frame + elapsed
-# seconds on one \r line until it exits, then clear the line — replaying the
-# captured output only on failure so a green run stays quiet and a red one is
-# still debuggable. Piped (no TTY): run inline so output and errors stream
-# straight through, no \r control chars in a log. Returns the command's exit.
-# Inline copy of lib.sh's spin — this script runs curl-piped before the clone
-# exists, so there is no repo file to source. Keep in sync with lib.sh.
-spin() {  # label  cmd...
-  local label="$1"; shift
-  if [ ! -t 1 ]; then
-    "$@"
-    return $?
+# Load lib.sh, which owns the narration helpers (item, spin) and the release-tag
+# helpers. From a clone it sits beside this script, so source it. Over a curl pipe
+# there is no file on disk, so fetch and eval — eval, not `source`, because the
+# pipe has already consumed stdin. This is why the helpers live in one file
+# instead of being copied in here: a copy drifts, and nothing catches it.
+load_lib() {
+  local here lib
+  # BASH_SOURCE[0] is empty when this script arrives over a pipe.
+  if [ -n "${BASH_SOURCE[0]:-}" ] \
+     && here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" \
+     && lib="$here/lib.sh" && [ -f "$lib" ]; then
+    # shellcheck source=lib.sh disable=SC1091
+    . "$lib"
+  else
+    # Capture before eval: `eval "$(curl ...)"` hides a failed fetch, because the
+    # substitution yields an empty string and `eval ""` exits 0. Check the fetch
+    # itself, and refuse an empty body.
+    local body
+    if ! body="$(curl -fsSL --proto '=https' --proto-redir '=https' "$RAW_BASE/lib.sh")" \
+       || [ -z "$body" ]; then
+      echo "ERROR: could not load lib.sh from $RAW_BASE" >&2
+      exit 1
+    fi
+    eval "$body"
   fi
-  local log; log="$(mktemp)" || return 1
-  # <&0 forwards our stdin to the async job — a backgrounded command otherwise
-  # gets stdin from /dev/null (POSIX), starving `vcs import < manifest`.
-  "$@" <&0 >"$log" 2>&1 &
-  local pid=$! frames='|/-\' i=0 start=$SECONDS
-  while kill -0 "$pid" 2>/dev/null; do
-    printf '\r  %s %s (%ds)' "${frames:i%4:1}" "$label" "$((SECONDS - start))"
-    i=$((i + 1))
-    sleep 0.1
-  done
-  wait "$pid"; local rc=$?
-  printf '\r\033[K'
-  [ "$rc" -eq 0 ] || cat "$log" >&2
-  rm -f "$log"
-  return "$rc"
 }
+load_lib
 
 # Plain narration for secondary paths (uninstall, dependency bootstrap) that sit
 # outside the numbered install flow.
