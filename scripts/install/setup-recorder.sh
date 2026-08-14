@@ -70,10 +70,7 @@ sudo apt-get install -y \
 # 2. RealSense udev rules — required for the IMU (else it fails with Permission denied) and for
 #    non-root device access. Re-plug the camera after this.
 item "installing RealSense udev rules (re-plug the camera afterwards) ..."
-sudo curl -fsSL \
-  https://raw.githubusercontent.com/IntelRealSense/librealsense/master/config/99-realsense-libusb.rules \
-  -o /etc/udev/rules.d/99-realsense-libusb.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
+bash "$ROOT/scripts/internal/install-realsense-udev-rules.sh"
 
 # 3. MediaPipe + hand model (the tracker's perception). Download the model BEFORE the build so it
 #    is installed into the package share dir.

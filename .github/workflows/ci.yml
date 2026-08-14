@@ -64,6 +64,12 @@ jobs:
       - name: bridge endpoint config and probe
         run: bash scripts/ci/test-bridge-config.sh
 
+      # Repeat appliance converges must not depend on raw GitHub availability.
+      # A fresh host gets a pinned rule through a bounded retry and an existing
+      # complete rule is retained without another network request.
+      - name: recorder RealSense udev rule install
+        run: bash scripts/ci/test-recorder-udev-rules.sh
+
       # Every install script is Linux-only and mostly unreachable in CI, so a parse
       # error would otherwise surface first on a real rig mid-provision.
       - name: install scripts parse
