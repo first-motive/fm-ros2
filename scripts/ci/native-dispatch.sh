@@ -70,6 +70,23 @@ main() {
   if ./run.sh >/dev/null 2>&1; then
     echo "FAIL: run.sh accepted an unknown path" >&2; return 1
   fi
+
+  echo "==> fm.json verb scripts parse their own flags"
+  # Every verb the manifest declares stops at its selftest hook after resolving,
+  # before any container work, so CI can prove each one dispatches and reads its
+  # flags without hardware. `fm <verb>` forwards args verbatim to these scripts,
+  # so asserting them here covers the CLI's whole verb surface for this repo.
+  FM_SELFTEST=1 ./scripts/run/teleop.sh --robot g1_d --backend mock \
+    | grep -q 'teleop resolved (robot=g1_d, backend=mock'
+  FM_SELFTEST=1 ./scripts/run/sim.sh --robot so101 --backend mujoco \
+    | grep -q 'sim resolved (robot=so101, backend=mujoco'
+  FM_SELFTEST=1 ./scripts/run/foxglove.sh -t -p 9000 \
+    | grep -q 'foxglove resolved (mode=throwaway, port=9000'
+  # Validation still runs ahead of the hook — selftest must not mask a bad flag.
+  if FM_SELFTEST=1 ./scripts/run/teleop.sh --backend bogus >/dev/null 2>&1; then
+    echo "FAIL: teleop.sh accepted an invalid backend" >&2; return 1
+  fi
+
   echo "PASS: native dispatch + flag parsing"
 
   # pixi env: when pixi is present, the lockfile must stay consistent with the
