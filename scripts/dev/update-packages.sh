@@ -28,6 +28,10 @@ main() {
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
+  # Sourced for warn_kebab_checkouts, the one shared helper this script uses.
+  # shellcheck source=/dev/null
+  . "$ROOT/lib.sh"
+
   # Resolve a vcs runner: prefer an installed `vcs`, else run it ephemerally via
   # uv (no global install, no PATH pollution). Fail loud if neither is available.
   local VCS
@@ -56,6 +60,10 @@ main() {
     echo "==> Importing private overlay ..."
     "${VCS[@]}" import < private-overlay.repos
   fi
+
+  # A manifest that spells a checkout with the repo slug leaves a src/ directory
+  # the rest of this workspace never reads. Check after the last import.
+  warn_kebab_checkouts "$ROOT"
 
   # vcs pull fast-forwards every clone in src/ + external/ to its tracked ref.
   echo "==> Pulling all package repos to latest ..."

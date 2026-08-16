@@ -35,6 +35,9 @@ if [[ -f "$ROOT/lib.sh" ]]; then
 else
   item() { echo "$1"; }
   spin() { shift; "$@"; }
+  # Standalone fallback: the checkout-case check is advisory, so skip it rather
+  # than fail the update on an unset function.
+  warn_kebab_checkouts() { :; }
 fi
 
 usage() {
@@ -162,6 +165,11 @@ main() {
   else
     item "no private-overlay.repos — skipping the learning overlay"
   fi
+
+  # Both imports above take their checkout paths from a manifest, and a manifest
+  # that spells one with the repo slug leaves a src/ directory the rest of this
+  # workspace never reads. Check once, after the last import that can create one.
+  warn_kebab_checkouts "$ROOT"
 
   # Re-import externals — delegate to the externals importer, do not duplicate it.
   item "re-importing externals ..."
