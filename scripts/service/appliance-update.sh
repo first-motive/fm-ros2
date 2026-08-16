@@ -13,6 +13,12 @@
 # converges to, and docs/RELEASE.md carries the cadence. A role repo left
 # untagged is reported below and never moves, so a release is the whole set.
 #
+# Both layers converge here: fm-setup (the machine layer — drivers, container
+# runtime, ROS) through its own scripts/update.sh, and this workspace through
+# its role installer. Each moves only when its own release tag moved, so a
+# driver bump does not restart a recorder's services and a workspace bump does
+# not re-run apt.
+#
 #   scripts/service/appliance-update.sh recorder     # or: processor
 #
 # Safety posture:
@@ -174,8 +180,51 @@ main() {
     esac
   done
 
+  # The machine layer is a sibling checkout under the same workspace, not a src/
+  # overlay, and it converges through its own entry point rather than this
+  # role installer. It is tracked apart from the repos above for two reasons: a
+  # machine-layer bump must not drag the ROS stack through a rebuild and a
+  # service restart it did not need — on a recorder that restart is an
+  # interruption — and the two layers ride their own release tags, so either can
+  # move without the other.
+  #
+  # fm-setup's own scripts/update.sh reads this host's role from the identity
+  # card, which is why nothing here maps recorder -> jetson. A timer that
+  # hardcoded `install.sh --jetson` would be a second place a machine's role is
+  # written down, and the card exists to delete those.
+  local fm_setup setup_updated=0
+  fm_setup="$(dirname "$ROOT")/fm-setup"
+  if [ -d "$fm_setup/.git" ]; then
+    state="$(_repo_state "$fm_setup")"
+    case "$state" in
+      behind\ *)
+        item "updating fm-setup -> ${state#behind } ..."
+        git -C "$fm_setup" -c advice.detachedHead=false checkout -q "${state#behind }"
+        setup_updated=1
+        ;;
+      untagged)
+        item "WARNING: fm-setup has no release tag yet — left alone (cut a v* tag to put it on the release channel)"
+        ;;
+      held)
+        item "WARNING: fm-setup is dirty or unfetchable — left alone"
+        ;;
+    esac
+  fi
+
+  # Machine layer first: it owns the drivers, the container runtime, and ROS
+  # itself, so a workspace rebuild that follows builds against what this just
+  # installed rather than against what was there before.
+  if [ "$setup_updated" = 1 ]; then
+    if [ -x "$fm_setup/scripts/update.sh" ]; then
+      item "machine layer moved — converging fm-setup ..."
+      "$fm_setup/scripts/update.sh"
+    else
+      item "WARNING: fm-setup moved but has no executable scripts/update.sh — machine layer not converged"
+    fi
+  fi
+
   if [ "$updated" = 0 ]; then
-    item "up to date"
+    [ "$setup_updated" = 1 ] || item "up to date"
     return 0
   fi
 
