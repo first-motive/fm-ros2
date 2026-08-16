@@ -17,7 +17,7 @@ repositories:
   docker:
     type: git
     url: https://github.com/first-motive/fm-docker.git
-    version: v0.1.1
+    version: v0.1.2
   # Zenoh transport configs, systemd units, and deploy scripts. Imported into
   # comms/ beside docker/ rather than src/: it carries no ROS packages and ships
   # a COLCON_IGNORE, so colcon never descends into it. Only the zenoh comms
@@ -29,7 +29,7 @@ repositories:
     # Pinned to a release tag, the way docker/ is — the transport must not move
     # under a running fleet, and a router and a bridge on different versions do
     # not interoperate.
-    version: v0.1.0
+    version: v0.1.1
   src/fm_robot:
     type: git
     url: https://github.com/first-motive/fm-robot.git
