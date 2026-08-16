@@ -5,56 +5,37 @@ name: CI
 on:
   push:
     branches: ["**"]
-    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore", "plans/**"]
+    paths-ignore: ["docs/**", "LICENSE", ".gitignore", "plans/**"]
   pull_request:
-    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore", "plans/**"]
+    paths-ignore: ["docs/**", "LICENSE", ".gitignore", "plans/**"]
 
 jobs:
+  # Rendered files (AGENTS.md, .fm/) come from the render plane and carry a hash of
+  # their own body. This fails the PR when one was edited in place.
+  drift:
+    uses: first-motive/.github/.github/workflows/drift-check.yml@main
+
+  # The piped-curl front door check, the in-tree updater and uninstall smokes, and
+  # the install-script parse pass all live in first-motive/.github.
   selftest:
-    name: bootstrap self-test (curl|bash FM_SELFTEST)
+    uses: first-motive/.github/.github/workflows/bootstrap-selftest.yml@main
+    with:
+      scripts: install.sh run.sh
+      in-tree-scripts: '"scripts/update.sh" "install.sh uninstall --purge"'
+      parse-globs: scripts/install/*.sh scripts/run/*.sh
+
+  # Appliance-specific guards that no other repo runs: the updater's busy gate, the
+  # bridge endpoint config, and the recorder's udev rule install.
+  appliance:
+    name: appliance guards
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      # install.sh and run.sh are curl|bash-able. Run each from an empty dir so it
-      # takes its network branch — the piped path real users hit. FM_SELFTEST stops
-      # each script after deps load and resolve, before any clone, import, OrbStack
-      # install, container, or build. install.sh stops at arg parse (needs no auth);
-      # run.sh fetches lib.sh from the pinned fm-tools tag, then stops.
-      - name: install.sh + run.sh survive the piped curl path
-        run: |
-          set -euo pipefail
-          repo="$PWD"
-          cd "$(mktemp -d)"
-          for s in install.sh run.sh; do
-            echo "== $s =="
-            out="$(cat "$repo/$s" | FM_SELFTEST=1 bash 2>&1)" \
-              || { echo "$out"; echo "FAIL: $s exited non-zero under curl|bash"; exit 1; }
-            echo "$out"
-            echo "$out" | grep -q "selftest ok" \
-              || { echo "FAIL: $s did not reach 'selftest ok'"; exit 1; }
-          done
-          echo "bootstrap self-test OK"
-
-      # update.sh is an in-tree tool (not curl-piped), and install.sh grows an
-      # uninstall path — smoke both under FM_SELFTEST so a parse or flag-routing
-      # break is caught here, before a real convergence or teardown runs. Each
-      # stops after resolving, before any git/vcs/docker side effect.
-      - name: update.sh + uninstall survive FM_SELFTEST
-        run: |
-          set -euo pipefail
-          echo "== scripts/update.sh =="
-          FM_SELFTEST=1 bash scripts/update.sh | tee /dev/stderr | grep -q "selftest ok" \
-            || { echo "FAIL: update.sh did not reach 'selftest ok'"; exit 1; }
-          echo "== install.sh uninstall =="
-          FM_SELFTEST=1 bash install.sh uninstall --purge | tee /dev/stderr | grep -q "selftest ok" \
-            || { echo "FAIL: install.sh uninstall did not reach 'selftest ok'"; exit 1; }
-          echo "update + uninstall self-test OK"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The appliance updater must tell "a take is in flight" from "idle". The
       # tactile bridge appends to recordings/tactile-raw continuously, even while
       # the recorder is idle, so the updater prunes that one directory — without
-      # the prune a glove-equipped rig can never converge on an update. The guard
-      # is a two-line find expression, easy to break in an unrelated edit.
+      # the prune a glove-equipped rig can never converge on an update.
       - name: appliance updater busy gate (recorder)
         run: bash scripts/ci/test-appliance-update.sh
 
@@ -65,20 +46,8 @@ jobs:
         run: bash scripts/ci/test-bridge-config.sh
 
       # Repeat appliance converges must not depend on raw GitHub availability.
-      # A fresh host gets a pinned rule through a bounded retry and an existing
-      # complete rule is retained without another network request.
       - name: recorder RealSense udev rule install
         run: bash scripts/ci/test-recorder-udev-rules.sh
-
-      # Every install script is Linux-only and mostly unreachable in CI, so a parse
-      # error would otherwise surface first on a real rig mid-provision.
-      - name: install scripts parse
-        run: |
-          set -euo pipefail
-          for s in scripts/install/*.sh scripts/run/*.sh; do
-            bash -n "$s" || { echo "FAIL: $s has a syntax error"; exit 1; }
-          done
-          echo "install/run script syntax OK"
 
   workspace:
     name: build + test + smoke (humble)
