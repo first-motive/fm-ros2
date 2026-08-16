@@ -41,6 +41,38 @@ pin_release() {  # dir
   git -C "$dir" -c advice.detachedHead=false checkout --quiet "$tag"
 }
 
+# Report package checkouts that landed under the kebab repo slug (src/fm-robot)
+# instead of the workspace's snake_case convention (src/fm_robot).
+#
+# The convention is not cosmetic. A package repo ships a metapackage manifest at
+# its root, so colcon stops descending there and never sees the nested packages;
+# every script that needs one of those reaches past the root by spelling the
+# checkout path literally — setup-recorder.sh, scripts/internal/native-build.sh,
+# scripts/service/appliance-update.sh all say src/fm_<name>. Under a kebab
+# checkout those paths match nothing, the nested packages are never built, and
+# the first report of it is a launch dying on a package it cannot find. When both
+# spellings exist at once it is worse: colcon discovers the same package names
+# under two prefixes and refuses to build the workspace at all.
+#
+# Neither failure names its cause, so name it here, at the import that produced
+# it. Warning only — moving or deleting a checkout out from under someone is
+# never this script's call. The fix belongs in whichever manifest wrote the
+# kebab path.
+warn_kebab_checkouts() {  # workspace root
+  local root="${1:-.}" dir base snake
+  for dir in "$root"/src/fm-*/; do
+    # An unmatched glob stays literal, so confirm the directory before reporting.
+    [ -d "$dir" ] || continue
+    base="$(basename "$dir")"
+    snake="${base//-/_}"
+    if [ -d "$root/src/$snake" ]; then
+      item "WARNING: src/$base and src/$snake are the same packages checked out twice — colcon aborts on the duplicates; keep src/$snake and remove the other"
+    else
+      item "WARNING: src/$base uses the repo slug — this workspace expects src/$snake, and the scripts that build its nested packages look only there"
+    fi
+  done
+}
+
 # Run a long command with live feedback. TTY: fork it, spin a frame + elapsed
 # seconds on one \r line until it exits, then clear the line — replaying the
 # captured output only on failure so a green run stays quiet and a red one is

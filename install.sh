@@ -613,6 +613,12 @@ main() {
     # bash 3.2 (macOS) errors on "${arr[@]}" for an empty array under set -u — guard
     # the expansion so an unflagged run passes no args instead of tripping unbound.
     maybe_install_team_extras ${extra_flags[@]+"${extra_flags[@]}"}
+
+    # The overlay import happens inside that step, from a manifest this repo does
+    # not own. A manifest that spells a checkout with the repo slug leaves a src/
+    # directory nothing here reads, so say so while the member is still watching
+    # the install rather than at the first launch that cannot find a package.
+    warn_kebab_checkouts "$PWD"
   fi
 
   # Setup ends here. run.sh builds and launches the interactive TUI, which needs a

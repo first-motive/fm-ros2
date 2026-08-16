@@ -23,10 +23,11 @@ TACTILE_REF="${FM_TACTILE_REF:-v0.1.0}"
 # the kebab repo slug is private and is never written into the tree in plaintext.
 TACTILE_DIR="src/external/fm_tactile"
 
-# 0. ROS 2 Humble. A fresh appliance host (a just-flashed Jetson on JetPack 6)
-#    arrives without it, so install it here when the host is Ubuntu 22.04 — the
-#    one distro Humble binaries target. Any other host keeps the hard
-#    requirement: picking a ROS build for arbitrary distros stays out of scope.
+# 0. ROS 2 Humble. A fresh appliance host (a Jetson just flashed with Canonical's
+#    preinstalled Ubuntu 22.04 tegra image — see docs/JETSON.md) arrives without
+#    it, so install it here when the host is Ubuntu 22.04, the one distro Humble
+#    binaries target. Any other host keeps the hard requirement: picking a ROS
+#    build for arbitrary distros stays out of scope.
 if [ ! -f /opt/ros/humble/setup.bash ]; then
   _os_id="$(. /etc/os-release 2>/dev/null && echo "${ID:-}")"
   _os_ver="$(. /etc/os-release 2>/dev/null && echo "${VERSION_ID:-}")"
