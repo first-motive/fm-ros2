@@ -9,6 +9,10 @@
 # the fleet within one tick; merged-but-untagged main never moves a box. No
 # push infra, no secrets beyond the git credentials already on the host.
 #
+# The push half is a person: scripts/dev/cut-release.sh cuts the tag set this
+# converges to, and docs/RELEASE.md carries the cadence. A role repo left
+# untagged is reported below and never moves, so a release is the whole set.
+#
 #   scripts/service/appliance-update.sh recorder     # or: processor
 #
 # Safety posture:

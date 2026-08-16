@@ -17,6 +17,7 @@ Guides and references for the fm_ros2 workspace. Start at the root
 | [NATIVE_MUJOCO.md](NATIVE_MUJOCO.md) | Native MuJoCo sim on macOS (pixi + RoboStack): what runs, how it was resolved |
 | [EXTERNALS.md](EXTERNALS.md) | Vendoring robot sources, the LeRobot editable env |
 | [POLYREPO.md](POLYREPO.md) | Where to work in the split org, and the branch rules |
+| [RELEASE.md](RELEASE.md) | The appliance release channel: cutting a tag set, the cadence, verifying convergence |
 | [diagrams/README.md](diagrams/README.md) | The d2 diagram sources: render workflow, brand styles, diagram ownership |
 
 ## Where Else Docs Live
