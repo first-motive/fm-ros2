@@ -31,7 +31,7 @@ main() {
     bash docker/install.sh --no-pull
   else
     curl -fsSL --proto '=https' --proto-redir '=https' \
-      "https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.1/install.sh" | bash -s -- --no-pull
+      "https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.2/install.sh" | bash -s -- --no-pull
   fi
   if docker info 2>/dev/null | grep -qi orbstack; then
     echo "    OrbStack detected."

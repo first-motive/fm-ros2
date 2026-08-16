@@ -46,9 +46,9 @@ source scripts/internal/lib-buildtree.sh
 # header when uv is absent.
 FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.4.1"
 # lib.sh is owned by fm-tools; fetch it from the same pinned tag for the host
-# checks (fm_detect_os). The container runtime is delegated to fm-docker v0.1.1.
+# checks (fm_detect_os). The container runtime is delegated to fm-docker v0.1.2.
 FM_TOOLS_RAW="https://raw.githubusercontent.com/first-motive/fm-tools/v0.4.1"
-FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.1"
+FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.2"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm_ros2"
 
 # Load the shared bootstrap library (fm-tools lib.sh) for fm_detect_os. Reuse a
