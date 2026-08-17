@@ -26,6 +26,7 @@ EOF
 }
 
 READY_TIMEOUT=40    # seconds to wait for a controller to reach "active"
+RVIZ_TIMEOUT=30     # seconds to wait for rviz to appear on the virtual display
 TEARDOWN_TIMEOUT=15 # seconds to wait for a torn-down control node to exit
 
 # Bounded wait: a plain `wait <pid>` blocks forever when a ros2 launch child
@@ -301,17 +302,37 @@ assert_rviz_vnc() {
 
   # rviz renders on the Xvfb display; a broken GL/display path prints a known
   # marker, so assert the process is alive and none of those markers appeared.
-  DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1 timeout 12 ros2 launch fm_description \
+  #
+  # Bounded poll, not a fixed sleep. rviz under software GL takes as long as it
+  # takes, and every other check in this file waits on a condition for exactly this
+  # reason — a `sleep 6` that happened to be enough on a fast box is a flake on a
+  # slow one, which is the failure mode this whole script exists to remove.
+  DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1 timeout 40 ros2 launch fm_description \
     view_robot.launch.py robot:=axol variant:=bimanual use_rviz:=true \
     use_foxglove:=false >/tmp/rviz_render.log 2>&1 &
   local pid=$!
-  sleep 6
-  if grep -qE "could not connect to display|null not valid|No matching fbConfig" /tmp/rviz_render.log; then
+  local up=false broken=false
+  for _ in $(seq 1 "$RVIZ_TIMEOUT"); do
+    if grep -qE "could not connect to display|null not valid|No matching fbConfig" \
+       /tmp/rviz_render.log; then
+      broken=true
+      break
+    fi
+    if pgrep -f "lib/rviz2/rviz2" >/dev/null 2>&1; then
+      up=true
+      break
+    fi
+    sleep 1
+  done
+  if $broken; then
     fail "rviz-vnc: rviz failed to render on the virtual display"
-  elif pgrep -f "lib/rviz2/rviz2" >/dev/null 2>&1; then
+    tail -20 /tmp/rviz_render.log || true
+  elif $up; then
     pass "rviz-vnc: noVNC bound + rviz rendering on Xvfb"
   else
-    fail "rviz-vnc: rviz not running after launch (see /tmp/rviz_render.log)"
+    fail "rviz-vnc: rviz not running ${RVIZ_TIMEOUT}s after launch"
+    echo "--- rviz-vnc.sh log ---"; tail -20 /tmp/rviz_vnc.log || true
+    echo "--- rviz launch log ---"; tail -30 /tmp/rviz_render.log || true
   fi
   kill "$pid" 2>/dev/null || true
   pkill -f "lib/rviz2/rviz2" 2>/dev/null || true
