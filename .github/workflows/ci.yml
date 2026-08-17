@@ -35,6 +35,19 @@ jobs:
       in-tree-scripts: '"scripts/update.sh" "install.sh uninstall --purge"'
       parse-globs: scripts/install/*.sh scripts/run/*.sh
 
+  # The workflows are now code — a composite action, expressions referring to its
+  # outputs, shell in `run:` blocks. actionlint type-checks the expressions and runs
+  # shellcheck over the shell, which is how the SC2155 in the native job was found.
+  # The version is pinned in the script, so this cannot go red on a tool update.
+  workflows:
+    name: workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: actionlint
+        run: ./scripts/ci/lint-workflows.sh
+
   # Appliance-specific guards that no other repo runs: the updater's busy gate, the
   # bridge endpoint config, and the recorder's udev rule install.
   appliance:
@@ -156,7 +169,8 @@ jobs:
       - name: Vendor externals
         run: |
           uv tool install --quiet vcstool --with "setuptools<81"
-          export PATH="$(uv tool dir --bin):$PATH"
+          uv_bin="$(uv tool dir --bin)"
+          export PATH="$uv_bin:$PATH"
           ./scripts/install/import-externals.sh
 
       # Full env install from pixi.lock (not run-install: false) — the point of
