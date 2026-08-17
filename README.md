@@ -324,17 +324,19 @@ natively; driving real Unitree hardware still needs the container — see
 
 [![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
-Seven jobs per push and PR; each reproduces locally with the exact CI command
+Nine jobs per push and PR; each reproduces locally with the exact CI command
 ([docs/CI.md](docs/CI.md)).
 
 | Job | Runner | Proves |
 |-----|--------|--------|
+| `drift` | `ubuntu-latest` | no rendered file was edited in place |
 | `selftest` | `ubuntu-latest` | `install.sh` + `run.sh` survive the piped curl path |
+| `workflows` | `ubuntu-latest` | the workflows and composite action lint clean |
+| `appliance` | `ubuntu-latest` | updater busy gate, bridge endpoint, recorder udev rules |
 | `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → four-robot headless smoke |
-| `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
-| `macos` | `macos-latest` (arm64) | host-native MuJoCo core + native install/run dispatch |
-| `native` | `macos-latest` (arm64) | full pixi env + native build + launcher/launch runtime deps |
+| `native` | `macos-latest` (arm64) | full pixi env + native build + launch runtime deps + host-native MuJoCo core |
 | `windows` | `windows-latest` | native dispatch + `.ps1` wrappers delegate through Git Bash |
+| `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 
 ## License & Ownership

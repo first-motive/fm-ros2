@@ -1,10 +1,26 @@
 # CI
 
-Every push and pull request runs four jobs ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)):
-the Linux workspace build, the macOS native sim core, the installer import-path
-check, and the Foxglove panel build. The commands below are exactly what CI runs,
-so any job reproduces locally with the same line — not a prose claim that it works
-on each system. For the job summary, see the [CI table in the root README](../README.md#ci).
+Every push and pull request runs the jobs in
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml): the workflow lint, the
+Linux workspace build and headless smoke, the macOS native path, the Windows
+dispatch check, the installer import-path check, the Foxglove panel build, plus the
+drift, bootstrap-selftest, and appliance guards. The commands below are exactly what CI runs, so any job reproduces
+locally with the same line — not a prose claim that it works on each system. For the
+job summary, see the [CI table in the root README](../README.md#ci).
+
+## Workflow lint
+
+The workflows are code: a composite action, expressions that refer to its outputs,
+and shell inside every `run:` block. `actionlint` type-checks the expressions and
+runs shellcheck over the shell.
+
+```bash
+./scripts/ci/lint-workflows.sh
+```
+
+The version is pinned in the script. It uses `actionlint` from `PATH` when you have
+it (`brew install actionlint`), and otherwise runs the pinned Docker image — so a
+fresh clone needs nothing installed.
 
 ## Linux (`ubuntu-latest`)
 
@@ -34,4 +50,20 @@ registry, and a real native mujoco step:
 
 ```bash
 ./scripts/ci/ci-smoke-macos.sh
+```
+
+## Windows (`windows-latest`)
+
+Windows is native-only — no Docker, no ROS2 — and has no user yet. The job keeps that
+future path from rotting: the same dispatch smoke the macOS job runs, through Git
+Bash, plus the `.ps1` wrappers delegating to it. Nothing else exercises the wrappers.
+
+```bash
+./scripts/ci/native-dispatch.sh          # Git Bash
+```
+
+```powershell
+$env:FM_SELFTEST = '1'
+.\install.ps1 --native --viewer foxglove
+.\run.ps1 --native
 ```
