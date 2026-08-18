@@ -38,6 +38,7 @@ else
   # Standalone fallback: the checkout-case check is advisory, so skip it rather
   # than fail the update on an unset function.
   warn_kebab_checkouts() { :; }
+  refuse_kebab_manifest() { :; }
 fi
 
 usage() {
@@ -156,6 +157,10 @@ main() {
   # Optional private learning overlay — absent for members without access, so
   # skip quietly when the manifest is not present.
   if [[ -f private-overlay.repos ]]; then
+    # The overlay manifest is gitignored and copied onto this machine, so it can
+    # be older than the tracked source it came from. Check the spelling before
+    # the import acts on it, not after the duplicate src/ tree exists.
+    refuse_kebab_manifest private-overlay.repos || return 1
     item "re-importing the learning overlay (src/ + external/) ..."
     if ! spin "re-importing learning overlay" vcs import < private-overlay.repos; then
       echo "error: failed to import the learning overlay (private-overlay.repos)." >&2
