@@ -85,10 +85,20 @@ load_lib() {
     # Capture before eval: `eval "$(curl ...)"` hides a failed fetch, because the
     # substitution yields an empty string and `eval ""` exits 0. Check the fetch
     # itself, and refuse an empty body.
-    local body
-    if ! body="$(curl -fsSL --proto '=https' --proto-redir '=https' "$RAW_BASE/lib.sh")" \
-       || [ -z "$body" ]; then
-      echo "ERROR: could not load lib.sh from $RAW_BASE" >&2
+    # Retry the fetch. It is unauthenticated, so a busy day rate limits it (HTTP 429)
+    # and a single attempt turns a transient into a failed install on the very first
+    # command a user runs against us. Three tries with a short backoff.
+    local body="" attempt
+    for attempt in 1 2 3; do
+      if body="$(curl -fsSL --proto '=https' --proto-redir '=https' "$RAW_BASE/lib.sh")" \
+         && [ -n "$body" ]; then
+        break
+      fi
+      body=""
+      if [ "$attempt" -lt 3 ]; then sleep "$((attempt * 2))"; fi
+    done
+    if [ -z "$body" ]; then
+      echo "ERROR: could not load lib.sh from $RAW_BASE (3 attempts)" >&2
       exit 1
     fi
     eval "$body"
