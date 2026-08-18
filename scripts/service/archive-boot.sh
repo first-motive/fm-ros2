@@ -86,7 +86,7 @@ fi
 # node cannot reach B2 without it, and a missing import is worth naming.
 if ! python3 -c "import boto3" >/dev/null 2>&1; then
 	echo "archive-boot: boto3 is missing — run" >&2
-	echo "  python3 -m pip install -r src/fm-data/fm_data_archive/requirements-archive.txt" >&2
+	echo "  python3 -m pip install -r src/fm_data/fm_data_archive/requirements-archive.txt" >&2
 	exit 1
 fi
 

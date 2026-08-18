@@ -42,7 +42,7 @@ if python3 -c "import boto3" >/dev/null 2>&1; then
 	ok "boto3 present"
 else
 	bad "boto3 missing — the node cannot reach B2"
-	note "fix: python3 -m pip install -r src/fm-data/fm_data_archive/requirements-archive.txt"
+	note "fix: python3 -m pip install -r src/fm_data/fm_data_archive/requirements-archive.txt"
 fi
 
 # 3. Installed, running, and enabled. Not enabled is the failure that looks like
