@@ -42,13 +42,26 @@ source scripts/internal/lib-buildtree.sh
 # run.sh and the TUIs share one source of brand colour. `step` draws a numbered
 # header block as a rich rule; `item` prints a plain status line beneath it. The
 # first steps run on the host before the container exists, so reach the banner
-# through `uv run --with` (pinned to fm-tools v0.4.1). Fall back to a plain
-# header when uv is absent.
-FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.4.1"
-# lib.sh is owned by fm-tools; fetch it from the same pinned tag for the host
-# checks (fm_detect_os). The container runtime is delegated to fm-docker v0.1.2.
+# through `uv run --with`. Fall back to a plain header when uv is absent. lib.sh
+# comes from the same pinned tag for the host checks (fm_detect_os).
+# fm-render:begin fm-tools-pin sha256:5de9c0a921c441407f1aea8b6e32f37ca9d3f654d1116c636f0a7136da03b7d2 — rendered by the First Motive render plane — edit the upstream source, not this file
+# fm-tools owns both shared bootstrap pieces: lib.sh (fetched raw, before any
+# clone exists) and the fm_tools wheel (the shared TUI banner). Both come from
+# one pinned release tag — the single reuse home. Re-pin in the render plane,
+# never in a consumer. A host that needs only one of the two still carries both,
+# so the pin reads the same everywhere it appears; the disables below declare
+# that, rather than splitting the pin into two blocks that can disagree.
+# shellcheck disable=SC2034
 FM_TOOLS_RAW="https://raw.githubusercontent.com/first-motive/fm-tools/v0.4.1"
-FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.2"
+# shellcheck disable=SC2034
+FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.4.1"
+# fm-render:end fm-tools-pin
+# fm-render:begin fm-docker-pin sha256:532190583135a4c86953f451232f5e222ebd1750e65438ea252618f0c3b44cd2 — rendered by the First Motive render plane — edit the upstream source, not this file
+# The container runtime install is delegated to fm-docker, fetched from one
+# pinned release tag. Re-pin in the render plane, never in a consumer.
+# shellcheck disable=SC2034
+FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.3"
+# fm-render:end fm-docker-pin
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm_ros2"
 
 # Load the shared bootstrap library (fm-tools lib.sh) for fm_detect_os. Reuse a

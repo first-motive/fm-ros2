@@ -20,9 +20,20 @@ cd "$(dirname "$0")/../.."
 source scripts/internal/lib-buildtree.sh
 
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so this
-# path, run.sh, and install.sh share one source of brand colour. Same pattern as
-# scripts/internal/container.sh — keep the pin in sync.
+# path, run.sh, and install.sh share one source of brand colour. The pin below is
+# rendered, so every path reaches the same wheel.
+# fm-render:begin fm-tools-pin sha256:5de9c0a921c441407f1aea8b6e32f37ca9d3f654d1116c636f0a7136da03b7d2 — rendered by the First Motive render plane — edit the upstream source, not this file
+# fm-tools owns both shared bootstrap pieces: lib.sh (fetched raw, before any
+# clone exists) and the fm_tools wheel (the shared TUI banner). Both come from
+# one pinned release tag — the single reuse home. Re-pin in the render plane,
+# never in a consumer. A host that needs only one of the two still carries both,
+# so the pin reads the same everywhere it appears; the disables below declare
+# that, rather than splitting the pin into two blocks that can disagree.
+# shellcheck disable=SC2034
+FM_TOOLS_RAW="https://raw.githubusercontent.com/first-motive/fm-tools/v0.4.1"
+# shellcheck disable=SC2034
 FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.4.1"
+# fm-render:end fm-tools-pin
 
 STEP=0
 step() {  # title  [role]
