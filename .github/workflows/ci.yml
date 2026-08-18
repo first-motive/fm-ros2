@@ -128,6 +128,19 @@ jobs:
                       colcon test --packages-select $fm_pkgs &&
                       colcon test-result --verbose'
 
+      # Compare what the packages declare against what the image installs. The images
+      # never run rosdep, so the two lists drift silently — that is how the container
+      # rviz path lost joint_state_publisher_gui and stayed broken (fm-robot#35).
+      #
+      # Blocking. The findings it opened with were triaged (fm-robot#36): two belonged
+      # to the private learning overlay, whose packages this image is not built to run
+      # and which the check no longer scopes in; two were the arm64-only Gazebo
+      # absence, which does not apply on the amd64 runner; and three were real gaps,
+      # fixed in fm-robot#37 and fm-app#48. Nothing is exempted, so a new drift is a
+      # red job on the commit that introduces it.
+      - name: Declared dependencies exist in the image
+        run: ./scripts/ci/check-image-deps.sh fm-ros2:ci
+
       # The integration gate. Every assert in ci-smoke.sh is a state assert — a
       # controller reaching `active`, a commanded joint landing on its motor index,
       # odometry tracking a published Twist — so this job goes red for a stack that
