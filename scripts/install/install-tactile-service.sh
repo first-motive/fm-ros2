@@ -126,6 +126,15 @@ do_install() {
     return 0
   fi
 
+  # 0. The unit runs as the installing user, and the udev rule below grants the
+  #    device to group dialout — a wizard-created user (fresh Jetson) is not in
+  #    it, so the receiver would land on a port it cannot open (found live,
+  #    2026-08-13). Idempotent; takes effect for the unit at its next start.
+  if ! id -nG "$SERVICE_USER" | tr " " "\n" | grep -qx dialout; then
+    item "adding $SERVICE_USER to the dialout group (serial port access) ..."
+    sudo usermod -aG dialout "$SERVICE_USER"
+  fi
+
   # 1. Stable device name. Without it the board lands on whichever /dev/ttyUSB* is
   #    free at boot and the unit points at the wrong device (or a modem, or nothing).
   #    Resolve the port pin per the order documented at USB_PORT above — a wrong

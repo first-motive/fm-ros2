@@ -56,8 +56,11 @@ set +u; source /opt/ros/humble/setup.bash; set -u
 
 # 1. Camera drivers + compressed transport + build tooling (apt). usb_cam drives the
 #    two USB wrist cameras (fm_data_sensors cameras.launch.py prefers it on Linux).
-#    python3-serial is the tactile bridge's link to the ESP32 (fm_tactile_bridge declares
-#    it, but the rosdep step below is best-effort, so pin it here where it cannot be missed).
+#    python3-serial is the tactile bridge's link to the ESP32, and foxglove-bridge is
+#    the operator surface the launch runs on :8765 — both are declared by packages,
+#    but the rosdep step below is best-effort, so pin them here where they cannot be
+#    missed (foxglove_bridge missing kept the first fresh Jetson's launch in a
+#    restart loop with the app seeing no streams, 2026-08-13).
 item "installing apt packages (RealSense + USB camera drivers, compressed transport, colcon, rosdep, serial) ..."
 sudo apt-get update -qq
 sudo apt-get install -y \
@@ -66,7 +69,8 @@ sudo apt-get install -y \
   ros-humble-rosbag2-storage-mcap v4l-utils \
   python3-colcon-common-extensions python3-vcstool python3-rosdep python3-pip \
   python3-opencv git curl cmake build-essential \
-  python3-serial
+  python3-serial \
+  ros-humble-foxglove-bridge
 
 # 2. RealSense udev rules — required for the IMU (else it fails with Permission denied) and for
 #    non-root device access. Re-plug the camera after this.
@@ -186,6 +190,9 @@ item "provisioning the Livox MID-360S stack (best-effort) ..."
   set -e
   _livox_sdk_ref=f5d9375   # Support Mid-360S (upstream Livox-SDK2)
   _livox_drv_ref=13eb05e   # support Mid-360s Lidar (upstream livox_ros_driver2)
+  # The vendor driver find_package()s PCL, which ros-base does not carry — a
+  # fresh host fails the build without the dev headers (first Jetson, 2026-08-13).
+  sudo apt-get install -y libpcl-dev ros-humble-pcl-conversions >/dev/null
   if [ ! -f /usr/local/lib/liblivox_lidar_sdk_shared.so ]; then
     [ -d "$HOME/Livox-SDK2" ] || \
       git clone https://github.com/Livox-SDK/Livox-SDK2.git "$HOME/Livox-SDK2"
@@ -195,7 +202,11 @@ item "provisioning the Livox MID-360S stack (best-effort) ..."
     sudo cmake --install "$HOME/Livox-SDK2/build" >/dev/null
     sudo ldconfig
   fi
-  if [ ! -f "$HOME/ws_livox/install/setup.sh" ]; then
+  # Completeness = the built driver node, not install/setup.sh: colcon writes the
+  # setup scripts before a failed build finishes, and that half-built overlay left
+  # the first Jetson's launch in a "package not found" loop (2026-08-13). Probing
+  # the node also makes a re-run (or the auto-updater's next tick) retry the build.
+  if [ ! -x "$HOME/ws_livox/install/livox_ros_driver2/lib/livox_ros_driver2/livox_ros_driver2_node" ]; then
     mkdir -p "$HOME/ws_livox/src"
     [ -d "$HOME/ws_livox/src/livox_ros_driver2" ] || \
       git clone https://github.com/Livox-SDK/livox_ros_driver2.git \

@@ -38,8 +38,13 @@ FOXGLOVE="${FM_RECORDER_FOXGLOVE:-true}"
 # built here, so hosts without the sensor keep booting clean.
 LIDAR="${FM_RECORDER_LIDAR:-auto}"
 LIVOX_OVERLAY="$HOME/ws_livox/install/setup.sh"
+# auto probes the BUILT DRIVER NODE, not the overlay's setup script: a half-built
+# overlay (setup.sh present, node binary absent — the first Jetson, 2026-08-13)
+# would otherwise flip the LiDAR on and loop the whole appliance on "package
+# 'livox_ros_driver2' not found".
+LIVOX_NODE="$HOME/ws_livox/install/livox_ros_driver2/lib/livox_ros_driver2/livox_ros_driver2_node"
 if [ "$LIDAR" = auto ]; then
-  [ -f "$LIVOX_OVERLAY" ] && LIDAR=on || LIDAR=off
+  [ -x "$LIVOX_NODE" ] && LIDAR=on || LIDAR=off
 fi
 
 # At boot the LAN interface may not be up yet, so the foxglove profile's dds-lan.sh
