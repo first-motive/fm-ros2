@@ -176,6 +176,41 @@ old box's recorder role (its processor role stays):
 ./scripts/install/install-avahi-advert.sh uninstall recorder
 ```
 
+## Field Notes From the First Jetson (2026-08-13)
+
+Learned live on the first bring-up; the installer covers most of these now,
+but two need awareness:
+
+- **Glove serial driver**: the L4T kernel ships **without `ch341.ko`**, so the
+  glove's CH340 never enumerates on a stock JetPack image. Build it once from
+  the matching kernel source (headers are preinstalled):
+
+  ```bash
+  mkdir -p ~/ch341-build && cd ~/ch341-build
+  curl -fsSL "https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/drivers/usb/serial/ch341.c?h=v$(uname -r | cut -d- -f1)" -o ch341.c
+  printf 'obj-m := ch341.o\n' > Makefile
+  make -C /lib/modules/$(uname -r)/build M=$PWD modules
+  sudo mkdir -p /lib/modules/$(uname -r)/updates
+  sudo cp ch341.ko /lib/modules/$(uname -r)/updates/ && sudo depmod -a
+  sudo modprobe ch341
+  echo ch341 | sudo tee /etc/modules-load.d/fm-ch341.conf
+  ```
+
+  A JetPack kernel upgrade removes it — rebuild after one.
+- **Moving the box to another network**: `FM_LAN_IP` is pinned in
+  `/etc/fm-recorder.env` and `~/.bashrc` (auto-detection would grab the
+  LiDAR's `192.168.1.10` link instead). On a new network, update both to the
+  Jetson's new address and restart `fm-recorder` + `fm-tactile`.
+- **LiDAR on the built-in RJ45**: with the box on Wi-Fi, the onboard Ethernet
+  port works as the LiDAR's dedicated interface — same `fm-lidar` profile,
+  `ifname` set to the onboard NIC, no USB adapter needed.
+- **RealSense**: a USB2-negotiated link (generic USB-C cable) cripples the
+  driver — use the original cable and confirm `Device USB type: 3.2` in the
+  journal. The arm64 apt driver **segfaults when the IMU streams are enabled**
+  (`No HID info provided` warnings, then `exit code -11` shortly after color
+  starts); stable with gyro/accel disabled. IMU on Jetson needs a source-built
+  librealsense overlay.
+
 ## Troubleshooting
 
 - **Rig missing from the app**: same subnet? `avahi-browse -art | grep fm-rig`
