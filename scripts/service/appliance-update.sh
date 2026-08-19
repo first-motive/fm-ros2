@@ -74,15 +74,19 @@ _busy() {  # role
   case "$1" in
     recorder)
       # A take in flight = recent episode writes under the recordings dir (bag
-      # chunks + sessions.jsonl). The tactile bridge writes continuously under
-      # tactile-raw even while the episode recorder is idle, so exclude that
-      # sibling evidence stream or this updater can never converge.
+      # chunks + sessions.jsonl). Two sibling evidence streams write there
+      # CONTINUOUSLY even while the episode recorder sits idle — the tactile
+      # bridge under tactile-raw, and the rig monitors' watchdog under
+      # watchdog/ (whose jsonl kept this gate reading "busy" on every tick for
+      # six days on the first Jetson, 2026-08-19) — so exclude both, or this
+      # updater can never converge.
       local recdir="${FM_RECORDER_RECORDINGS_DIR:-$HOME/recordings}"
       local active_file=""
       if [ -d "$recdir" ] && \
          active_file="$(
            find "$recdir" \
              -path "$recdir/tactile-raw" -prune -o \
+             -path "$recdir/watchdog" -prune -o \
              -mmin -"$_RECORDER_QUIET_MIN" -type f -print -quit 2>/dev/null
          )" && \
          [ -n "$active_file" ]; then

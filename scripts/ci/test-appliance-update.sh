@@ -52,6 +52,21 @@ if ! grep -qx "up to date" <<< "$output"; then
   exit 1
 fi
 
+# The rig monitors' watchdog jsonl is the other continuous writer (it wedged
+# the first Jetson's updater for six days) — it must not block updates either.
+mkdir -p "$TMP_DIR/recordings/watchdog"
+touch "$TMP_DIR/recordings/watchdog/watchdog-20260819.jsonl"
+output="$(
+  FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/recordings" \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$ROOT/scripts/service/appliance-update.sh" recorder
+)"
+if ! grep -qx "up to date" <<< "$output"; then
+  printf 'continuous watchdog evidence must not block updates; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+
 mkdir -p "$TMP_DIR/recordings/episode-active"
 touch "$TMP_DIR/recordings/episode-active/chunk_0.mcap"
 output="$(
