@@ -61,8 +61,9 @@ jobs:
       - name: actionlint
         run: ./scripts/ci/lint-workflows.sh
 
-  # Appliance-specific guards that no other repo runs: the updater's busy gate, the
-  # bridge endpoint config, and the recorder's udev rule install.
+  # Workspace-specific guards that no other repo runs: the updater's busy gate,
+  # the bridge endpoint config, the recorder's udev rule install, and the
+  # checkout spelling the import manifests hand to colcon.
   appliance:
     name: appliance guards
     runs-on: ubuntu-latest
@@ -86,6 +87,13 @@ jobs:
       # Repeat appliance converges must not depend on raw GitHub availability.
       - name: recorder RealSense udev rule install
         run: bash scripts/ci/test-recorder-udev-rules.sh
+
+      # The manifests decide what lands under src/, and a kebab checkout path
+      # there is a workspace colcon refuses to build. This holds the tracked
+      # manifests to the snake spelling and proves the guard that reads the
+      # untracked overlay still refuses the other one.
+      - name: manifest checkout paths
+        run: bash scripts/ci/test-manifest-paths.sh
 
   workspace:
     name: build + test + smoke (humble)
