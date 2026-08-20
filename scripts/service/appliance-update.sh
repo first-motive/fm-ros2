@@ -52,6 +52,28 @@ if [ -f "$ROOT/scripts/env/bridge.sh" ]; then
   . "$ROOT/scripts/env/bridge.sh"
 fi
 
+# Let root read the checkouts it converges.
+#
+# This runs as root from systemd; every checkout belongs to the appliance user.
+# Git refuses a repository owned by somebody else, and the exemption it grants
+# root keys off SUDO_UID — which an interactive `sudo git` sets and systemd does
+# not. So the refusal appeared only when nobody was watching: by hand every
+# command worked, while every timer tick read each repo as "dirty or
+# unfetchable", left it alone, and printed "up to date". A rig flashed at
+# v0.1.5 sat there for two days with v0.1.6 published and never moved.
+#
+# Written to root's global config rather than exported through GIT_CONFIG_*,
+# because the scripts this one calls — fm-setup's update.sh, fm_ros2's own —
+# export GIT_CONFIG_COUNT=1 for a key of their own, which replaces an inherited
+# set wholesale. The env route would therefore be dropped in the children doing
+# the actual fetching. Global config is still read when those variables are set,
+# so this survives them. Idempotent: added once, then found on every later tick.
+_trust_checkouts() {
+  git config --global --get-all safe.directory 2>/dev/null | grep -qxF '*' && return 0
+  git config --global --add safe.directory '*' 2>/dev/null \
+    || item "WARNING: could not mark checkouts safe for root — git may refuse to read them"
+}
+
 # Seconds of recordings-dir quiet required before a recorder update proceeds.
 _RECORDER_QUIET_MIN=2
 
@@ -155,6 +177,9 @@ main() {
     item "another update is already running — skipping"
     return 0
   fi
+
+  # Before the first git call, and before the role installer that also runs git.
+  _trust_checkouts
 
   if _busy "$role"; then
     return 0

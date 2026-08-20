@@ -18,6 +18,9 @@ if [ "${1:-}" = "-C" ]; then
 fi
 
 case "${1:-}" in
+  # Passed through to the real git: the updater marks the checkouts safe for
+  # root before it reads them, and this test asserts on what that wrote.
+  config) exec /usr/bin/git "$@" ;;
   fetch) exit 0 ;;
   status) exit 0 ;;
   rev-parse)
@@ -111,6 +114,30 @@ output="$(
 )"
 if ! grep -q "machine layer not converged" <<< "$output"; then
   printf 'a non-checkout fm-setup dir must warn too; got: %s\n' "$output" >&2
+  exit 1
+fi
+
+# The updater runs as root from systemd while the checkouts belong to the
+# appliance user, and git refuses a repository it does not own. The exemption git
+# grants root keys off SUDO_UID, which an interactive `sudo git` sets and systemd
+# does not — so this failed only unattended, and a rig sat two days on a
+# superseded tag while every tick printed "up to date". Assert the updater marks
+# the checkouts safe, and that asking twice does not stack duplicate entries.
+FAKE_HOME="$TMP_DIR/roothome"
+mkdir -p "$FAKE_HOME"
+for _ in 1 2; do
+  HOME="$FAKE_HOME" \
+    FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/quiet-recordings" \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$ROOT/scripts/service/appliance-update.sh" recorder >/dev/null
+done
+if ! HOME="$FAKE_HOME" /usr/bin/git config --global --get-all safe.directory 2>/dev/null | grep -qxF '*'; then
+  echo "the updater did not mark the checkouts safe for root" >&2
+  exit 1
+fi
+entries="$(HOME="$FAKE_HOME" /usr/bin/git config --global --get-all safe.directory 2>/dev/null | grep -cxF '*')"
+if [ "$entries" != "1" ]; then
+  printf 'safe.directory stacked %s duplicate entries across runs\n' "$entries" >&2
   exit 1
 fi
 
