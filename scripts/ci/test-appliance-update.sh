@@ -18,6 +18,9 @@ if [ "${1:-}" = "-C" ]; then
 fi
 
 case "${1:-}" in
+  # Passed through to the real git: the updater marks the checkouts safe for
+  # root before it reads them, and this test asserts on what that wrote.
+  config) exec /usr/bin/git "$@" ;;
   fetch) exit 0 ;;
   status) exit 0 ;;
   rev-parse)
@@ -111,6 +114,78 @@ output="$(
 )"
 if ! grep -q "machine layer not converged" <<< "$output"; then
   printf 'a non-checkout fm-setup dir must warn too; got: %s\n' "$output" >&2
+  exit 1
+fi
+
+# The updater runs as root from systemd while the checkouts belong to the
+# appliance user, and git refuses a repository it does not own. The exemption git
+# grants root keys off SUDO_UID, which an interactive `sudo git` sets and systemd
+# does not — so this failed only unattended, and a rig sat two days on a
+# superseded tag while every tick printed "up to date". Assert the updater marks
+# the checkouts safe, and that asking twice does not stack duplicate entries.
+FAKE_HOME="$TMP_DIR/roothome"
+mkdir -p "$FAKE_HOME"
+# INVOCATION_ID stands in for systemd: these helpers edit the caller's global git
+# config, so they act only on the unattended path.
+for _ in 1 2; do
+  HOME="$FAKE_HOME" INVOCATION_ID=test \
+    FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/quiet-recordings" \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$ROOT/scripts/service/appliance-update.sh" recorder >/dev/null
+done
+if ! HOME="$FAKE_HOME" /usr/bin/git config --global --get-all safe.directory 2>/dev/null | grep -qxF '*'; then
+  echo "the updater did not mark the checkouts safe for root" >&2
+  exit 1
+fi
+entries="$(HOME="$FAKE_HOME" /usr/bin/git config --global --get-all safe.directory 2>/dev/null | grep -cxF '*')"
+if [ "$entries" != "1" ]; then
+  printf 'safe.directory stacked %s duplicate entries across runs\n' "$entries" >&2
+  exit 1
+fi
+
+# Run by hand, the same script must leave the caller's git config alone.
+BYHAND_HOME="$TMP_DIR/byhand"
+mkdir -p "$BYHAND_HOME"
+env -u INVOCATION_ID HOME="$BYHAND_HOME" \
+  FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/quiet-recordings" \
+  PATH="$TMP_DIR/bin:$PATH" \
+  "$ROOT/scripts/service/appliance-update.sh" recorder >/dev/null
+if [ -e "$BYHAND_HOME/.gitconfig" ]; then
+  echo "an interactive run edited the caller's global git config" >&2
+  cat "$BYHAND_HOME/.gitconfig" >&2
+  exit 1
+fi
+
+# The token lives in the appliance user's home; the updater runs as root, which
+# has neither the file nor a helper. Every private repo therefore came back
+# "dirty or unfetchable" and stayed at its flash-time commit. Point root at the
+# user's store — and never at a store that is not there.
+CRED_HOME="$TMP_DIR/credhome"
+OWNER_HOME="$TMP_DIR/ownerhome"
+mkdir -p "$CRED_HOME" "$OWNER_HOME"
+printf 'https://x-access-token:token@github.com\n' > "$OWNER_HOME/.git-credentials"
+chmod 600 "$OWNER_HOME/.git-credentials"
+HOME="$CRED_HOME" INVOCATION_ID=test FM_OWNER_HOME="$OWNER_HOME" \
+  FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/quiet-recordings" \
+  PATH="$TMP_DIR/bin:$PATH" \
+  "$ROOT/scripts/service/appliance-update.sh" recorder >/dev/null
+helper="$(HOME="$CRED_HOME" /usr/bin/git config --global --get credential.helper 2>/dev/null || true)"
+if [ "$helper" != "store --file=$OWNER_HOME/.git-credentials" ]; then
+  printf 'git was not pointed at the owner store; got: %s\n' "'$helper'" >&2
+  exit 1
+fi
+
+# A rig with no token has no private repos to converge — that is not a failure,
+# and it must not leave a helper pointing at a file that does not exist.
+NOCRED_HOME="$TMP_DIR/nocredhome"
+EMPTY_OWNER="$TMP_DIR/emptyowner"
+mkdir -p "$NOCRED_HOME" "$EMPTY_OWNER"
+HOME="$NOCRED_HOME" INVOCATION_ID=test FM_OWNER_HOME="$EMPTY_OWNER" \
+  FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/quiet-recordings" \
+  PATH="$TMP_DIR/bin:$PATH" \
+  "$ROOT/scripts/service/appliance-update.sh" recorder >/dev/null
+if HOME="$NOCRED_HOME" /usr/bin/git config --global --get credential.helper >/dev/null 2>&1; then
+  echo "a rig with no token was given a credential helper anyway" >&2
   exit 1
 fi
 
