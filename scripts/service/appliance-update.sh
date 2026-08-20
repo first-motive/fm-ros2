@@ -68,10 +68,52 @@ fi
 # set wholesale. The env route would therefore be dropped in the children doing
 # the actual fetching. Global config is still read when those variables are set,
 # so this survives them. Idempotent: added once, then found on every later tick.
+#
+# Both of the helpers below edit root's global git config, so both run only
+# under systemd. INVOCATION_ID is set for a unit's processes and unset for a
+# person running this by hand — and by hand the checkouts are already theirs,
+# git is content, and their config is not this script's to edit.
+_unattended() { [ -n "${INVOCATION_ID:-}" ]; }
+
 _trust_checkouts() {
+  _unattended || return 0
   git config --global --get-all safe.directory 2>/dev/null | grep -qxF '*' && return 0
   git config --global --add safe.directory '*' 2>/dev/null \
     || item "WARNING: could not mark checkouts safe for root — git may refuse to read them"
+}
+
+# Let root reach the private repos this appliance rides on.
+#
+# First boot writes the token into the appliance user's ~/.git-credentials and
+# points that user's git at it with credential.helper=store. The updater runs as
+# root, which has neither the file nor the helper — so a public repo converged
+# while every private one came back "dirty or unfetchable" and stayed at its
+# flash-time commit, with "up to date" printed underneath. The repo was never
+# dirty; the fetch could not authenticate.
+#
+# Root is pointed at the user's existing store rather than handed a copy. A
+# second file carrying the same token is a second thing to rotate and a second
+# thing to leak, and root can read a 0600 file in another user's home anyway.
+#
+# A rig with no token is not an error: it has no private repos to converge, and
+# the public ones still ride their tags.
+_reach_private_repos() {
+  _unattended || return 0
+  local owner home creds
+  # FM_OWNER_HOME is the test seam, as FM_RECORDER_RECORDINGS_DIR is for the busy
+  # gate: the lookup below wants a real account on a real rig, which CI has not
+  # got. Checked before the lookup so the seam does not depend on it.
+  home="${FM_OWNER_HOME:-}"
+  if [ -z "$home" ]; then
+    owner="$(stat -c %U "$ROOT" 2>/dev/null)" || return 0
+    [ -n "$owner" ] || return 0
+    home="$(getent passwd "$owner" 2>/dev/null | cut -d: -f6)"
+  fi
+  [ -n "$home" ] || return 0
+  creds="$home/.git-credentials"
+  [ -f "$creds" ] || return 0
+  git config --global credential.helper "store --file=$creds" 2>/dev/null \
+    || item "WARNING: could not point git at $creds — private repos will not converge"
 }
 
 # Seconds of recordings-dir quiet required before a recorder update proceeds.
@@ -180,6 +222,7 @@ main() {
 
   # Before the first git call, and before the role installer that also runs git.
   _trust_checkouts
+  _reach_private_repos
 
   if _busy "$role"; then
     return 0
