@@ -38,11 +38,14 @@ printf 'checked %d tracked manifest(s): %s\n' \
 
 # The guard has to actually refuse. A guard that returns 0 on a bad manifest is
 # the failure this test exists to prevent, and it looks identical to a pass.
+#
+# The fixture names a repo that does not exist: only the checkout path is parsed,
+# and this tree is public, so it must not carry the name of a private one.
 cat > "$TMP_DIR/kebab.repos" <<'YAML'
 repositories:
-  src/fm-data:
+  src/fm-example:
     type: git
-    url: https://github.com/first-motive/fm-data.git
+    url: https://github.com/first-motive/fm-example.git
     version: main
 YAML
 if refuse_kebab_manifest "$TMP_DIR/kebab.repos" 2>/dev/null; then
@@ -53,9 +56,9 @@ fi
 # ... and has to accept the snake form, or it would refuse every import.
 cat > "$TMP_DIR/snake.repos" <<'YAML'
 repositories:
-  src/fm_data:
+  src/fm_example:
     type: git
-    url: https://github.com/first-motive/fm-data.git
+    url: https://github.com/first-motive/fm-example.git
     version: main
 YAML
 if ! refuse_kebab_manifest "$TMP_DIR/snake.repos"; then
