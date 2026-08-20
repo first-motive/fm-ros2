@@ -213,6 +213,14 @@ main() {
         item "WARNING: fm-setup is dirty or unfetchable — left alone"
         ;;
     esac
+  else
+    # No checkout, no machine layer. Rigs flashed before the workspace step
+    # existed keep fm-setup at ~/.first-motive/fm-setup, outside the workspace
+    # this resolves against — so the layer that installs the drivers, the
+    # container runtime, and ROS never converged, and the timer reported success
+    # on every tick anyway. Silence is what let that go unnoticed on a fleet.
+    item "WARNING: no fm-setup checkout at $fm_setup — machine layer not converged"
+    item "         link it once: ln -s ~/.first-motive/fm-setup $fm_setup"
   fi
 
   # Machine layer first: it owns the drivers, the container runtime, and ROS
