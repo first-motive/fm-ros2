@@ -155,8 +155,9 @@ pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "set
 # launch/process_session.launch.py, the processor's entry point.
 colcon build --symlink-install \
   --base-paths src/fm_data src/fm_data/fm_data_dataset src/fm_data/fm_data_record \
-  src/fm_data/fm_data_annotate \
-  --packages-select fm_data fm_data_dataset fm_data_record fm_data_annotate
+  src/fm_data/fm_data_annotate src/fm_data/fm_data_archive \
+  --packages-select fm_data fm_data_dataset fm_data_record fm_data_annotate \
+  fm_data_archive
 
 # 5. Comms profile — the default (foxglove) pins FastDDS to the LAN interface so the
 #    /process/* topics reach the capture session's bridge (and, after the Jetson split, the
@@ -202,6 +203,14 @@ if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   # desktop app's Settings offers this rig instead of a typed IP.
   item "advertising the processor on the local network (mDNS) ..."
   ./scripts/install/install-avahi-advert.sh processor
+  # The B2 archive browser. GUARDED, because this whole script runs under
+  # `set -e` and an aborted setup leaves the box half-converged: on 2026-08-11 a
+  # failing install-tactile-service.sh silently stopped the auto-update chain, so
+  # merged work never reached the rig at all. A browser that cannot install must
+  # cost the browser, never the appliance.
+  item "installing the archive browser service (fm-archive.service) ..."
+  ./scripts/install/install-archive-service.sh || \
+    item "WARNING: archive browser failed to install — /archive/* will be absent; convergence continues" 
 else
   item "boot service not installed — add it anytime with:"
   item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"
