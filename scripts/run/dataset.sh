@@ -69,7 +69,9 @@ if not usable:
     for e in episodes:
         why = dict((k, v) for k, v in e.items()
                    if any(t in k for t in ("reason", "check", "fail", "quarantin", "drop", "issue", "score")))
-        print(f"  {e.get('episode_id', e.get('id', 'unknown'))}: {e.get('disposition')} — {json.dumps(why, default=str)[:900]}", file=sys.stderr)
+        label = e.get("episode_id", e.get("id", "unknown"))
+        state = e.get("disposition")
+        print(f"  {label}: {state} — {json.dumps(why, default=str)[:900]}", file=sys.stderr)
     sys.exit(f"FAIL: {len(episodes)} episode(s), none usable ({seen})")
 print(f"PASS: {len(usable)}/{len(episodes)} episode(s) usable in {path}")
 '
