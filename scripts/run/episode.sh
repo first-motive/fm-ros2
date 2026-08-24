@@ -66,8 +66,20 @@ ensure_recorder() {
     return 0
   fi
   echo ">> starting the recorder (output $output_dir)"
+  # The recorder reads one nested YAML through `config_file`, not flat ROS
+  # params, so the output dir is set by deriving a config from the package's
+  # default with that one key replaced. Written on the far side: the path must
+  # resolve where the recorder runs, not where this shell does.
+  local remote_output config
+  remote_output=$(fm_stack_remote_path "$output_dir")
+  config='$HOME/.cache/fm/recorder.loop.yaml'
+  fm_stack_exec "$overlay" bash -lc "
+    set -euo pipefail
+    default=\$(ros2 pkg prefix fm_data_record)/share/fm_data_record/config/recorder.yaml
+    mkdir -p \"\$(dirname $config)\"
+    sed \"s|^output_dir:.*|output_dir: $remote_output|\" \"\$default\" > $config"
   fm_stack_exec_detached "$overlay" ros2 run fm_data_record recorder \
-    --ros-args -p "output_dir:=$output_dir"
+    --ros-args -p "config_file:=$config"
   fm_stack_wait_topic "$overlay" "$STATUS_TOPIC" "$RECORDER_TIMEOUT"
 }
 
