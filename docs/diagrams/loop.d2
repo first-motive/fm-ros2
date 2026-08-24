@@ -1,0 +1,47 @@
+# The sim-first loop — the data path from a running stack to a graded dataset,
+# on a laptop with no hardware. Each block is one verb a person types; the
+# artifacts below each verb are what it leaves behind. `--real` swaps the backend
+# under the stack and changes nothing downstream, which is the whole point of
+# defaulting to sim: the topic surface is the same either way.
+...@styles
+direction: right
+
+stack: "" {
+  grid-rows: 3
+  class: block
+  r: Stack Up { class: role }
+  p: fm_bringup { class: pkg }
+  a: "mujoco backend · --real for hardware" { class: art }
+}
+surface: "" {
+  grid-rows: 3
+  class: block
+  r: Topic Surface { class: role }
+  a1: /joint_states { class: art }
+  a2: /dynamic_joint_states { class: art }
+}
+episode: "" {
+  grid-rows: 3
+  class: block
+  r: Episode Record { class: role }
+  p: fm_data_record { class: pkg }
+  a: "episode marker -> mcap bag" { class: art }
+}
+dataset: "" {
+  grid-rows: 3
+  class: block
+  r: Dataset Process { class: role }
+  p: fm_data_dataset { class: pkg }
+  a: "clean RLDS + manifest.json" { class: art }
+}
+verify: "" {
+  grid-rows: 2
+  class: block
+  r: Verify { class: role }
+  a: "a usable episode, or red" { class: art }
+}
+
+stack -> surface: sim or real
+surface -> episode: recorded
+episode -> dataset: sessions.jsonl
+dataset -> verify: manifest

@@ -7,6 +7,7 @@ Guides and references for the fm_ros2 workspace. Start at the root
 
 | Page | What it covers |
 |------|----------------|
+| [ONBOARDING.md](ONBOARDING.md) | The whole loop on a bare laptop in under an hour: sim stack, record, process, verify |
 | [SETUP.md](SETUP.md) | macOS (M5, OrbStack) setup: prerequisites, first run, limits, troubleshooting |
 | [RUN.md](RUN.md) | `./run.sh` — the front door: detect overlay, build, open the fm_tui launcher |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System context, component layers, runtime data flow, hardware abstraction, deployment |

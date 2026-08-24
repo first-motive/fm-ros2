@@ -1,6 +1,18 @@
 {
   "version": 1,
   "commands": {
+    "stack": {
+      "script": "scripts/run/stack.sh",
+      "help": "bring the robot stack up, inspect it, tear it down (sim by default)"
+    },
+    "episode": {
+      "script": "scripts/run/episode.sh",
+      "help": "record an episode against the running stack, end one, list them"
+    },
+    "dataset": {
+      "script": "scripts/run/dataset.sh",
+      "help": "process recorded episodes into a manifest, and verify it"
+    },
     "teleop": {
       "script": "scripts/run/teleop.sh",
       "help": "jog a robot arm through moveit servo"
