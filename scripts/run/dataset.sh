@@ -142,7 +142,7 @@ main() {
         usage
         return 0
         ;;
-      process | verify)
+      process | verify | profile)
         action="$1"
         shift
         ;;
