@@ -172,11 +172,11 @@ echo "== dataset process =="
 # A sim take carries no gripper, and the default profile's outcome gate
 # (pick_and_hold) quarantines any success it cannot confirm by terminal grasp.
 # The loop proves the path, not a grasp: derive a profile from the engine's
-# default with the outcome mode switched to the operator's own report, and
+# default with the outcome mode switched to the sidecar label alone, and
 # nothing else changed — every other gate still applies to this take.
 LOOP_PROFILE="$WORK/loop-profile.json"
 ./scripts/run/dataset.sh profile --output "$LOOP_PROFILE" --backend "$BACKEND" \
-  --set thresholds.outcome_labeling.outcome_mode=operator_reported
+  --set thresholds.outcome_labeling.outcome_mode=source_label_only
 if ./scripts/run/dataset.sh process --input "$RECORDINGS" --output "$PROCESSED" \
   --config "$LOOP_PROFILE" --backend "$BACKEND"; then
   pass "dataset processed"

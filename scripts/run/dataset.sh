@@ -34,7 +34,7 @@ Usage: ./scripts/run/dataset.sh <process|verify|profile> [options]
                  for profile, the JSON file to write
   --config F     processing profile JSON (default: the engine's own)
   --set K=V      (profile) override one dotted key, e.g.
-                 thresholds.outcome_labeling.outcome_mode=operator_reported;
+                 thresholds.outcome_labeling.outcome_mode=source_label_only;
                  repeatable
   --strict       (process) exit non-zero on a quarantined or dropped episode
   --backend B    backend the stack was brought up on (default mujoco)
