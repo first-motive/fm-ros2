@@ -35,6 +35,10 @@ EOF
 
 BACKEND=mujoco
 DURATION=8
+# The one reviewed task in the engine's default profile
+# (thresholds.instruction_quality). Recording under it exercises the real gate.
+TASK_ID=first-proof-pick-v1
+INSTRUCTION="Pick the object and place it in the target."
 JOINT_STATES_TIMEOUT=20 # seconds to wait for the first /joint_states message
 
 while [[ $# -gt 0 ]]; do
@@ -150,7 +154,11 @@ if [[ -z "$NAMES" ]]; then
 fi
 drive_actions "$NAMES"
 
+# The reviewed task and instruction from the engine's own profile: the loop
+# exercises the real instruction-quality gate rather than a made-up task the
+# gate is right to refuse.
 if ./scripts/run/episode.sh record --duration "$DURATION" \
+  --task-id "$TASK_ID" --instruction "$INSTRUCTION" \
   --output-dir "$RECORDINGS" --backend "$BACKEND"; then
   pass "episode recorded"
 else
@@ -161,8 +169,16 @@ kill "$ACTION_PID" 2>/dev/null
 ACTION_PID=""
 
 echo "== dataset process =="
+# A sim take carries no gripper, and the default profile's outcome gate
+# (pick_and_hold) quarantines any success it cannot confirm by terminal grasp.
+# The loop proves the path, not a grasp: derive a profile from the engine's
+# default with the outcome mode switched to the operator's own report, and
+# nothing else changed — every other gate still applies to this take.
+LOOP_PROFILE="$WORK/loop-profile.json"
+./scripts/run/dataset.sh profile --output "$LOOP_PROFILE" --backend "$BACKEND" \
+  --set thresholds.outcome_labeling.outcome_mode=operator_reported
 if ./scripts/run/dataset.sh process --input "$RECORDINGS" --output "$PROCESSED" \
-  --backend "$BACKEND"; then
+  --config "$LOOP_PROFILE" --backend "$BACKEND"; then
   pass "dataset processed"
 else
   fail "dataset processing exited non-zero"

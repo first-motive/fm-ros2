@@ -23,14 +23,19 @@ usage() {
   cat <<'EOF'
 dataset.sh — process recorded episodes into a manifest, and verify it
 
-Usage: ./scripts/run/dataset.sh <process|verify> [options]
+Usage: ./scripts/run/dataset.sh <process|verify|profile> [options]
 
   process   run the fm_data engine over the recorded episodes
   verify    assert the manifest exists and describes at least one episode
+  profile   write a processing profile derived from the engine's default
 
   --input D      recorded-episode directory (default ~/recordings)
-  --output D     processing output directory (default ~/processed)
+  --output D     processing output directory (default ~/processed);
+                 for profile, the JSON file to write
   --config F     processing profile JSON (default: the engine's own)
+  --set K=V      (profile) override one dotted key, e.g.
+                 thresholds.outcome_labeling.outcome_mode=operator_reported;
+                 repeatable
   --strict       (process) exit non-zero on a quarantined or dropped episode
   --backend B    backend the stack was brought up on (default mujoco)
   --real         shorthand for --backend real
@@ -87,11 +92,49 @@ print(f"PASS: {len(usable)}/{len(episodes)} episode(s) usable in {path}")
     "python3 -c \"\$1\" \"$manifest\"" fm-verify "$checker"
 }
 
+# Write a processing profile derived from the engine's own default with a few
+# dotted keys overridden. A whole-file copy would go stale the day the default
+# changes; deriving at run time keeps every gate the loop does not name exactly
+# as the engine ships it. Values parse as JSON when they can, else as strings.
+write_profile() {
+  local overlay="$1" out="$2"
+  shift 2
+  local writer='
+import json, sys
+from pathlib import Path
+from fm_data_dataset.core.config import default_config_path
+
+out, sets = sys.argv[1], sys.argv[2:]
+data = json.loads(Path(default_config_path()).read_text())
+for item in sets:
+    key, _, raw = item.partition("=")
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        value = raw
+    node = data
+    parts = key.split(".")
+    for part in parts[:-1]:
+        node = node.setdefault(part, {})
+    node[parts[-1]] = value
+Path(out).parent.mkdir(parents=True, exist_ok=True)
+Path(out).write_text(json.dumps(data, indent=2) + "\n")
+print(f"wrote profile {out} ({len(sets)} override(s))")
+'
+  local -a quoted=()
+  local s
+  for s in "$@"; do quoted+=("$(printf '%q' "$s")"); done
+  echo ">> deriving profile -> $out"
+  fm_stack_exec "$overlay" bash -lc \
+    "python3 -c \"\$1\" \"$out\" ${quoted[*]}" fm-profile "$writer"
+}
+
 main() {
   # shellcheck disable=SC2088  # deliberate: expanded by the far-side shell via
   # fm_stack_remote_path, not by this one.
   local action="" input='~/recordings' output='~/processed' config=""
   local strict=false backend=mujoco real=false
+  local -a sets=()
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -143,6 +186,14 @@ main() {
         real=true
         shift
         ;;
+      --set)
+        sets+=("$2")
+        shift 2
+        ;;
+      --set=*)
+        sets+=("${1#--set=}")
+        shift
+        ;;
       *)
         echo "error: unknown argument '$1'" >&2
         return 2
@@ -152,7 +203,7 @@ main() {
 
   if [[ -z "$action" ]]; then
     usage >&2
-    echo "error: expected one of process, verify" >&2
+    echo "error: expected one of process, verify, profile" >&2
     return 2
   fi
 
@@ -193,6 +244,9 @@ main() {
       ;;
     verify)
       verify_manifest "$overlay" "$remote_output/manifest.json"
+      ;;
+    profile)
+      write_profile "$overlay" "$remote_output" "${sets[@]}"
       ;;
   esac
 }
