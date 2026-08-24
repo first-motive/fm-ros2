@@ -78,8 +78,10 @@ ensure_recorder() {
     default=\$(ros2 pkg prefix fm_data_record)/share/fm_data_record/config/recorder.yaml
     mkdir -p \"\$(dirname $config)\"
     sed \"s|^output_dir:.*|output_dir: $remote_output|\" \"\$default\" > $config"
-  fm_stack_exec_detached "$overlay" ros2 run fm_data_record recorder \
-    --ros-args -p "config_file:=$config"
+  # Through a shell so $HOME in the config path expands where the recorder
+  # runs — ros2 run itself performs no expansion on a parameter value.
+  fm_stack_exec_detached "$overlay" bash -lc \
+    "ros2 run fm_data_record recorder --ros-args -p config_file:=$config"
   fm_stack_wait_topic "$overlay" "$STATUS_TOPIC" "$RECORDER_TIMEOUT"
 }
 
