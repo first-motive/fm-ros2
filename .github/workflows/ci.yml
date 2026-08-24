@@ -215,15 +215,32 @@ jobs:
           docker pull ghcr.io/first-motive/fm-app:humble
           docker tag ghcr.io/first-motive/fm-app:humble fm-ros2:ci
 
+      # The loop is the one job that needs the data engine, which lives in the
+      # private learning overlay. Its repo slugs come from a repo variable so no
+      # tracked file names them (repo-hygiene refuses that).
+      - name: Import the learning overlay
+        env:
+          FM_OVERLAY_REPOS: ${{ vars.FM_OVERLAY_REPOS }}
+        run: ./scripts/ci/import-overlay.sh
+
       - name: Import externals
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc './scripts/install/import-externals.sh'
 
-      - name: colcon build
+      # The launcher image carries no overlay dependencies, so they are installed
+      # here and the container is committed back as the image the loop step runs
+      # — a `--rm` step would drop them before the next one started.
+      - name: Install overlay dependencies and build
         run: |
-          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
-            bash -lc 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'
+          docker run --name ws-build -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc 'source /opt/ros/humble/setup.bash \
+              && (rosdep update --rosdistro humble >/dev/null 2>&1 || true) \
+              && apt-get update -qq \
+              && rosdep install --from-paths src --ignore-src -y --rosdistro humble \
+              && colcon build --symlink-install'
+          docker commit ws-build fm-ros2:ci >/dev/null
+          docker rm ws-build >/dev/null
 
       # The loop drives the same verbs a person types. Bounded by the script's own
       # timed waits and teardown, with the step timeout as the second bound.
