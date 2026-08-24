@@ -28,6 +28,10 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
 cd fm_ros2 && ./run.sh
 ```
 
+**New here?** Run the whole data path once — sim stack, record an episode,
+process it, check the result — on a laptop with no hardware, in under an hour:
+[docs/ONBOARDING.md](docs/ONBOARDING.md).
+
 `install.sh` is setup only (clone + import + env + viewer); `run.sh` builds the
 workspace and opens the launcher. They are split because `run.sh` drives an
 interactive menu that a curl pipe cannot supply a terminal for, while `install.sh`
@@ -324,12 +328,13 @@ natively; driving real Unitree hardware still needs the container — see
 
 [![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
-Nine jobs per push and PR; each reproduces locally with the exact CI command
+Ten jobs per push and PR; each reproduces locally with the exact CI command
 ([docs/CI.md](docs/CI.md)).
 
 | Job | Runner | Proves |
 |-----|--------|--------|
 | `drift` | `ubuntu-latest` | no rendered file was edited in place |
+| `loop` | `ubuntu-latest` | the sim-first loop closes: stack up → record → process → a usable manifest |
 | `selftest` | `ubuntu-latest` | `install.sh` + `run.sh` survive the piped curl path |
 | `workflows` | `ubuntu-latest` | the workflows and composite action lint clean |
 | `appliance` | `ubuntu-latest` | updater busy gate, bridge endpoint, recorder udev rules |

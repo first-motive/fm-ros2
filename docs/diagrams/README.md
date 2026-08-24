@@ -4,7 +4,8 @@ Orchestrator-level architecture diagrams, authored in [d2](https://d2lang.com).
 This repo holds the top-of-stack views: the zoom pair — `run` (front door) and
 `system` (entry points into the launcher) — plus the whole-system maps that back
 [ARCHITECTURE.md](../ARCHITECTURE.md): `context`, `repomap`, `deployment`, and
-`learning`. Per-package diagrams live in each package repo's `docs/diagrams/`
+`learning`, and the `loop` view that backs [ONBOARDING.md](../ONBOARDING.md).
+Per-package diagrams live in each package repo's `docs/diagrams/`
 (see [Diagram Ownership](#diagram-ownership)).
 
 Each `.d2` file is the source of truth; the matching `.svg` is a generated
@@ -85,6 +86,7 @@ does. The detail that used to sit here moved down with its package.
 |---------|------------|-------|
 | `run`, `system` | **fm-ros2** | front door + entry into the launcher |
 | `context`, `repomap`, `deployment`, `learning` | **fm-ros2** | whole-system context, repo map, deployment, learning loop |
+| `loop` | **fm-ros2** | the sim-first loop: stack → record → process → verify ([ONBOARDING.md](../ONBOARDING.md)) |
 | `setup` | **fm-ros2** | macOS host ↔ OrbStack container topology ([SETUP.md](../SETUP.md)) |
 | `menu` | **fm-ros2** | launcher menu: actions → simulation → backends ([README](../../README.md)) |
 | `launcher`, `bringup_composition`, `viz` | [fm-app](https://github.com/first-motive/fm-app) | launcher menu, bringup composition, visualization |

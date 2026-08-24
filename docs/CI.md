@@ -2,7 +2,7 @@
 
 Every push and pull request runs the jobs in
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): the workflow lint, the
-Linux workspace build and headless smoke, the macOS native path, the Windows
+Linux workspace build and headless smoke, the sim-first loop, the macOS native path, the Windows
 dispatch check, the installer import-path check, the Foxglove panel build, plus the
 drift, bootstrap-selftest, and appliance guards. The commands below are exactly what CI runs, so any job reproduces
 locally with the same line — not a prose claim that it works on each system. For the
@@ -40,6 +40,28 @@ docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci \
             colcon test-result --verbose'
 docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci ./scripts/ci/ci-smoke.sh
 ```
+
+## The Sim-First Loop (`ubuntu-latest`)
+
+The data path end to end, on a runner with no hardware: stack up on the sim
+backend, record an episode, process it, and assert the manifest describes a
+usable one. It drives the same verbs a person types, so a green job is a green
+onboarding demo ([ONBOARDING.md](ONBOARDING.md)).
+
+```bash
+docker run --rm -v "$PWD:/ws" -w /ws fm-ros2:ci bash -lc './scripts/ci/loop.sh'
+```
+
+Locally, through compose:
+
+```bash
+docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
+  run --rm fm ./scripts/ci/loop.sh
+```
+
+**Not yet a required check.** It becomes one after two consecutive greens on
+`main` — the first runs are what show whether the MuJoCo backend and the recorder
+are stable enough on a hosted runner to gate merges.
 
 ## macOS (`macos-latest`, arm64)
 
