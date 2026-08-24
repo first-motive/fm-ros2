@@ -64,14 +64,20 @@ if not episodes:
 usable = [e for e in episodes if e.get("disposition") in USABLE]
 if not usable:
     seen = ", ".join(sorted({str(e.get("disposition")) for e in episodes}))
-    # A verdict without its reason cannot be acted on: surface every field
-    # the engine wrote about why, whatever it named them.
+    # A verdict without its reason cannot be acted on. The engine records why
+    # per stage (manifest EpisodeReport.stages[].reasons); name the stages that
+    # did not keep the episode, with their reasons and scores.
     for e in episodes:
-        why = dict((k, v) for k, v in e.items()
-                   if any(t in k for t in ("reason", "check", "fail", "quarantin", "drop", "issue", "score")))
-        label = e.get("episode_id", e.get("id", "unknown"))
+        label = e.get("episode_id", "unknown")
         state = e.get("disposition")
-        print(f"  {label}: {state} — {json.dumps(why, default=str)[:900]}", file=sys.stderr)
+        print(f"  {label}: {state}", file=sys.stderr)
+        for s in e.get("stages", []):
+            if s.get("disposition") in USABLE and not s.get("reasons"):
+                continue
+            stage, verdict = s.get("stage"), s.get("disposition")
+            reasons = "; ".join(s.get("reasons", []))
+            scores = json.dumps(s.get("scores", {}), default=str)[:400]
+            print(f"    {stage}: {verdict} — {reasons} {scores}", file=sys.stderr)
     sys.exit(f"FAIL: {len(episodes)} episode(s), none usable ({seen})")
 print(f"PASS: {len(usable)}/{len(episodes)} episode(s) usable in {path}")
 '
