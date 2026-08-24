@@ -232,6 +232,10 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "removing the processor boot service (fm-processor.service), if present ..."
     ./scripts/install/install-processor-service.sh uninstall || true
   fi
+  if [[ "$(uname -s)" == Linux && -x scripts/install/install-archive-service.sh ]]; then
+    item "removing the archive browser service (fm-archive.service), if present ..."
+    ./scripts/install/install-archive-service.sh uninstall || true
+  fi
   if [[ "$(uname -s)" == Linux && -x scripts/install/install-update-timer.sh ]]; then
     item "removing the auto-update timers (fm-update-*), if present ..."
     ./scripts/install/install-update-timer.sh uninstall recorder || true
