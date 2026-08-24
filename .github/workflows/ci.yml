@@ -230,19 +230,21 @@ jobs:
 
       # The launcher image carries no overlay dependencies, so they are installed
       # here and the container is committed back as the image the loop step runs
-      # — a `--rm` step would drop them before the next one started. external/ is
-      # on the path so vendored packages resolve as local; the skipped keys are
-      # metapackage deps on packages that do not exist (tracked upstream); -r
-      # keeps a stray unresolvable key from masking the loop's own verdict.
+      # — a `--rm` step would drop them before the next one started. The overlay
+      # repos carry a metapackage at their root, so colcon and rosdep stop there
+      # and never see the nested packages: the nested dirs are listed explicitly,
+      # as the provisioning scripts do. -r keeps a stray unresolvable key from
+      # masking the loop's own verdict.
       - name: Install overlay dependencies and build
         run: |
           docker run --name ws-build -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc 'source /opt/ros/humble/setup.bash \
               && (rosdep update --rosdistro humble >/dev/null 2>&1 || true) \
               && apt-get update -qq \
-              && rosdep install --from-paths src external --ignore-src -y -r --rosdistro humble \
-                   --skip-keys "fm_data_episode_qa fm_policy_serve" \
-              && colcon build --symlink-install'
+              && rosdep install --from-paths src external src/fm_data/fm_data_* src/fm_policy/fm_policy_* \
+                   --ignore-src -y -r --rosdistro humble \
+              && colcon build --symlink-install \
+                   --base-paths src external src/fm_data/fm_data_* src/fm_policy/fm_policy_*'
           docker commit ws-build fm-ros2:ci >/dev/null
           docker rm ws-build >/dev/null
 

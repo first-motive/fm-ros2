@@ -161,7 +161,9 @@ main() {
     return 0
   fi
 
-  # dataset_process is a console script run by a shell on the far side, so its
+  # dataset_process is an ament_python console script: it lives under the
+  # package's lib/ dir, not on PATH, so it is reached through `ros2 run` (the
+  # processor role's venv is the one place the bare name also works). Its
   # paths need the same `~` treatment the episode index does.
   local remote_input remote_output
   remote_input=$(fm_stack_remote_path "$input")
@@ -169,7 +171,7 @@ main() {
 
   case "$action" in
     process)
-      local cmd="dataset_process --input \"$remote_input\" --output \"$remote_output\""
+      local cmd="ros2 run fm_data_dataset dataset_process --input \"$remote_input\" --output \"$remote_output\""
       [[ -n "$config" ]] && cmd+=" --config \"$(fm_stack_remote_path "$config")\""
       [[ "$strict" == true ]] && cmd+=" --strict"
       echo ">> processing $input -> $output"
