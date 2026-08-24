@@ -234,7 +234,9 @@ jobs:
       # repos carry a metapackage at their root, so colcon and rosdep stop there
       # and never see the nested packages: the nested dirs are listed explicitly,
       # as the provisioning scripts do. -r keeps a stray unresolvable key from
-      # masking the loop's own verdict.
+      # masking the loop's own verdict. The engine's bag-ingest tier is pip, not
+      # rosdep — numpy pinned to the last 3.10-compatible release because the
+      # Humble image's Python is 3.10, exactly as setup-processor.sh does.
       - name: Install overlay dependencies and build
         run: |
           docker run --name ws-build -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
@@ -243,6 +245,8 @@ jobs:
               && apt-get update -qq \
               && rosdep install --from-paths src external src/fm_data/fm_data_* src/fm_policy/fm_policy_* \
                    --ignore-src -y -r --rosdistro humble \
+              && pip install --quiet "numpy==2.2.6" \
+                   "$(grep -E "^rosbags==" src/fm_data/fm_data_dataset/requirements-bags.txt)" \
               && colcon build --symlink-install \
                    --base-paths src external src/fm_data/fm_data_* src/fm_policy/fm_policy_*'
           docker commit ws-build fm-ros2:ci >/dev/null
