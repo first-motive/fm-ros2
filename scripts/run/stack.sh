@@ -51,10 +51,12 @@ pass straight through to `ros2 launch`.
 EOF
 }
 
-# The topics that define the stack's surface. Present in sim and on hardware
-# alike — that identity is the claim `--real` rests on, so status asserts it
-# rather than describing it.
-SURFACE_TOPICS=(/joint_states /servo_node/delta_joint_cmds)
+# The topics that define the stack's surface: what bringup itself publishes,
+# present in sim and on hardware alike — that identity is the claim `--real`
+# rests on, so status asserts it rather than describing it. Teleop-layer topics
+# (Servo's command input) belong to the teleop verb, not the stack; a topic
+# only exists once something publishes or subscribes to it.
+SURFACE_TOPICS=(/joint_states /dynamic_joint_states)
 
 stack_up() {
   local overlay="$1" robot="$2" variant="$3" backend="$4" task_env="$5"

@@ -103,12 +103,15 @@ trap teardown EXIT
 # name list would bind this loop to one robot; reading them back binds it to
 # whichever robot the stack came up as.
 joint_names() {
+  # --field prints the list as a Python literal followed by a `---` separator;
+  # the separator is what breaks a whole-message YAML parse, so read the one
+  # line that is the value and never parse the message as a document.
   local reader='
-import sys, yaml
-doc = yaml.safe_load(sys.stdin.read())
-print(",".join(doc["name"]))
+import ast, sys
+line = next(l for l in sys.stdin if l.strip() and l.strip() != "---")
+print(",".join(ast.literal_eval(line.strip())))
 '
-  timeout "$JOINT_STATES_TIMEOUT" ros2 topic echo --once --full-length /joint_states |
+  timeout "$JOINT_STATES_TIMEOUT" ros2 topic echo --once --field name /joint_states |
     python3 -c "$reader"
 }
 
