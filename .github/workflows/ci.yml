@@ -95,6 +95,13 @@ jobs:
       - name: manifest checkout paths
         run: bash scripts/ci/test-manifest-paths.sh
 
+      # Sim is the default and --real is the flag — the claim the onboarding demo
+      # and the loop job both rest on. The argument layer needs no ROS and no
+      # Docker, so a broken flag surfaces here in a second rather than twenty
+      # minutes into the loop job's build.
+      - name: lifecycle verb resolution
+        run: bash scripts/ci/test-lifecycle-verbs.sh
+
   workspace:
     name: build + test + smoke (humble)
     runs-on: ubuntu-latest
@@ -175,6 +182,56 @@ jobs:
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc './scripts/ci/ci-smoke.sh'
+
+  # The sim-first loop: stack up (sim) -> episode record -> dataset process ->
+  # assert the artifacts. Every other job grades a part of the system; this one
+  # grades the path the company actually runs on, on a box with no hardware and
+  # no robot attached.
+  #
+  # It repeats the workspace job's setup rather than extending it because the two
+  # answer different questions — "does it build and behave" versus "does the data
+  # path close" — and a red build should not hide a broken loop or vice versa.
+  #
+  # NOT YET REQUIRED. Promote it to a required check after two consecutive greens
+  # on main (plan step 15.3); the first runs are what tell us whether the mujoco
+  # backend and the recorder are stable enough on a hosted runner to gate merges.
+  loop:
+    name: sim-first loop (record -> process)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/import-packages
+        id: packages
+        with:
+          app-id: ${{ secrets.FM_CI_APP_ID }}
+          private-key: ${{ secrets.FM_CI_APP_KEY }}
+
+      - name: Pull launcher image
+        run: |
+          echo "${{ steps.packages.outputs.token }}" | \
+            docker login ghcr.io -u x-access-token --password-stdin
+          docker pull ghcr.io/first-motive/fm-app:humble
+          docker tag ghcr.io/first-motive/fm-app:humble fm-ros2:ci
+
+      - name: Import externals
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc './scripts/install/import-externals.sh'
+
+      - name: colcon build
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'
+
+      # The loop drives the same verbs a person types. Bounded by the script's own
+      # timed waits and teardown, with the step timeout as the second bound.
+      - name: Record and process an episode
+        timeout-minutes: 25
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc './scripts/ci/loop.sh'
 
   # The real native path, end to end: full pixi env from the lockfile, host colcon
   # build, the runtime smoke (launcher import + every registry launch target
