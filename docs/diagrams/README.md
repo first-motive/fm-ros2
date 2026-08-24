@@ -91,8 +91,8 @@ does. The detail that used to sit here moved down with its package.
 | `packages`, `control*`, `hardware`, `xacro`, `view_robot`, `registry`, `robot_state_publisher` | [fm-robot](https://github.com/first-motive/fm-robot) | ros2_control graph, robot state, hardware abstraction |
 | `backends`, `sim_loop` | [fm-sim](https://github.com/first-motive/fm-sim) | simulation backends and the stepping loop |
 | `contract` | [fm-teleop](https://github.com/first-motive/fm-teleop) | the one command contract every teleop source meets |
-| `data_engine`, `pipeline`, `recorder`, `capture_lifecycle`, `dataset_process`, `disposition`, `emit_gates`, `rig_topology` | fm-data | recording through to an emitted dataset |
-| `train_serve` | fm-policy | training a policy and serving inference |
+| `data_engine`, `pipeline`, `recorder`, `capture_lifecycle`, `dataset_process`, `disposition`, `emit_gates`, `rig_topology` | `src/fm_data` (learning overlay) | recording through to an emitted dataset |
+| `train_serve` | `src/fm_policy` (learning overlay) | training a policy and serving inference |
 | `one_shot_flash` | [fm-setup](https://github.com/first-motive/fm-setup) | flash to an unattended rig recording on boot |
 | `images` | [fm-docker](https://github.com/first-motive/fm-docker) | image inheritance, base through the app layer |
 | `modules` | fm-desktop | Swift module graph and its one-way imports |
