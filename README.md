@@ -28,6 +28,10 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
 cd fm_ros2 && ./run.sh
 ```
 
+**New here?** Run the whole data path once — sim stack, record an episode,
+process it, check the result — on a laptop with no hardware, in under an hour:
+[docs/ONBOARDING.md](docs/ONBOARDING.md).
+
 `install.sh` is setup only (clone + import + env + viewer); `run.sh` builds the
 workspace and opens the launcher. They are split because `run.sh` drives an
 interactive menu that a curl pipe cannot supply a terminal for, while `install.sh`
@@ -98,8 +102,9 @@ gh api repos/first-motive/fm-desktop/contents/install.sh --jq .content \
 
 **Recorder (Linux camera host)** — RealSense + hand tracker + tactile glove +
 episode recorder, streaming to the app over the LAN. Ubuntu 22.04 required; a
-fresh host (a just-flashed Jetson on JetPack 6) gets ROS 2 Humble installed
-automatically, any other distro must bring its own. `--service` makes it a boot
+fresh host (a Jetson just flashed with Canonical's Ubuntu 22.04 tegra image)
+gets ROS 2 Humble installed automatically, any other distro must bring its
+own. `--service` makes it a boot
 appliance (`fm-recorder.service` plus `fm-tactile.service` for the glove).
 Bringing up a brand-new Jetson? Follow [docs/JETSON.md](docs/JETSON.md)
 end-to-end. The one-liner clones into the directory it runs from, so `cd` to
@@ -336,17 +341,20 @@ natively; driving real Unitree hardware still needs the container — see
 
 [![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
 
-Seven jobs per push and PR; each reproduces locally with the exact CI command
+Ten jobs per push and PR; each reproduces locally with the exact CI command
 ([docs/CI.md](docs/CI.md)).
 
 | Job | Runner | Proves |
 |-----|--------|--------|
+| `drift` | `ubuntu-latest` | no rendered file was edited in place |
+| `loop` | `ubuntu-latest` | the sim-first loop closes: stack up → record → process → a usable manifest |
 | `selftest` | `ubuntu-latest` | `install.sh` + `run.sh` survive the piped curl path |
+| `workflows` | `ubuntu-latest` | the workflows and composite action lint clean |
+| `appliance` | `ubuntu-latest` | updater busy gate, bridge endpoint, recorder udev rules |
 | `workspace` | `ubuntu-latest` | colcon build + test (`fm_*`) → four-robot headless smoke |
-| `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
-| `macos` | `macos-latest` (arm64) | host-native MuJoCo core + native install/run dispatch |
-| `native` | `macos-latest` (arm64) | full pixi env + native build + launcher/launch runtime deps |
+| `native` | `macos-latest` (arm64) | full pixi env + native build + launch runtime deps + host-native MuJoCo core |
 | `windows` | `windows-latest` | native dispatch + `.ps1` wrappers delegate through Git Bash |
+| `installer` | `ubuntu-latest` | `install.sh` clone + import path populates `src/` |
 | `panel` | `ubuntu-latest` | Foxglove teleop panel type-checks and bundles |
 
 ## License & Ownership

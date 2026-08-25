@@ -3,6 +3,13 @@
 # Dev + build + sim + dataset only — no GPU, no hardware on this path.
 set -euo pipefail
 
+# fm-render:begin fm-docker-pin sha256:532190583135a4c86953f451232f5e222ebd1750e65438ea252618f0c3b44cd2 — rendered by the First Motive render plane — edit the upstream source, not this file
+# The container runtime install is delegated to fm-docker, fetched from one
+# pinned release tag. Re-pin in the render plane, never in a consumer.
+# shellcheck disable=SC2034
+FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.3"
+# fm-render:end fm-docker-pin
+
 usage() {
   cat <<'EOF'
 setup-macos.sh — macOS (M5) setup: verify OrbStack is the Docker provider, build base image
@@ -31,7 +38,7 @@ main() {
     bash docker/install.sh --no-pull
   else
     curl -fsSL --proto '=https' --proto-redir '=https' \
-      "https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.1/install.sh" | bash -s -- --no-pull
+      "$FM_DOCKER_RAW/install.sh" | bash -s -- --no-pull
   fi
   if docker info 2>/dev/null | grep -qi orbstack; then
     echo "    OrbStack detected."

@@ -4,7 +4,8 @@ Orchestrator-level architecture diagrams, authored in [d2](https://d2lang.com).
 This repo holds the top-of-stack views: the zoom pair — `run` (front door) and
 `system` (entry points into the launcher) — plus the whole-system maps that back
 [ARCHITECTURE.md](../ARCHITECTURE.md): `context`, `repomap`, `deployment`, and
-`learning`. Per-package diagrams live in each package repo's `docs/diagrams/`
+`learning`, and the `loop` view that backs [ONBOARDING.md](../ONBOARDING.md).
+Per-package diagrams live in each package repo's `docs/diagrams/`
 (see [Diagram Ownership](#diagram-ownership)).
 
 Each `.d2` file is the source of truth; the matching `.svg` is a generated
@@ -85,7 +86,21 @@ does. The detail that used to sit here moved down with its package.
 |---------|------------|-------|
 | `run`, `system` | **fm-ros2** | front door + entry into the launcher |
 | `context`, `repomap`, `deployment`, `learning` | **fm-ros2** | whole-system context, repo map, deployment, learning loop |
+| `loop` | **fm-ros2** | the sim-first loop: stack → record → process → verify ([ONBOARDING.md](../ONBOARDING.md)) |
 | `setup` | **fm-ros2** | macOS host ↔ OrbStack container topology ([SETUP.md](../SETUP.md)) |
 | `menu` | **fm-ros2** | launcher menu: actions → simulation → backends ([README](../../README.md)) |
-| `launcher`, `bringup`, `viz` | [fm-app](https://github.com/first-motive/fm-app) | launcher menu, bringup composition, visualization |
-| `controllers`, `view_robot`, `hardware` | [fm-robot](https://github.com/first-motive/fm-robot) | ros2_control graph, robot state, hardware abstraction |
+| `launcher`, `bringup_composition`, `viz` | [fm-app](https://github.com/first-motive/fm-app) | launcher menu, bringup composition, visualization |
+| `packages`, `control*`, `hardware`, `xacro`, `view_robot`, `registry`, `robot_state_publisher` | [fm-robot](https://github.com/first-motive/fm-robot) | ros2_control graph, robot state, hardware abstraction |
+| `backends`, `sim_loop` | [fm-sim](https://github.com/first-motive/fm-sim) | simulation backends and the stepping loop |
+| `contract` | [fm-teleop](https://github.com/first-motive/fm-teleop) | the one command contract every teleop source meets |
+| `data_engine`, `pipeline`, `recorder`, `capture_lifecycle`, `dataset_process`, `disposition`, `emit_gates`, `rig_topology` | `src/fm_data` (learning overlay) | recording through to an emitted dataset |
+| `train_serve` | `src/fm_policy` (learning overlay) | training a policy and serving inference |
+| `one_shot_flash` | [fm-setup](https://github.com/first-motive/fm-setup) | flash to an unattended rig recording on boot |
+| `images` | [fm-docker](https://github.com/first-motive/fm-docker) | image inheritance, base through the app layer |
+| `modules` | fm-desktop | Swift module graph and its one-way imports |
+| `verbs` | [fm-tools](https://github.com/first-motive/fm-tools) | the `fm` verb model and the delegate boundary |
+| `architecture` (profile) | [.github](https://github.com/first-motive/.github) | the org landing page's data-engine loop |
+
+A filename names the idea, not its position: two repos may not both hold a
+`flow.d2`, because the pair is unsearchable and neither name says which is
+which. Renaming one is cheap; discovering the collision months later is not.

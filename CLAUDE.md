@@ -117,6 +117,15 @@ are snake_case (`fm_ros2`, `src/fm_robot`) to match the package names; the GitHu
 repo slugs they clone from stay kebab (`fm-ros2`, `fm-robot`), and the `.repos`
 manifest filenames follow the slug.
 
+That convention binds every manifest that writes into this workspace, the
+private overlay included. A package repo ships a metapackage manifest at its
+root, so colcon stops descending there, and the scripts that build the nested
+packages reach past it by spelling the snake path literally. A checkout under
+the kebab slug leaves those paths matching nothing, and when both spellings
+exist colcon sees each package twice and refuses to build. The import paths
+warn on either shape (`warn_kebab_checkouts` in `lib.sh`), but the fix belongs
+in the manifest that wrote the path.
+
 ## Diagrams
 
 Architecture diagrams are authored in [d2](https://d2lang.com) under

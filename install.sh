@@ -43,15 +43,29 @@ REPO_URL="https://github.com/first-motive/fm-ros2.git"
 # Branch/tag to clone (default: the repo's default branch). CI sets FM_REPO_REF to
 # the PR branch so the installer tests the ref under review, not the merged main.
 REPO_REF="${FM_REPO_REF:-}"
+# Raw base for files this script needs before the clone exists (lib.sh). Tracks
+# FM_REPO_REF so a CI run fetches the ref under review, not main.
+RAW_BASE="https://raw.githubusercontent.com/first-motive/fm-ros2/${REPO_REF:-main}"
 TARGET="fm_ros2"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fm_ros2"
 
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
 # install.sh and run.sh share one source of brand colour. `step` draws a numbered
 # header block as a rich rule; `item` prints a plain status line beneath it. Reach
-# the banner through `uv run --with` (pinned to fm-tools v0.4.1); fall back to a
-# plain header when uv is absent. Keep this pin in sync with run.sh.
+# the banner through `uv run --with`; fall back to a plain header when uv is
+# absent. The pin below is rendered, so it is the same one every path uses.
+# fm-render:begin fm-tools-pin sha256:5de9c0a921c441407f1aea8b6e32f37ca9d3f654d1116c636f0a7136da03b7d2 — rendered by the First Motive render plane — edit the upstream source, not this file
+# fm-tools owns both shared bootstrap pieces: lib.sh (fetched raw, before any
+# clone exists) and the fm_tools wheel (the shared TUI banner). Both come from
+# one pinned release tag — the single reuse home. Re-pin in the render plane,
+# never in a consumer. A host that needs only one of the two still carries both,
+# so the pin reads the same everywhere it appears; the disables below declare
+# that, rather than splitting the pin into two blocks that can disagree.
+# shellcheck disable=SC2034
+FM_TOOLS_RAW="https://raw.githubusercontent.com/first-motive/fm-tools/v0.4.1"
+# shellcheck disable=SC2034
 FM_TOOLS="fm-tools @ git+https://github.com/first-motive/fm-tools@v0.4.1"
+# fm-render:end fm-tools-pin
 
 STEP=0
 step() {  # title  [role]
@@ -65,37 +79,43 @@ step() {  # title  [role]
     echo "== $STEP. $1 =="
   fi
 }
-item() { echo "$1"; }  # status line under a step — inline copy of lib.sh's item
-
-# Run a long command with live feedback. TTY: fork it, spin a frame + elapsed
-# seconds on one \r line until it exits, then clear the line — replaying the
-# captured output only on failure so a green run stays quiet and a red one is
-# still debuggable. Piped (no TTY): run inline so output and errors stream
-# straight through, no \r control chars in a log. Returns the command's exit.
-# Inline copy of lib.sh's spin — this script runs curl-piped before the clone
-# exists, so there is no repo file to source. Keep in sync with lib.sh.
-spin() {  # label  cmd...
-  local label="$1"; shift
-  if [ ! -t 1 ]; then
-    "$@"
-    return $?
+# Load lib.sh, which owns the narration helpers (item, spin) and the release-tag
+# helpers. From a clone it sits beside this script, so source it. Over a curl pipe
+# there is no file on disk, so fetch and eval — eval, not `source`, because the
+# pipe has already consumed stdin. This is why the helpers live in one file
+# instead of being copied in here: a copy drifts, and nothing catches it.
+load_lib() {
+  local here lib
+  # BASH_SOURCE[0] is empty when this script arrives over a pipe.
+  if [ -n "${BASH_SOURCE[0]:-}" ] \
+     && here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" \
+     && lib="$here/lib.sh" && [ -f "$lib" ]; then
+    # shellcheck source=lib.sh disable=SC1091
+    . "$lib"
+  else
+    # Capture before eval: `eval "$(curl ...)"` hides a failed fetch, because the
+    # substitution yields an empty string and `eval ""` exits 0. Check the fetch
+    # itself, and refuse an empty body.
+    # Retry the fetch. It is unauthenticated, so a busy day rate limits it (HTTP 429)
+    # and a single attempt turns a transient into a failed install on the very first
+    # command a user runs against us. Three tries with a short backoff.
+    local body="" attempt
+    for attempt in 1 2 3; do
+      if body="$(curl -fsSL --proto '=https' --proto-redir '=https' "$RAW_BASE/lib.sh")" \
+         && [ -n "$body" ]; then
+        break
+      fi
+      body=""
+      if [ "$attempt" -lt 3 ]; then sleep "$((attempt * 2))"; fi
+    done
+    if [ -z "$body" ]; then
+      echo "ERROR: could not load lib.sh from $RAW_BASE (3 attempts)" >&2
+      exit 1
+    fi
+    eval "$body"
   fi
-  local log; log="$(mktemp)" || return 1
-  # <&0 forwards our stdin to the async job — a backgrounded command otherwise
-  # gets stdin from /dev/null (POSIX), starving `vcs import < manifest`.
-  "$@" <&0 >"$log" 2>&1 &
-  local pid=$! frames='|/-\' i=0 start=$SECONDS
-  while kill -0 "$pid" 2>/dev/null; do
-    printf '\r  %s %s (%ds)' "${frames:i%4:1}" "$label" "$((SECONDS - start))"
-    i=$((i + 1))
-    sleep 0.1
-  done
-  wait "$pid"; local rc=$?
-  printf '\r\033[K'
-  [ "$rc" -eq 0 ] || cat "$log" >&2
-  rm -f "$log"
-  return "$rc"
 }
+load_lib
 
 # Plain narration for secondary paths (uninstall, dependency bootstrap) that sit
 # outside the numbered install flow.
@@ -618,6 +638,12 @@ main() {
     # bash 3.2 (macOS) errors on "${arr[@]}" for an empty array under set -u — guard
     # the expansion so an unflagged run passes no args instead of tripping unbound.
     maybe_install_team_extras ${extra_flags[@]+"${extra_flags[@]}"}
+
+    # The overlay import happens inside that step, from a manifest this repo does
+    # not own. A manifest that spells a checkout with the repo slug leaves a src/
+    # directory nothing here reads, so say so while the member is still watching
+    # the install rather than at the first launch that cannot find a package.
+    warn_kebab_checkouts "$PWD"
   fi
 
   # Setup ends here. run.sh builds and launches the interactive TUI, which needs a

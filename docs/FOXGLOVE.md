@@ -27,7 +27,7 @@ python3 scripts/internal/bridge-probe.py
 sets `FM_RECORDER_FOXGLOVE=false` in `/etc/fm-recorder.env`, writes the same
 configured port into the service and Avahi paths, and leaves the shared file in
 place during uninstall and updater re-installs. A recorder boot with an older
-`fm-data` checkout can keep the embedded bridge only at the historic default;
+recorder package checkout can keep the embedded bridge only at the historic default;
 the boot script passes `foxglove_port:=<configured port>` when that launch
 argument is available and refuses a non-default embedded port otherwise.
 

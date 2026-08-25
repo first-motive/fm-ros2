@@ -97,9 +97,11 @@ StartLimitIntervalSec=0
 Type=simple
 User=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
+EnvironmentFile=-$RECORDER_ENV
 EnvironmentFile=-$BRIDGE_ENV
 WorkingDirectory=$ROOT
 ExecStart=/bin/bash $WRAPPER
+TimeoutStopSec=15
 Restart=on-failure
 RestartSec=5
 

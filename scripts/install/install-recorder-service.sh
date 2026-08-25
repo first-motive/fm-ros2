@@ -135,7 +135,7 @@ FM_RECORDER_LIDAR=auto
 # Arm the recorder (true = armed + idle, waits for a REC command):
 FM_RECORDER_RECORD=true
 # Run the embedded foxglove bridge here (fixed to the default port by older
-# fm-data checkouts). Set false when fm-foxglove.service is the standalone owner:
+# recorder package checkouts). Set false when fm-foxglove.service is the standalone owner:
 FM_RECORDER_FOXGLOVE=$recorder_foxglove_default
 # Where episodes land. Also read by the auto-updater to tell "a take is in flight"
 # from "idle" — change both this and the recorder config together, or the updater

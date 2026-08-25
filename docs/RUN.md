@@ -56,6 +56,20 @@ The OS default maps `Darwin` / Windows → native and `Linux` → container. Rem
 args forward to the chosen path script (`scripts/internal/native.sh` or
 `scripts/internal/container.sh`) — run either with `-h` for its own flags.
 
+### Lifecycle Verbs
+
+`run.sh` opens the interactive launcher. For the scripted path — the one CI runs
+and the one a script can drive — the workspace mounts four verbs onto `fm`:
+
+| Verb | Does |
+|------|------|
+| `fm stack up` / `down` / `status` | the robot stack, sim by default, `--real` for hardware |
+| `fm episode record` / `stop` / `list` | a take against the running stack |
+| `fm dataset process` / `verify` | the fm_data engine over what was recorded, then graded |
+| `fm sim` | one robot in a sim backend, in the foreground |
+
+Chained, those are the whole data path: [ONBOARDING.md](ONBOARDING.md).
+
 ### Path-Specific Flags
 
 ```bash

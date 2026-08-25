@@ -9,6 +9,16 @@
 # the fleet within one tick; merged-but-untagged main never moves a box. No
 # push infra, no secrets beyond the git credentials already on the host.
 #
+# The push half is a person: scripts/dev/cut-release.sh cuts the tag set this
+# converges to, and docs/RELEASE.md carries the cadence. A role repo left
+# untagged is reported below and never moves, so a release is the whole set.
+#
+# Both layers converge here: fm-setup (the machine layer — drivers, container
+# runtime, ROS) through its own scripts/update.sh, and this workspace through
+# its role installer. Each moves only when its own release tag moved, so a
+# driver bump does not restart a recorder's services and a workspace bump does
+# not re-run apt.
+#
 #   scripts/service/appliance-update.sh recorder     # or: processor
 #
 # Safety posture:
@@ -42,6 +52,70 @@ if [ -f "$ROOT/scripts/env/bridge.sh" ]; then
   . "$ROOT/scripts/env/bridge.sh"
 fi
 
+# Let root read the checkouts it converges.
+#
+# This runs as root from systemd; every checkout belongs to the appliance user.
+# Git refuses a repository owned by somebody else, and the exemption it grants
+# root keys off SUDO_UID — which an interactive `sudo git` sets and systemd does
+# not. So the refusal appeared only when nobody was watching: by hand every
+# command worked, while every timer tick read each repo as "dirty or
+# unfetchable", left it alone, and printed "up to date". A rig flashed at
+# v0.1.5 sat there for two days with v0.1.6 published and never moved.
+#
+# Written to root's global config rather than exported through GIT_CONFIG_*,
+# because the scripts this one calls — fm-setup's update.sh, fm_ros2's own —
+# export GIT_CONFIG_COUNT=1 for a key of their own, which replaces an inherited
+# set wholesale. The env route would therefore be dropped in the children doing
+# the actual fetching. Global config is still read when those variables are set,
+# so this survives them. Idempotent: added once, then found on every later tick.
+#
+# Both of the helpers below edit root's global git config, so both run only
+# under systemd. INVOCATION_ID is set for a unit's processes and unset for a
+# person running this by hand — and by hand the checkouts are already theirs,
+# git is content, and their config is not this script's to edit.
+_unattended() { [ -n "${INVOCATION_ID:-}" ]; }
+
+_trust_checkouts() {
+  _unattended || return 0
+  git config --global --get-all safe.directory 2>/dev/null | grep -qxF '*' && return 0
+  git config --global --add safe.directory '*' 2>/dev/null \
+    || item "WARNING: could not mark checkouts safe for root — git may refuse to read them"
+}
+
+# Let root reach the private repos this appliance rides on.
+#
+# First boot writes the token into the appliance user's ~/.git-credentials and
+# points that user's git at it with credential.helper=store. The updater runs as
+# root, which has neither the file nor the helper — so a public repo converged
+# while every private one came back "dirty or unfetchable" and stayed at its
+# flash-time commit, with "up to date" printed underneath. The repo was never
+# dirty; the fetch could not authenticate.
+#
+# Root is pointed at the user's existing store rather than handed a copy. A
+# second file carrying the same token is a second thing to rotate and a second
+# thing to leak, and root can read a 0600 file in another user's home anyway.
+#
+# A rig with no token is not an error: it has no private repos to converge, and
+# the public ones still ride their tags.
+_reach_private_repos() {
+  _unattended || return 0
+  local owner home creds
+  # FM_OWNER_HOME is the test seam, as FM_RECORDER_RECORDINGS_DIR is for the busy
+  # gate: the lookup below wants a real account on a real rig, which CI has not
+  # got. Checked before the lookup so the seam does not depend on it.
+  home="${FM_OWNER_HOME:-}"
+  if [ -z "$home" ]; then
+    owner="$(stat -c %U "$ROOT" 2>/dev/null)" || return 0
+    [ -n "$owner" ] || return 0
+    home="$(getent passwd "$owner" 2>/dev/null | cut -d: -f6)"
+  fi
+  [ -n "$home" ] || return 0
+  creds="$home/.git-credentials"
+  [ -f "$creds" ] || return 0
+  git config --global credential.helper "store --file=$creds" 2>/dev/null \
+    || item "WARNING: could not point git at $creds — private repos will not converge"
+}
+
 # Seconds of recordings-dir quiet required before a recorder update proceeds.
 _RECORDER_QUIET_MIN=2
 
@@ -64,15 +138,19 @@ _busy() {  # role
   case "$1" in
     recorder)
       # A take in flight = recent episode writes under the recordings dir (bag
-      # chunks + sessions.jsonl). The tactile bridge writes continuously under
-      # tactile-raw even while the episode recorder is idle, so exclude that
-      # sibling evidence stream or this updater can never converge.
+      # chunks + sessions.jsonl). Two sibling evidence streams write there
+      # CONTINUOUSLY even while the episode recorder sits idle — the tactile
+      # bridge under tactile-raw, and the rig monitors' watchdog under
+      # watchdog/ (whose jsonl kept this gate reading "busy" on every tick for
+      # six days on the first Jetson, 2026-08-19) — so exclude both, or this
+      # updater can never converge.
       local recdir="${FM_RECORDER_RECORDINGS_DIR:-$HOME/recordings}"
       local active_file=""
       if [ -d "$recdir" ] && \
          active_file="$(
            find "$recdir" \
              -path "$recdir/tactile-raw" -prune -o \
+             -path "$recdir/watchdog" -prune -o \
              -mmin -"$_RECORDER_QUIET_MIN" -type f -print -quit 2>/dev/null
          )" && \
          [ -n "$active_file" ]; then
@@ -142,6 +220,10 @@ main() {
     return 0
   fi
 
+  # Before the first git call, and before the role installer that also runs git.
+  _trust_checkouts
+  _reach_private_repos
+
   if _busy "$role"; then
     return 0
   fi
@@ -170,8 +252,59 @@ main() {
     esac
   done
 
+  # The machine layer is a sibling checkout under the same workspace, not a src/
+  # overlay, and it converges through its own entry point rather than this
+  # role installer. It is tracked apart from the repos above for two reasons: a
+  # machine-layer bump must not drag the ROS stack through a rebuild and a
+  # service restart it did not need — on a recorder that restart is an
+  # interruption — and the two layers ride their own release tags, so either can
+  # move without the other.
+  #
+  # fm-setup's own scripts/update.sh reads this host's role from the identity
+  # card, which is why nothing here maps recorder -> jetson. A timer that
+  # hardcoded `install.sh --jetson` would be a second place a machine's role is
+  # written down, and the card exists to delete those.
+  local fm_setup setup_updated=0
+  fm_setup="$(dirname "$ROOT")/fm-setup"
+  if [ -d "$fm_setup/.git" ]; then
+    state="$(_repo_state "$fm_setup")"
+    case "$state" in
+      behind\ *)
+        item "updating fm-setup -> ${state#behind } ..."
+        git -C "$fm_setup" -c advice.detachedHead=false checkout -q "${state#behind }"
+        setup_updated=1
+        ;;
+      untagged)
+        item "WARNING: fm-setup has no release tag yet — left alone (cut a v* tag to put it on the release channel)"
+        ;;
+      held)
+        item "WARNING: fm-setup is dirty or unfetchable — left alone"
+        ;;
+    esac
+  else
+    # No checkout, no machine layer. Rigs flashed before the workspace step
+    # existed keep fm-setup at ~/.first-motive/fm-setup, outside the workspace
+    # this resolves against — so the layer that installs the drivers, the
+    # container runtime, and ROS never converged, and the timer reported success
+    # on every tick anyway. Silence is what let that go unnoticed on a fleet.
+    item "WARNING: no fm-setup checkout at $fm_setup — machine layer not converged"
+    item "         link it once: ln -s ~/.first-motive/fm-setup $fm_setup"
+  fi
+
+  # Machine layer first: it owns the drivers, the container runtime, and ROS
+  # itself, so a workspace rebuild that follows builds against what this just
+  # installed rather than against what was there before.
+  if [ "$setup_updated" = 1 ]; then
+    if [ -x "$fm_setup/scripts/update.sh" ]; then
+      item "machine layer moved — converging fm-setup ..."
+      "$fm_setup/scripts/update.sh"
+    else
+      item "WARNING: fm-setup moved but has no executable scripts/update.sh — machine layer not converged"
+    fi
+  fi
+
   if [ "$updated" = 0 ]; then
-    item "up to date"
+    [ "$setup_updated" = 1 ] || item "up to date"
     return 0
   fi
 

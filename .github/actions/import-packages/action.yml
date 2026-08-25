@@ -1,0 +1,60 @@
+name: Import package repos
+description: >-
+  Mint a short-lived GitHub App token for the private package repos and clone the
+  ones the manifest names into src/. Four jobs needed this; the loop lived in three
+  of them.
+
+inputs:
+  app-id:
+    description: fm-ros2-ci App ID (secrets.FM_CI_APP_ID).
+    required: true
+  private-key:
+    description: fm-ros2-ci private key (secrets.FM_CI_APP_KEY).
+    required: true
+  clone:
+    description: >-
+      Clone the manifest's package repos into src/. Set false in a job that only
+      needs the token (a GHCR login, a single actions/checkout of one sibling).
+    default: "true"
+  manifest:
+    description: vcs manifest to read the clone URLs from.
+    default: fm-ros2.repos
+
+outputs:
+  token:
+    description: The short-lived App installation token.
+    value: ${{ steps.app-token.outputs.token }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/create-github-app-token@v3
+      id: app-token
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: first-motive
+
+    - name: Clone package repos
+      if: inputs.clone == 'true'
+      shell: bash
+      env:
+        TOKEN: ${{ steps.app-token.outputs.token }}
+        MANIFEST: ${{ inputs.manifest }}
+      run: |
+        set -euo pipefail
+        git config --global \
+          url."https://x-access-token:${TOKEN}@github.com/".insteadOf \
+          "https://github.com/"
+        # Clone the package repos straight from the manifest URLs — no vcstool, so
+        # CI carries no extra Python deps.
+        mkdir -p src
+        while read -r url; do
+          name="$(basename "$url" .git)"
+          # fm-docker is shared container infra, not a colcon package — skip it.
+          [ "$name" = "fm-docker" ] && continue
+          echo "cloning $name"
+          # Snake the local checkout dir (src/fm_robot) to match the package name;
+          # the GitHub slug in $url stays kebab (fm-robot.git).
+          git clone --depth 1 "$url" "src/${name//-/_}"
+        done < <(grep -oE 'https://github.com/[^ ]+\.git' "$MANIFEST")

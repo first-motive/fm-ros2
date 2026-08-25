@@ -1,0 +1,94 @@
+{
+  "_fm_render": {
+    "artifact": "render-lock",
+    "origin": "rendered by the First Motive render plane \u2014 edit the upstream source, not this file",
+    "sha256": "5939e76a6cfcf4a73dddc145921e7958158d76791d53a3d079c4ff88c54b6fd9"
+  },
+  "artifacts": {
+    "agents-invariants": {
+      "mode": "block",
+      "paths": [
+        "AGENTS.md"
+      ],
+      "sha256": "ae8e770a702d661078394c75dae8593ec122d51514bc90016ef0f3b8fd8194b1",
+      "stamp": "html"
+    },
+    "contributing-workflow": {
+      "mode": "block",
+      "paths": [
+        "CONTRIBUTING.md"
+      ],
+      "sha256": "4a3ac9a4c1cbb5995c5a0e4d5b6beb580f50090c14bc5170cd21c84ee4635dd0",
+      "stamp": "html"
+    },
+    "d2-render": {
+      "mode": "file",
+      "paths": [
+        "docs/diagrams/render.sh"
+      ],
+      "sha256": "d3e26de6631f1c40ac0029659c407960d8818f4b1384b3f4cf2857f0c74c4c61",
+      "stamp": "hash"
+    },
+    "d2-styles": {
+      "mode": "file",
+      "paths": [
+        "docs/diagrams/styles.d2"
+      ],
+      "sha256": "f779c99b7e9f1b2480fea5a0ace77949e007f5f01d802b1dbdac8c9764ae14f0",
+      "stamp": "hash"
+    },
+    "external-pins": {
+      "mode": "file",
+      "paths": [
+        ".fm/external-pins.json"
+      ],
+      "sha256": "f25be94c05300268b80668c02adf5381ffb1a13a626b9f9db3515012dc7f0405",
+      "stamp": "json"
+    },
+    "fm-docker-pin": {
+      "mode": "block",
+      "paths": [
+        "scripts/internal/container.sh",
+        "scripts/install/setup-macos.sh",
+        "scripts/run/sim.sh"
+      ],
+      "sha256": "532190583135a4c86953f451232f5e222ebd1750e65438ea252618f0c3b44cd2",
+      "stamp": "sh"
+    },
+    "fm-tools-pin": {
+      "mode": "block",
+      "paths": [
+        "install.sh",
+        "scripts/internal/container.sh",
+        "scripts/internal/native.sh"
+      ],
+      "sha256": "5de9c0a921c441407f1aea8b6e32f37ca9d3f654d1116c636f0a7136da03b7d2",
+      "stamp": "sh"
+    },
+    "pre-push-hook": {
+      "mode": "file",
+      "paths": [
+        ".fm/hooks/pre-push"
+      ],
+      "sha256": "4c369c9361bb6aca99d7bfb43fa9d2b8345462bcc409c900e6c36d4123d97a94",
+      "stamp": "hash"
+    },
+    "pull-request-template": {
+      "mode": "block",
+      "paths": [
+        ".github/pull_request_template.md"
+      ],
+      "sha256": "77ffa0c7e2a4effbca5ea4af0e436b1f6cdc3cd2235cce096110229e5cda4f3b",
+      "stamp": "html"
+    },
+    "render-check": {
+      "mode": "file",
+      "paths": [
+        ".fm/render-check.py"
+      ],
+      "sha256": "d3b89f3d4b4027bc004832465bd2b0d4f2d59801a29b3624bdf8a0c2bd7e9e47",
+      "stamp": "hash"
+    }
+  },
+  "source": "first-motive render plane"
+}

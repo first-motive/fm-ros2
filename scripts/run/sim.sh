@@ -31,6 +31,18 @@
 # through to `ros2 launch`.
 set -euo pipefail
 
+# Backend names and the compose overlay each implies are shared with the stack,
+# episode, and dataset verbs — one list, so a new backend lands everywhere at once.
+# shellcheck source=scripts/internal/lib-stack.sh
+source "$(dirname "$0")/../internal/lib-stack.sh"
+
+# fm-render:begin fm-docker-pin sha256:532190583135a4c86953f451232f5e222ebd1750e65438ea252618f0c3b44cd2 — rendered by the First Motive render plane — edit the upstream source, not this file
+# The container runtime install is delegated to fm-docker, fetched from one
+# pinned release tag. Re-pin in the render plane, never in a consumer.
+# shellcheck disable=SC2034
+FM_DOCKER_RAW="https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.3"
+# fm-render:end fm-docker-pin
+
 usage() {
   cat <<'EOF'
 sim.sh — launch a robot in a ros2_control simulation backend
@@ -69,26 +81,21 @@ main() {
   done
 
   # Normalize hyphen -> underscore (default-bimanual -> default_bimanual).
-  ROBOT="${ROBOT//-/_}"
-  BACKEND="${BACKEND//-/_}"
-
-  local VALID_BACKENDS=(mock mujoco gazebo isaac real)
-  local ok=false b
-  for b in "${VALID_BACKENDS[@]}"; do
-    [[ "$BACKEND" == "$b" ]] && ok=true && break
-  done
-  if [[ "$ok" != true ]]; then
-    echo "error: unknown backend '$BACKEND'" >&2
-    echo "valid backends: ${VALID_BACKENDS[*]}" >&2
-    return 1
-  fi
+  ROBOT="$(fm_stack_normalize "$ROBOT")"
+  BACKEND="$(fm_stack_normalize "$BACKEND")"
+  fm_stack_check_backend "$BACKEND"
 
   # Backend picks the compose overlay: CPU sim on macOS, GPU sim on Linux.
   local OVERLAY
-  case "$BACKEND" in
-    mock|mujoco) OVERLAY=docker/compose.macos.yaml ;;
-    gazebo|isaac|real) OVERLAY=docker/compose.linux.yaml ;;
-  esac
+  OVERLAY="$(fm_stack_overlay "$BACKEND")"
+
+  # CI self-test hook: args validated and the overlay picked — stop before the
+  # vcs import, the Docker runtime bring-up, and the launch, none of which CI can
+  # do without hardware. Proves `fm sim` reaches this script and parses its flags.
+  if [[ -n "${FM_SELFTEST:-}" ]]; then
+    echo "selftest ok: sim resolved (robot=$ROBOT, backend=$BACKEND, task_env=$TASK_ENV)"
+    return 0
+  fi
 
   cd "$(dirname "$0")/../.."
 
@@ -104,7 +111,7 @@ main() {
       bash docker/install.sh --no-pull
     else
       curl -fsSL --proto '=https' --proto-redir '=https' \
-        "https://raw.githubusercontent.com/first-motive/fm-docker/v0.1.1/install.sh" | bash -s -- --no-pull
+        "$FM_DOCKER_RAW/install.sh" | bash -s -- --no-pull
     fi
   fi
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"

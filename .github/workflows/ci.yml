@@ -5,56 +5,76 @@ name: CI
 on:
   push:
     branches: ["**"]
-    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore", "plans/**"]
+    paths-ignore: ["docs/**", "LICENSE", ".gitignore", "plans/**"]
   pull_request:
-    paths-ignore: ["**.md", "docs/**", "LICENSE", ".gitignore", "plans/**"]
+    paths-ignore: ["docs/**", "LICENSE", ".gitignore", "plans/**"]
+
+# Read-only by default. The two jobs that touch a registry mint their own
+# short-lived App token, so no job needs a broader GITHUB_TOKEN than this.
+permissions:
+  contents: read
+
+# One run per ref. A push onto a branch that is already building supersedes the
+# older run; main is never cancelled, so every merged commit keeps a full result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Rendered files (AGENTS.md, .fm/) come from the render plane and carry a hash of
+  # their own body. This fails the PR when one was edited in place.
+  drift:
+    uses: first-motive/.github/.github/workflows/drift-check.yml@main
+
+  # No server-side branch protection exists on this repo, so a push straight to
+  # main is possible. The rendered pre-push hook refuses one locally; this
+  # notices the ones it cannot refuse and opens an issue naming the commit.
+  # The called job guards on push-to-default itself, so it skips on a PR.
+  # Job-level permissions replace the workflow-level block for this job alone:
+  # opening the issue needs issues:write, which the rest of CI must not have.
+  tripwire:
+    uses: first-motive/.github/.github/workflows/direct-push-tripwire.yml@main
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+
+  # The piped-curl front door check, the in-tree updater and uninstall smokes, and
+  # the install-script parse pass all live in first-motive/.github.
   selftest:
-    name: bootstrap self-test (curl|bash FM_SELFTEST)
+    uses: first-motive/.github/.github/workflows/bootstrap-selftest.yml@main
+    with:
+      scripts: install.sh run.sh
+      in-tree-scripts: '"scripts/update.sh" "install.sh uninstall --purge"'
+      parse-globs: scripts/install/*.sh scripts/run/*.sh
+
+  # The workflows are now code — a composite action, expressions referring to its
+  # outputs, shell in `run:` blocks. actionlint type-checks the expressions and runs
+  # shellcheck over the shell, which is how the SC2155 in the native job was found.
+  # The version is pinned in the script, so this cannot go red on a tool update.
+  workflows:
+    name: workflow lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      # install.sh and run.sh are curl|bash-able. Run each from an empty dir so it
-      # takes its network branch — the piped path real users hit. FM_SELFTEST stops
-      # each script after deps load and resolve, before any clone, import, OrbStack
-      # install, container, or build. install.sh stops at arg parse (needs no auth);
-      # run.sh fetches lib.sh from the pinned fm-tools tag, then stops.
-      - name: install.sh + run.sh survive the piped curl path
-        run: |
-          set -euo pipefail
-          repo="$PWD"
-          cd "$(mktemp -d)"
-          for s in install.sh run.sh; do
-            echo "== $s =="
-            out="$(cat "$repo/$s" | FM_SELFTEST=1 bash 2>&1)" \
-              || { echo "$out"; echo "FAIL: $s exited non-zero under curl|bash"; exit 1; }
-            echo "$out"
-            echo "$out" | grep -q "selftest ok" \
-              || { echo "FAIL: $s did not reach 'selftest ok'"; exit 1; }
-          done
-          echo "bootstrap self-test OK"
+      - name: actionlint
+        run: ./scripts/ci/lint-workflows.sh
 
-      # update.sh is an in-tree tool (not curl-piped), and install.sh grows an
-      # uninstall path — smoke both under FM_SELFTEST so a parse or flag-routing
-      # break is caught here, before a real convergence or teardown runs. Each
-      # stops after resolving, before any git/vcs/docker side effect.
-      - name: update.sh + uninstall survive FM_SELFTEST
-        run: |
-          set -euo pipefail
-          echo "== scripts/update.sh =="
-          FM_SELFTEST=1 bash scripts/update.sh | tee /dev/stderr | grep -q "selftest ok" \
-            || { echo "FAIL: update.sh did not reach 'selftest ok'"; exit 1; }
-          echo "== install.sh uninstall =="
-          FM_SELFTEST=1 bash install.sh uninstall --purge | tee /dev/stderr | grep -q "selftest ok" \
-            || { echo "FAIL: install.sh uninstall did not reach 'selftest ok'"; exit 1; }
-          echo "update + uninstall self-test OK"
+  # Workspace-specific guards that no other repo runs: the updater's busy gate,
+  # the bridge endpoint config, the recorder's udev rule install, and the
+  # checkout spelling the import manifests hand to colcon.
+  appliance:
+    name: appliance guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The appliance updater must tell "a take is in flight" from "idle". The
       # tactile bridge appends to recordings/tactile-raw continuously, even while
       # the recorder is idle, so the updater prunes that one directory — without
-      # the prune a glove-equipped rig can never converge on an update. The guard
-      # is a two-line find expression, easy to break in an unrelated edit.
+      # the prune a glove-equipped rig can never converge on an update.
       - name: appliance updater busy gate (recorder)
         run: bash scripts/ci/test-appliance-update.sh
 
@@ -66,6 +86,24 @@ jobs:
 
       - name: local archive service contract
         run: bash scripts/ci/test-archive-service.sh
+
+      # Repeat appliance converges must not depend on raw GitHub availability.
+      - name: recorder RealSense udev rule install
+        run: bash scripts/ci/test-recorder-udev-rules.sh
+
+      # The manifests decide what lands under src/, and a kebab checkout path
+      # there is a workspace colcon refuses to build. This holds the tracked
+      # manifests to the snake spelling and proves the guard that reads the
+      # untracked overlay still refuses the other one.
+      - name: manifest checkout paths
+        run: bash scripts/ci/test-manifest-paths.sh
+
+      # Sim is the default and --real is the flag — the claim the onboarding demo
+      # and the loop job both rest on. The argument layer needs no ROS and no
+      # Docker, so a broken flag surfaces here in a second rather than twenty
+      # minutes into the loop job's build.
+      - name: lifecycle verb resolution
+        run: bash scripts/ci/test-lifecycle-verbs.sh
 
       # Every install script is Linux-only and mostly unreachable in CI, so a parse
       # error would otherwise surface first on a real rig mid-provision.
@@ -80,37 +118,18 @@ jobs:
   workspace:
     name: build + test + smoke (humble)
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
 
       # fm-ros2 holds no package source — the seven package repos are private, so
       # mint a short-lived GitHub App token (fm-ros2-ci, Contents:read) and pull
       # them into src/ before building.
-      - uses: actions/create-github-app-token@v3
-        id: app-token
+      - uses: ./.github/actions/import-packages
+        id: packages
         with:
           app-id: ${{ secrets.FM_CI_APP_ID }}
           private-key: ${{ secrets.FM_CI_APP_KEY }}
-          owner: first-motive
-
-      - name: Import package repos
-        run: |
-          git config --global \
-            url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
-            "https://github.com/"
-          # Clone the package repos straight from the manifest URLs — no vcstool,
-          # so CI carries no extra Python deps.
-          mkdir -p src
-          while read -r url; do
-            name="$(basename "$url" .git)"
-            # fm-docker is shared container infra, not a colcon package — skip it.
-            [ "$name" = "fm-docker" ] && continue
-            echo "cloning $name"
-            # Snake the local checkout dir (src/fm_robot) to match the package name;
-            # the GitHub slug in $url stays kebab (fm-robot.git).
-            git clone --depth 1 "$url" "src/${name//-/_}"
-          done < <(grep -oE 'https://github.com/[^ ]+\.git' fm-ros2.repos)
 
       # fm-ros2 owns no image — pull the published fm-app full-stack image (the top
       # of the inheritance chain: fm-docker base -> fm-robot -> fm-app), which
@@ -121,7 +140,7 @@ jobs:
       # fm-ros2-ci app needs packages:read on the first-motive org).
       - name: Pull launcher image
         run: |
-          echo "${{ steps.app-token.outputs.token }}" | \
+          echo "${{ steps.packages.outputs.token }}" | \
             docker login ghcr.io -u x-access-token --password-stdin
           docker pull ghcr.io/first-motive/fm-app:humble
           docker tag ghcr.io/first-motive/fm-app:humble fm-ros2:ci
@@ -150,56 +169,170 @@ jobs:
                       colcon test --packages-select $fm_pkgs &&
                       colcon test-result --verbose'
 
-      # The headless three-robot smoke asserts (scripts/ci/ci-smoke.sh) are run
-      # manually / locally for now — a ros2 launch in the assembled workspace can
-      # hang teardown in CI. Tracked as a follow-up; build + test above is the
-      # integration gate.
+      # Compare what the packages declare against what the image installs. The images
+      # never run rosdep, so the two lists drift silently — that is how the container
+      # rviz path lost joint_state_publisher_gui and stayed broken (fm-robot#35).
+      #
+      # Blocking. The findings it opened with were triaged (fm-robot#36): two belonged
+      # to the private learning overlay, whose packages this image is not built to run
+      # and which the check no longer scopes in; two were the arm64-only Gazebo
+      # absence, which does not apply on the amd64 runner; and three were real gaps,
+      # fixed in fm-robot#37 and fm-app#48. Nothing is exempted, so a new drift is a
+      # red job on the commit that introduces it.
+      - name: Declared dependencies exist in the image
+        run: ./scripts/ci/check-image-deps.sh fm-ros2:ci
 
-  macos:
-    name: native sim core (macos arm64)
-    runs-on: macos-latest
+      # The integration gate. Every assert in ci-smoke.sh is a state assert — a
+      # controller reaching `active`, a commanded joint landing on its motor index,
+      # odometry tracking a published Twist — so this job goes red for a stack that
+      # comes up and does nothing, which build + test above cannot catch.
+      #
+      # The script's own teardown is bounded (timed waits then SIGKILL, never a bare
+      # `wait`), which is what previously risked hanging the job; the step timeout
+      # below is the second bound.
+      - name: Headless teleop smoke (state asserts)
+        timeout-minutes: 20
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc './scripts/ci/ci-smoke.sh'
+
+  # The sim-first loop: stack up (sim) -> episode record -> dataset process ->
+  # assert the artifacts. Every other job grades a part of the system; this one
+  # grades the path the company actually runs on, on a box with no hardware and
+  # no robot attached.
+  #
+  # It repeats the workspace job's setup rather than extending it because the two
+  # answer different questions — "does it build and behave" versus "does the data
+  # path close" — and a red build should not hide a broken loop or vice versa.
+  #
+  # NOT YET REQUIRED. Promote it to a required check after two consecutive greens
+  # on main (plan step 15.3); the first runs are what tell us whether the mujoco
+  # backend and the recorder are stable enough on a hosted runner to gate merges.
+  loop:
+    name: sim-first loop (record -> process)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
-      # The native sim-core smoke runs the fm_sim sources, which live in the fm-sim
-      # repo — check it out into src/fm_sim (where ci-smoke-macos.sh expects it).
-      - uses: actions/create-github-app-token@v3
-        id: app-token
+      - uses: ./.github/actions/import-packages
+        id: packages
         with:
           app-id: ${{ secrets.FM_CI_APP_ID }}
           private-key: ${{ secrets.FM_CI_APP_KEY }}
-          owner: first-motive
 
+      - name: Pull launcher image
+        run: |
+          echo "${{ steps.packages.outputs.token }}" | \
+            docker login ghcr.io -u x-access-token --password-stdin
+          docker pull ghcr.io/first-motive/fm-app:humble
+          docker tag ghcr.io/first-motive/fm-app:humble fm-ros2:ci
+
+      # The loop is the one job that needs the data engine, which lives in the
+      # private learning overlay. Its repo slugs come from a repo variable so no
+      # tracked file names them (repo-hygiene refuses that).
+      - name: Import the learning overlay
+        env:
+          FM_OVERLAY_REPOS: ${{ vars.FM_OVERLAY_REPOS }}
+        run: ./scripts/ci/import-overlay.sh
+
+      - name: Import externals
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc './scripts/install/import-externals.sh'
+
+      # The launcher image carries no overlay dependencies, so they are installed
+      # here and the container is committed back as the image the loop step runs
+      # — a `--rm` step would drop them before the next one started. The overlay
+      # repos carry a metapackage at their root, so colcon and rosdep stop there
+      # and never see the nested packages: the nested dirs are listed explicitly,
+      # as the provisioning scripts do. -r keeps a stray unresolvable key from
+      # masking the loop's own verdict. The engine's bag-ingest tier is pip, not
+      # rosdep — numpy pinned to the last 3.10-compatible release because the
+      # Humble image's Python is 3.10, exactly as setup-processor.sh does.
+      - name: Install overlay dependencies and build
+        run: |
+          docker run --name ws-build -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc 'source /opt/ros/humble/setup.bash \
+              && (rosdep update --rosdistro humble >/dev/null 2>&1 || true) \
+              && apt-get update -qq \
+              && rosdep install --from-paths src external src/fm_data/fm_data_* src/fm_policy/fm_policy_* \
+                   --ignore-src -y -r --rosdistro humble \
+              && pip install --quiet "numpy==2.2.6" \
+                   "$(grep -E "^rosbags==" src/fm_data/fm_data_dataset/requirements-bags.txt)" \
+              && colcon build --symlink-install \
+                   --base-paths src external src/fm_data/fm_data_* src/fm_policy/fm_policy_*'
+          docker commit ws-build fm-ros2:ci >/dev/null
+          docker rm ws-build >/dev/null
+
+      # The loop drives the same verbs a person types. Bounded by the script's own
+      # timed waits and teardown, with the step timeout as the second bound.
+      - name: Record and process an episode
+        timeout-minutes: 25
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+            bash -lc './scripts/ci/loop.sh'
+
+  # The real native path, end to end: full pixi env from the lockfile, host colcon
+  # build, the runtime smoke (launcher import + every registry launch target
+  # resolved via `ros2 launch --print`), and the host-native sim core. The build
+  # alone cannot catch a missing runtime dep — colcon ignores install_requires and
+  # launch-time packages — so this is the job that fails when the env lacks
+  # textual, joint_state_publisher, or their kin. The env is cached on pixi.lock,
+  # so warm runs skip the solve.
+  native:
+    name: native env + launch smoke (macos arm64)
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
       - uses: actions/checkout@v7
+
+      # The package repos are private — same short-lived App token as workspace.
+      - uses: ./.github/actions/import-packages
         with:
-          repository: first-motive/fm-sim
-          token: ${{ steps.app-token.outputs.token }}
-          path: src/fm_sim
+          app-id: ${{ secrets.FM_CI_APP_ID }}
+          private-key: ${{ secrets.FM_CI_APP_KEY }}
 
       - uses: astral-sh/setup-uv@v7
 
-      # Install the pixi binary (no full env solve — run-install: false) so the
-      # smoke's pixi block runs on the runner instead of skipping: it checks the
-      # lockfile is consistent with pixi.toml and covers all three platforms. The
-      # heavy full-env materialization is deferred; the lock check validates the
-      # native env solves from one manifest.
+      # import-externals.sh shells out to vcs; provision vcstool the same way
+      # install.sh does (setuptools<81 keeps pkg_resources importable).
+      - name: Vendor externals
+        run: |
+          uv tool install --quiet vcstool --with "setuptools<81"
+          uv_bin="$(uv tool dir --bin)"
+          export PATH="$uv_bin:$PATH"
+          ./scripts/install/import-externals.sh
+
+      # Full env install from pixi.lock (not run-install: false) — the point of
+      # this job is the real runtime env. Cached on the lockfile hash.
       - uses: prefix-dev/setup-pixi@v0.10.0
         with:
-          run-install: false
+          cache: true
 
-      # The M5 daily driver runs the full stack in a Linux container (OrbStack),
-      # which GitHub's macOS runners cannot host. This job covers the ROS-free
-      # pieces the M5 runs natively on arm64 CPU — the MuJoCo stepper and the MJCF
-      # registry — plus a real native mujoco wheel step — and now the native
-      # install/run dispatch (flags, profile routing) and the pixi lock check. uv
-      # provisions Python + deps; no Docker, no ROS2. Same script runs locally:
-      # ./scripts/ci/ci-smoke-macos.sh
+      - name: Build workspace (native)
+        run: pixi run build
+
+      - name: Launch smoke
+        run: ./scripts/ci/native-launch.sh
+
+      # The ROS-free half of the macOS story, which used to be its own job on a
+      # second macOS runner with its own checkout, token, and pixi install: the
+      # sim-core pytest suite, a real native arm64 mujoco step, the install/run
+      # dispatch asserts, and the pixi lock check across all three platforms. It
+      # needs the same inputs this job already has, so it runs here.
       - name: Host-native sim core smoke
         run: ./scripts/ci/ci-smoke-macos.sh
 
+  # Windows is a native-only, no-Docker path that no one runs yet — it was built
+  # ahead of a user. That is the reason to keep testing it: an untested future path
+  # rots silently, and the first person to need it pays for every commit since.
+  # The job is cheap (no env solve, no ROS) and it is the only thing anywhere that
+  # exercises the .ps1 wrappers.
   windows:
     name: native dispatch (windows)
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
@@ -212,7 +345,8 @@ jobs:
       # Windows delegates to bash via Git for Windows (bundled on windows-latest).
       # The shared dispatch smoke exercises install flag parsing, the OS-default
       # profile (native on Windows), run.sh routing, and the pixi lock check — the
-      # same script the macOS job runs. No Docker, no ROS2 (Windows is native-only).
+      # same script the native job runs through ci-smoke-macos.sh. No Docker, no
+      # ROS2 (Windows is native-only).
       - name: Native dispatch smoke (Git Bash)
         shell: bash
         run: ./scripts/ci/native-dispatch.sh
@@ -230,67 +364,10 @@ jobs:
           .\run.ps1 --native
           if ($LASTEXITCODE -ne 0) { throw 'run.ps1 did not delegate cleanly' }
 
-  # The real native path, end to end: full pixi env from the lockfile, host colcon
-  # build, then the runtime smoke (launcher import + every registry launch target
-  # resolved via `ros2 launch --print`). The build alone cannot catch a missing
-  # runtime dep — colcon ignores install_requires and launch-time packages — so
-  # this is the job that fails when the env lacks textual, joint_state_publisher,
-  # or their kin. The env is cached on pixi.lock, so warm runs skip the solve.
-  native:
-    name: native env + launch smoke (macos arm64)
-    runs-on: macos-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-
-      # The package repos are private — same short-lived App token as workspace.
-      - uses: actions/create-github-app-token@v3
-        id: app-token
-        with:
-          app-id: ${{ secrets.FM_CI_APP_ID }}
-          private-key: ${{ secrets.FM_CI_APP_KEY }}
-          owner: first-motive
-
-      - name: Import package repos
-        run: |
-          git config --global \
-            url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
-            "https://github.com/"
-          # Clone the package repos straight from the manifest URLs — no vcstool.
-          mkdir -p src
-          while read -r url; do
-            name="$(basename "$url" .git)"
-            # fm-docker is shared container infra, not a colcon package — skip it.
-            [ "$name" = "fm-docker" ] && continue
-            echo "cloning $name"
-            git clone --depth 1 "$url" "src/${name//-/_}"
-          done < <(grep -oE 'https://github.com/[^ ]+\.git' fm-ros2.repos)
-
-      - uses: astral-sh/setup-uv@v7
-
-      # import-externals.sh shells out to vcs; provision vcstool the same way
-      # install.sh does (setuptools<81 keeps pkg_resources importable).
-      - name: Vendor externals
-        run: |
-          uv tool install --quiet vcstool --with "setuptools<81"
-          export PATH="$(uv tool dir --bin):$PATH"
-          ./scripts/install/import-externals.sh
-
-      # Full env install from pixi.lock (not run-install: false) — the point of
-      # this job is the real runtime env. Cached on the lockfile hash.
-      - uses: prefix-dev/setup-pixi@v0.10.0
-        with:
-          cache: true
-
-      - name: Build workspace (native)
-        run: pixi run build
-
-      - name: Launch smoke
-        run: ./scripts/ci/native-launch.sh
-
   installer:
     name: installer import path
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -298,13 +375,14 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       # The package repos install.sh imports are private — mint the same short-lived
-      # App token the workspace job uses so the clone is authenticated.
-      - uses: actions/create-github-app-token@v3
-        id: app-token
+      # App token the workspace job uses. No clone here: the point of this job is
+      # that install.sh does the importing.
+      - uses: ./.github/actions/import-packages
+        id: packages
         with:
           app-id: ${{ secrets.FM_CI_APP_ID }}
           private-key: ${{ secrets.FM_CI_APP_KEY }}
-          owner: first-motive
+          clone: "false"
 
       # Run the installer: setup only (clone + import + viewer), no docker build or
       # run — that is run.sh's job. install-foxglove self-skips off macOS, so this
@@ -316,9 +394,10 @@ jobs:
         # ref_name on push events — one of them names the branch either way.
         env:
           FM_REPO_REF: ${{ github.head_ref || github.ref_name }}
+          TOKEN: ${{ steps.packages.outputs.token }}
         run: |
           git config --global \
-            url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf \
+            url."https://x-access-token:${TOKEN}@github.com/".insteadOf \
             "https://github.com/"
           # Provision from an empty dir — the real curl|bash path. Running from the
           # repo root collides the fm_ros2 clone target with the fm_ros2/ workspace
@@ -334,21 +413,22 @@ jobs:
   panel:
     name: foxglove teleop panel build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
       # The teleop panel lives in the fm-teleop repo — check it out to build it.
-      - uses: actions/create-github-app-token@v3
-        id: app-token
+      - uses: ./.github/actions/import-packages
+        id: packages
         with:
           app-id: ${{ secrets.FM_CI_APP_ID }}
           private-key: ${{ secrets.FM_CI_APP_KEY }}
-          owner: first-motive
+          clone: "false"
 
       - uses: actions/checkout@v7
         with:
           repository: first-motive/fm-teleop
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.packages.outputs.token }}
           path: src/fm_teleop
 
       - uses: actions/setup-node@v7

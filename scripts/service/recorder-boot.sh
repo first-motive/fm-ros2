@@ -38,8 +38,13 @@ FOXGLOVE="${FM_RECORDER_FOXGLOVE:-true}"
 # built here, so hosts without the sensor keep booting clean.
 LIDAR="${FM_RECORDER_LIDAR:-auto}"
 LIVOX_OVERLAY="$HOME/ws_livox/install/setup.sh"
+# auto probes the BUILT DRIVER NODE, not the overlay's setup script: a half-built
+# overlay (setup.sh present, node binary absent — the first Jetson, 2026-08-13)
+# would otherwise flip the LiDAR on and loop the whole appliance on "package
+# 'livox_ros_driver2' not found".
+LIVOX_NODE="$HOME/ws_livox/install/livox_ros_driver2/lib/livox_ros_driver2/livox_ros_driver2_node"
 if [ "$LIDAR" = auto ]; then
-  [ -f "$LIVOX_OVERLAY" ] && LIDAR=on || LIDAR=off
+  [ -x "$LIVOX_NODE" ] && LIDAR=on || LIDAR=off
 fi
 
 # At boot the LAN interface may not be up yet, so the foxglove profile's dds-lan.sh
@@ -95,16 +100,16 @@ if [ "$FOXGLOVE" = true ]; then
     exit 78
   fi
 
-  # fm-data now exposes foxglove_port with validation. Keep an older checkout
+  # The recorder package now exposes foxglove_port with validation. Keep an older checkout
   # compatible at the historic default, but never pretend it can bind a custom
   # configured port when its launch file still hard-codes 8765.
   launch_args="$(ros2 launch fm_data_record egocentric_record.launch.py --show-args 2>/dev/null || true)"
   if grep -q 'foxglove_port' <<<"$launch_args"; then
     LAUNCH_ARGS+=(foxglove_port:="$FM_BRIDGE_PORT")
   elif [ "$FM_BRIDGE_PORT" != "$FM_BRIDGE_DEFAULT_PORT" ]; then
-    echo "recorder-boot: configured bridge port $FM_BRIDGE_PORT needs a newer fm-data" >&2
+    echo "recorder-boot: configured bridge port $FM_BRIDGE_PORT needs a newer recorder package" >&2
     echo "  (egocentric_record.launch.py has no foxglove_port argument); install" >&2
-    echo "  fm-foxglove.service or update fm-data before enabling the embedded bridge." >&2
+    echo "  fm-foxglove.service or update the recorder package before enabling the embedded bridge." >&2
     exit 78
   fi
 

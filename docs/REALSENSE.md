@@ -5,20 +5,14 @@ macOS can't drive it, so the Mac consumes the stream over ROS 2 instead.
 
 ## Install (once)
 
-```bash
-# driver + SDK
-sudo apt install -y ros-humble-realsense2-camera
+The recorder path installs everything this page needs — the camera driver,
+the compressed image transport, and the udev rules the IMU requires: run
+`install.sh --recorder` from a checkout, or bring up a fresh Jetson
+end-to-end with [JETSON.md](JETSON.md). The commands live in
+`scripts/install/setup-recorder.sh`, the single source of truth for the
+recorder host's packages.
 
-# compressed image transports (small bags, network streaming)
-sudo apt install -y ros-humble-compressed-image-transport ros-humble-compressed-depth-image-transport
-
-# udev rules — required for the IMU
-sudo curl -fsSL https://raw.githubusercontent.com/IntelRealSense/librealsense/master/config/99-realsense-libusb.rules \
-  -o /etc/udev/rules.d/99-realsense-libusb.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-```
-
-After the udev rules, **unplug and replug** the camera. Plug it into a **USB3** port — a passive
+After the udev rules install, **unplug and replug** the camera. Plug it into a **USB3** port — a passive
 extension throttles it to USB2; use an active USB3 extension if you need reach.
 
 ## Turn on the camera
@@ -139,7 +133,7 @@ python3 scripts/internal/bridge-probe.py
 
 This sets `FM_RECORDER_FOXGLOVE=false`, so `fm-recorder.service` does not start
 a second bridge. The Avahi advert and updater use the same persisted file. The
-recorder boot script passes the configured port to a newer `fm-data` launch when
+recorder boot script passes the configured port to a newer recorder package launch when
 its validated `foxglove_port` argument exists; an older checkout remains
 compatible only with the default embedded port.
 

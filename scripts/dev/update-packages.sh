@@ -28,6 +28,11 @@ main() {
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   cd "$ROOT"
 
+  # Sourced for the two checkout-spelling helpers: refuse_kebab_manifest before
+  # an import, warn_kebab_checkouts after the last one.
+  # shellcheck source=/dev/null
+  . "$ROOT/lib.sh"
+
   # Resolve a vcs runner: prefer an installed `vcs`, else run it ephemerally via
   # uv (no global install, no PATH pollution). Fail loud if neither is available.
   local VCS
@@ -53,9 +58,16 @@ main() {
   # Private overlay: imported only when the gitignored manifest is present (team
   # members with access). Public clones skip it silently.
   if [[ -f private-overlay.repos ]]; then
+    # Gitignored and copied onto this machine, so it can be older than the
+    # tracked source it came from — check the spelling before importing it.
+    refuse_kebab_manifest private-overlay.repos || return 1
     echo "==> Importing private overlay ..."
     "${VCS[@]}" import < private-overlay.repos
   fi
+
+  # A manifest that spells a checkout with the repo slug leaves a src/ directory
+  # the rest of this workspace never reads. Check after the last import.
+  warn_kebab_checkouts "$ROOT"
 
   # vcs pull fast-forwards every clone in src/ + external/ to its tracked ref.
   echo "==> Pulling all package repos to latest ..."
