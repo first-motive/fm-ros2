@@ -84,7 +84,7 @@ pip3 install --user "mediapipe==$MEDIAPIPE_VERSION"
 # MediaPipe pulls numpy 2.x, but the system matplotlib (a MediaPipe import dep) is built for
 # numpy 1.x ("_ARRAY_API not found" / "numpy.core.multiarray failed to import"). Pin numpy < 2.
 pip3 install --user "numpy<2"
-bash src/fm_teleop/fm_teleop_vision/scripts/download_model.sh
+bash src/fm_data/fm_data_perception/scripts/download_model.sh
 
 # 4. Data engine — clone the private data-engine repo (the recorder + sensors live there)
 #    into src/fm_data if absent. Needs first-motive org access (gh auth login, or an SSH
@@ -139,8 +139,10 @@ fi
 item "resolving deps + building tracker + recorder + tactile bridge ..."
 sudo rosdep init 2>/dev/null || true
 rosdep update 2>/dev/null || true
-rosdep install --from-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
+rosdep install --from-paths src/fm_data/fm_data_perception src/fm_data/fm_data_record \
+  src/fm_data/fm_data_sensors \
   src/fm_data/fm_data_watchdog src/fm_data/fm_data_episode_qa \
+  src/fm_teleop/fm_teleop_core src/fm_teleop/fm_teleop_msgs \
   "$TACTILE_DIR/ros2_ws/src" \
   --ignore-src -y --rosdistro humble 2>/dev/null || \
   item "rosdep install skipped/partial — continuing (apt deps above cover the core path)"
@@ -150,9 +152,12 @@ rosdep install --from-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data
 item "pinning setuptools for the colcon ament_python build ..."
 pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "setuptools<64"
 # The fm_data checkout has a top-level metapackage package.xml, so colcon's recursive discovery
-# stops there and never sees the nested fm_data_record / fm_data_sensors. List their dirs
-# explicitly as base-paths (mirrors the data engine's own README), alongside src/fm_teleop for
-# the tracker + its deps.
+# stops there and never sees the nested fm_data_record / fm_data_sensors / fm_data_perception.
+# List their dirs explicitly as base-paths (mirrors the data engine's own README).
+# The tracker lives in fm_data_perception; the only teleop packages the rig builds are the
+# two dependency-free ones it publishes and filters with — fm_teleop_msgs (the perception
+# interfaces) and fm_teleop_core (the One-Euro filters). No MediaPipe-bearing teleop node,
+# no vision stack: a teleop refactor cannot break recording.
 # fm_tactile_bridge pulls fm_tactile_msgs transitively; the recorder needs that message
 # package on its PYTHONPATH too, or get_message() cannot import the type and it drops
 # /glove_left/tactile with a warning every tick.
@@ -163,17 +168,19 @@ pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "set
 # unbuilt package took the rig down. Building them is inert on its own — nothing
 # starts until a unit does.
 colcon build --symlink-install \
-  --base-paths src/fm_teleop src/fm_data/fm_data_record src/fm_data/fm_data_sensors \
+  --base-paths src/fm_data/fm_data_perception src/fm_data/fm_data_record \
+  src/fm_data/fm_data_sensors \
   src/fm_data/fm_data_watchdog src/fm_data/fm_data_episode_qa \
+  src/fm_teleop/fm_teleop_core src/fm_teleop/fm_teleop_msgs \
   "$TACTILE_DIR/ros2_ws/src" \
-  --packages-up-to fm_teleop_vision fm_data_record fm_data_sensors fm_tactile_bridge \
+  --packages-up-to fm_data_perception fm_data_record fm_data_sensors fm_tactile_bridge \
   fm_data_watchdog fm_data_episode_qa
 
 # 4b. --symlink-install can leave the model files in the package share dir as dangling symlinks;
 #     copy the real .task files in so hand_tracker (which resolves them from share) finds them.
-_share_models="install/fm_teleop_vision/share/fm_teleop_vision/models"
+_share_models="install/fm_data_perception/share/fm_data_perception/models"
 if [ -d "$_share_models" ]; then
-  cp -f src/fm_teleop/fm_teleop_vision/models/*.task "$_share_models"/ 2>/dev/null || true
+  cp -f src/fm_data/fm_data_perception/models/*.task "$_share_models"/ 2>/dev/null || true
 fi
 
 # 4c. Livox MID-360S chest LiDAR stack (best-effort — an optional sensor must never
