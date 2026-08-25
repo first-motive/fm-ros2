@@ -5,16 +5,16 @@
 First Motive's ROS2 workspace orchestrator.
 
 The public stack lives in four per-package repos under the `first-motive` org. A
-private learning overlay (data engine + policy) plugs in on top for team members
-with access. This repo holds no package source — it assembles those repos into
+learning overlay — the data engine plus the policy layer — plugs in on top for
+team members with access. This repo holds no package source — it assembles those repos into
 one colcon workspace via `vcs`, and carries the shared tooling (Docker, dev
 container, CI, scripts) and the full-system docs.
 
 ## Quick Start
 
-Provision, then launch from your terminal. The package repos are
-private, so this needs git access to the `first-motive` org — see
-[docs/RUN.md](docs/RUN.md) for details.
+Provision, then launch from your terminal. The package repos are public, so the
+workspace assembles with no credentials; only the learning overlay needs access
+to the `first-motive` org — see [docs/RUN.md](docs/RUN.md) for details.
 
 **Install** (setup only — clone + import + viewer):
 
@@ -78,7 +78,7 @@ curl ... | bash -s -- --container                  # Docker + compose
 | `--container` | Docker + compose (default: Linux; CI/parity elsewhere) |
 | `--viewer foxglove\|rviz\|none` | viewer to install (default: foxglove) |
 
-The private learning overlay imports automatically for team members: when the
+The learning overlay imports automatically for team members: when the
 installer's org-auth gate passes, its team-setup step provisions the overlay on
 top of the public workspace. No flag needed. Opt out with `--no-learning`; force
 it with `--learning` (which fails loud without org access):
@@ -92,12 +92,10 @@ curl ... | bash -s -- --no-learning   # skip the overlay
 One command per machine role — the desktop app on a Mac, and the two Linux
 appliance roles the same installer provisions:
 
-**Desktop app (macOS)** — pulls the latest release dmg into `/Applications`.
-The app repo is private, so the script is fetched over an authenticated `gh`:
+**Desktop app (macOS)** — pulls the latest release dmg into `/Applications`:
 
 ```bash
-gh api repos/first-motive/fm-desktop/contents/install.sh --jq .content \
-  | base64 --decode | bash
+curl -fsSL https://raw.githubusercontent.com/first-motive/fm-desktop/main/install.sh | bash
 ```
 
 **Recorder (Linux camera host)** — RealSense + hand tracker + tactile glove +
@@ -149,9 +147,9 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
   | bash -s -- --processor --service
 ```
 
-All three need access to the private `first-motive` org: the Linux roles clone
-private repos over git auth, and the app installer fetches its release through
-`gh`.
+The app installer needs nothing but `curl`. The two Linux roles assemble from
+public repos as well; only the learning overlay they layer on top needs git
+access to the `first-motive` org.
 
 `--service` also makes the box discoverable: the installer writes an avahi
 advert (`_fm-rig._tcp`, role-tagged) so the desktop app's Settings lists the rig
@@ -195,7 +193,7 @@ Adjudications, revocations, frozen learning snapshots, and reproducible
 improvement-run receipts persist in sibling
 `annotation-{adjudications,revocations,learning-snapshots,improvement-runs}`
 roots. The processor exposes only bounded read-only governance facts to
-Desktop; the private data engine remains the writer and verifier authority.
+Desktop; the data engine remains the writer and verifier authority.
 The same supervisor serves exact review frames through the bounded
 `/process/review_media/{select,meta,image}` contract. Requests identify an
 episode, immutable annotation-bundle digest, and indexed frame or short range;
