@@ -142,15 +142,15 @@ main() {
   fi
 
   # Re-import the package repos. Manifest paths are root-relative, so import from
-  # the root (no `src` arg), matching install.sh. A failure here is almost always
-  # missing org access to the private repos — say so plainly, then exit non-zero.
+  # the root (no `src` arg), matching install.sh. The package repos are public,
+  # so a failure here is almost always the network — say so plainly, then exit.
   local n; n=$(grep -c 'version:' fm-ros2.repos)
   item "re-importing $n repos (container infra + packages) ..."
   if ! spin "re-importing $n repos" vcs import < fm-ros2.repos; then
     echo "error: failed to import the package repos." >&2
-    echo "       The fm-* package repos are private — this needs git access to the" >&2
-    echo "       first-motive org (SSH key or a credential helper). Check your auth" >&2
-    echo "       and retry." >&2
+    echo "       The fm-* package repos are public — this is usually a network" >&2
+    echo "       problem, or a git remote that cannot be reached. Check your" >&2
+    echo "       connection and retry." >&2
     return 1
   fi
 
