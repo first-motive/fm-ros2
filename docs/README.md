@@ -19,6 +19,7 @@ Guides and references for the fm_ros2 workspace. Start at the root
 | [EXTERNALS.md](EXTERNALS.md) | Vendoring robot sources, the LeRobot editable env |
 | [POLYREPO.md](POLYREPO.md) | Where to work in the split org, and the branch rules |
 | [RELEASE.md](RELEASE.md) | The appliance release channel: cutting a tag set, the cadence, verifying convergence |
+| [adr/README.md](adr/README.md) | The standing decisions and what would reverse each one: jetson base OS, zenoh as a bridge, the pixi native path, the transport gate |
 | [diagrams/README.md](diagrams/README.md) | The d2 diagram sources: render workflow, brand styles, diagram ownership |
 
 ## Where Else Docs Live
