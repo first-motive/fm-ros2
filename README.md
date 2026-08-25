@@ -210,6 +210,19 @@ single-box setup it idles as a quiet no-op; when the recorder moves to its own
 device, set `FM_SYNC_SOURCE=user@<recorder>:~/recordings` in `/etc/fm-sync.env`
 and the split is live on the next tick.
 
+The processor build also includes `fm_data_archive`. With `--service`, it gets
+an independent `fm-archive.service` for the Desktop archive surface. The
+service is disabled in `/etc/fm-archive.env` until an operator installs a
+read-only B2 application key. Local staging is a second, default-off setting in
+that file. Restart `fm-archive.service` after enabling or changing the file.
+The service passes only archive topics over the existing local DDS
+and Foxglove boundary; Desktop never receives a credential, object key, or
+local path. Check the installed path with:
+
+```bash
+bash scripts/service/archive-check.sh
+```
+
 <details>
 <summary>Manual steps (fallback)</summary>
 

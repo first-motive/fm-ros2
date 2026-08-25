@@ -58,7 +58,7 @@ item "installing apt packages (colcon, rosdep, pip, venv) ..."
 sudo apt-get update -qq
 sudo apt-get install -y \
   python3-colcon-common-extensions python3-rosdep python3-pip python3-venv \
-  git curl
+  python3-boto3 git curl
 
 # 2. Data engine — clone the private data-engine repo (the dataset engine + the recorder's
 #    ROS-free session-index core live there) into src/fm_data if absent. Needs first-motive
@@ -137,11 +137,11 @@ fi
 # 4. Build the dataset engine + the recorder core it reads sessions.jsonl through — nothing
 #    else (no sim / robot / cameras / tracker). rosdep resolves system deps; failures there
 #    are non-fatal (the apt deps above cover the core path), so the build still proceeds.
-item "resolving deps + building the processor (fm_data, fm_data_dataset, fm_data_record, fm_data_annotate) ..."
+item "resolving deps + building the processor (dataset, annotation, and archive services) ..."
 sudo rosdep init 2>/dev/null || true
 rosdep update 2>/dev/null || true
 rosdep install --from-paths src/fm_data/fm_data_dataset src/fm_data/fm_data_record \
-  src/fm_data/fm_data_annotate \
+  src/fm_data/fm_data_annotate src/fm_data/fm_data_archive \
   --ignore-src -y --rosdistro humble 2>/dev/null || \
   item "rosdep install skipped/partial — continuing (apt deps above cover the core path)"
 # colcon --symlink-install builds ament_python via `setup.py develop --editable`; the pip installs
@@ -155,8 +155,9 @@ pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "set
 # launch/process_session.launch.py, the processor's entry point.
 colcon build --symlink-install \
   --base-paths src/fm_data src/fm_data/fm_data_dataset src/fm_data/fm_data_record \
-  src/fm_data/fm_data_annotate \
-  --packages-select fm_data fm_data_dataset fm_data_record fm_data_annotate
+  src/fm_data/fm_data_annotate src/fm_data/fm_data_archive \
+  --packages-select fm_data fm_data_dataset fm_data_record fm_data_annotate \
+  fm_data_archive
 
 # 5. Comms profile — the default (foxglove) pins FastDDS to the LAN interface so the
 #    /process/* topics reach the capture session's bridge (and, after the Jetson split, the
@@ -190,6 +191,8 @@ if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   ./scripts/install/install-appliance-sudoers.sh
   item "installing the processor boot service (fm-processor.service) ..."
   ./scripts/install/install-processor-service.sh
+  item "installing the local archive service (fm-archive.service) ..."
+  ./scripts/install/install-archive-service.sh
   # An appliance keeps itself current: fetch every ~15 min, converge on merged
   # updates (busy runs are never interrupted; see appliance-update.sh).
   item "installing the auto-update timer (fm-update-processor.timer) ..."
@@ -205,6 +208,7 @@ if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
 else
   item "boot service not installed — add it anytime with:"
   item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"
+  item "  ./scripts/install/install-archive-service.sh"
 fi
 
 # 7. Optional: the REAL annotation model (pinned Qwen weights + locked cu128

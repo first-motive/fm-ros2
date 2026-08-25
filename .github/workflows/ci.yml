@@ -84,6 +84,9 @@ jobs:
       - name: bridge endpoint config and probe
         run: bash scripts/ci/test-bridge-config.sh
 
+      - name: local archive service contract
+        run: bash scripts/ci/test-archive-service.sh
+
       # Repeat appliance converges must not depend on raw GitHub availability.
       - name: recorder RealSense udev rule install
         run: bash scripts/ci/test-recorder-udev-rules.sh
@@ -101,6 +104,16 @@ jobs:
       # minutes into the loop job's build.
       - name: lifecycle verb resolution
         run: bash scripts/ci/test-lifecycle-verbs.sh
+
+      # Every install script is Linux-only and mostly unreachable in CI, so a parse
+      # error would otherwise surface first on a real rig mid-provision.
+      - name: install scripts parse
+        run: |
+          set -euo pipefail
+          for s in scripts/install/*.sh scripts/run/*.sh; do
+            bash -n "$s" || { echo "FAIL: $s has a syntax error"; exit 1; }
+          done
+          echo "install/run script syntax OK"
 
   workspace:
     name: build + test + smoke (humble)
