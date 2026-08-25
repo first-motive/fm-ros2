@@ -70,7 +70,7 @@ pixi run bash -c '
   ros2 launch fm_bringup vision_session.launch.py \
     robot:=openarm variant:=default_bimanual sim_backend:=mujoco viewer:=false
 '
-# fm-desktop (branch feat/vision-teleop-form): ./run.sh --source, toggle Cockpit,
+# fm-desktop: ./run.sh --source, toggle Cockpit,
 # Connect to ws://localhost:8765.
 ```
 

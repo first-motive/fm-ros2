@@ -81,7 +81,7 @@ Source: [`diagrams/repomap.d2`](diagrams/repomap.d2).
 | [fm-sim](https://github.com/first-motive/fm-sim) | `fm_sim_core`, `fm_sim_backends`, `fm_sim_models`, `fm_sim` | ament_cmake | Headless dev loop, backend hosts, MJCF registry |
 | [fm-teleop](https://github.com/first-motive/fm-teleop) | `fm_teleop_*` | ament_python | Servo wiring + pluggable input adapters |
 
-A private learning overlay adds the data engine and policy layer on top — see
+A learning overlay adds the data engine and the policy layer on top — see
 [Learning Stack](#learning-stack-private-overlay).
 
 `fm_ros2` (this repo) is the workspace metapackage: it exec-depends on every public

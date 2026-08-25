@@ -112,7 +112,7 @@ in `fm-ros2.repos` — import them into `src/` first, as shown above.
 
 ### Learning overlay (team members)
 
-The private learning overlay (data engine + policy) imports automatically when you
+The learning overlay (data engine + policy layer) imports automatically when you
 install through `install.sh`: its auth gate (`gh auth` + org read) detects org
 access and the authenticated team-setup step provisions the overlay on top of the
 public workspace. No flag is needed — `--no-learning` opts out, `--learning` forces

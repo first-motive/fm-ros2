@@ -17,9 +17,9 @@
 #   curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh -o install.sh
 #   less install.sh && bash install.sh
 #
-# fm-ros2 is public, so the script is reachable; the package repos are private,
-# so the import step assumes git auth (SSH key or a credential helper) and fails
-# with a clear "need org access" message without it. Team-only by design.
+# fm-ros2 and every package repo it imports are public, so the workspace
+# assembles with no credentials. Only the learning overlay is auth-gated, and it
+# is layered on separately for org members.
 #
 # Flags (pass through the pipe with `bash -s --`):
 #   curl ... | bash -s -- --no-learning   # skip the private learning overlay
@@ -553,9 +553,9 @@ main() {
     item "importing $n repos (container infra + packages) — first run clones, sit tight ..."
     if ! spin "importing $n repos" vcs import < fm-ros2.repos; then
       echo "error: failed to import the package repos." >&2
-      echo "       The fm-* package repos are private — this needs git access to the" >&2
-      echo "       first-motive org (SSH key or a credential helper). Check your auth" >&2
-      echo "       and retry." >&2
+      echo "       The fm-* package repos are public — this is usually a network" >&2
+      echo "       problem, or a git remote that cannot be reached. Check your" >&2
+      echo "       connection and retry." >&2
       return 1
     fi
 

@@ -50,7 +50,7 @@ main() {
     echo "       Install it first (macOS):" >&2
     echo "         ./install.sh          # from this workspace — installs the team stack incl. the app" >&2
     echo "       or straight from the app repo:" >&2
-    echo "         gh api repos/first-motive/fm-desktop/contents/install.sh --jq .content | base64 --decode | bash" >&2
+    echo "         curl -fsSL https://raw.githubusercontent.com/first-motive/fm-desktop/main/install.sh | bash" >&2
     return 1
   fi
 
