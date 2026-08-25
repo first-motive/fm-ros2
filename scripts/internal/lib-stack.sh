@@ -98,20 +98,43 @@ fm_stack_exec_detached() {
   "${FM_COMPOSE[@]}" exec -d fm /ros_entrypoint.sh "$@"
 }
 
-# fm_stack_wait_topic <overlay> <topic> <timeout_s>
-# Poll until the topic is advertised, or fail after the timeout. A bounded wait,
-# never a fixed sleep: a cold container takes far longer than a warm one, and a
-# sleep long enough for the cold case wastes that time on every warm run.
-fm_stack_wait_topic() {
-  local overlay="$1" topic="$2" timeout="$3"
-  local _
+# The topics that define the stack's surface: what bringup itself publishes,
+# present in sim and on hardware alike — that identity is the claim `--real`
+# rests on. Both `up` and `status` read this one list: a readiness gate narrower
+# than the assertion that follows it is a race, and that race is what made the
+# loop job red on a cold runner (a subscriber alone advertises /joint_states, so
+# it appears before the broadcaster that publishes it is active).
+# Teleop-layer topics (Servo's command input) belong to the teleop verb, not the
+# stack; a topic only exists once something publishes or subscribes to it.
+FM_SURFACE_TOPICS=(/joint_states /dynamic_joint_states)
+
+# fm_stack_missing_topics <overlay>
+# Echo the surface topics the running stack does not carry, one per line. Empty
+# output means the surface is complete; a non-zero exit means there is no stack
+# to ask.
+fm_stack_missing_topics() {
+  local overlay="$1" topics topic
+  topics=$(fm_stack_exec "$overlay" ros2 topic list 2>/dev/null) || return 1
+  for topic in "${FM_SURFACE_TOPICS[@]}"; do
+    grep -qx "$topic" <<<"$topics" || printf '%s\n' "$topic"
+  done
+  return 0
+}
+
+# fm_stack_wait_surface <overlay> <timeout_s>
+# Poll until every surface topic is advertised, or fail after the timeout. A
+# bounded wait, never a fixed sleep: a cold container takes far longer than a
+# warm one, and a sleep long enough for the cold case wastes that time on every
+# warm run.
+fm_stack_wait_surface() {
+  local overlay="$1" timeout="$2"
+  local missing _
   for _ in $(seq 1 "$timeout"); do
-    if fm_stack_exec "$overlay" ros2 topic list 2>/dev/null | grep -qx "$topic"; then
-      return 0
-    fi
+    missing=$(fm_stack_missing_topics "$overlay") || missing="${FM_SURFACE_TOPICS[*]}"
+    [[ -z "$missing" ]] && return 0
     sleep 1
   done
-  echo "error: $topic never appeared within ${timeout}s" >&2
+  echo "error: stack surface incomplete after ${timeout}s — missing ${missing//$'\n'/ }" >&2
   return 1
 }
 

@@ -107,6 +107,36 @@ assert_refuses "stack refuses a missing action" 2 ./scripts/run/stack.sh
 assert_refuses "episode refuses a missing action" 2 ./scripts/run/episode.sh
 assert_refuses "dataset refuses a missing action" 2 ./scripts/run/dataset.sh
 
+# The readiness gate and the assertion that follows it read one list. When `up`
+# waited on /joint_states alone the loop job went red on a cold runner: a
+# subscriber advertises that topic before the broadcaster publishing it is
+# active, so `up` returned and `status` immediately called the surface partial.
+# fm_stack_exec is stubbed here — the point is which topics are demanded, which
+# needs no ROS.
+surface_gate() {
+  local listed="$1"
+  (
+    # shellcheck source=scripts/internal/lib-stack.sh disable=SC1091
+    source scripts/internal/lib-stack.sh
+    # shellcheck disable=SC2329  # called by fm_stack_missing_topics, not here
+    fm_stack_exec() { printf '%s\n' "$listed"; }
+    fm_stack_missing_topics "" | tr '\n' ' '
+  )
+}
+
+if [[ "$(surface_gate '/joint_states')" == *"/dynamic_joint_states"* ]]; then
+  pass "a half-started stack is not ready"
+else
+  fail "a half-started stack was called ready — the gate is narrower than status"
+fi
+
+if [[ -z "$(surface_gate '/joint_states
+/dynamic_joint_states')" ]]; then
+  pass "the full surface is ready"
+else
+  fail "the full surface was not called ready"
+fi
+
 # Every verb this repo mounts onto `fm` must be declared, or it is unreachable.
 for verb in stack episode dataset; do
   if grep -q "\"$verb\"" fm.json; then

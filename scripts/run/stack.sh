@@ -27,7 +27,7 @@ cd "$(dirname "$0")/../.."
 # shellcheck source=scripts/internal/lib-stack.sh
 source scripts/internal/lib-stack.sh
 
-READY_TIMEOUT=90 # seconds to wait for the stack's first topic
+READY_TIMEOUT=90 # seconds to wait for the stack's whole topic surface
 
 usage() {
   cat <<'EOF'
@@ -35,7 +35,7 @@ stack.sh — bring the robot stack up, inspect it, tear it down
 
 Usage: ./scripts/run/stack.sh <up|down|status> [options] [ros2-launch-args...]
 
-  up        launch the stack detached and wait for it to publish
+  up        launch the stack detached and wait for its whole surface
   down      stop the stack and the container behind it
   status    report whether the stack is up and which topics it carries
 
@@ -51,13 +51,6 @@ pass straight through to `ros2 launch`.
 EOF
 }
 
-# The topics that define the stack's surface: what bringup itself publishes,
-# present in sim and on hardware alike — that identity is the claim `--real`
-# rests on, so status asserts it rather than describing it. Teleop-layer topics
-# (Servo's command input) belong to the teleop verb, not the stack; a topic
-# only exists once something publishes or subscribes to it.
-SURFACE_TOPICS=(/joint_states /dynamic_joint_states)
-
 stack_up() {
   local overlay="$1" robot="$2" variant="$3" backend="$4" task_env="$5"
   shift 5
@@ -69,7 +62,8 @@ stack_up() {
     "${FM_COMPOSE[@]}" up -d
   fi
 
-  if fm_stack_exec "$overlay" ros2 topic list 2>/dev/null | grep -qx /joint_states; then
+  local missing
+  if missing=$(fm_stack_missing_topics "$overlay") && [[ -z "$missing" ]]; then
     echo ">> stack already up — leaving it alone"
     return 0
   fi
@@ -81,8 +75,8 @@ stack_up() {
 
   echo ">> launching $robot on the $backend backend, detached"
   fm_stack_exec_detached "$overlay" "${launch[@]}"
-  fm_stack_wait_topic "$overlay" /joint_states "$READY_TIMEOUT"
-  echo ">> stack up — /joint_states publishing"
+  fm_stack_wait_surface "$overlay" "$READY_TIMEOUT"
+  echo ">> stack up — surface complete (${FM_SURFACE_TOPICS[*]})"
 }
 
 stack_down() {
@@ -110,22 +104,17 @@ stack_down() {
 
 stack_status() {
   local overlay="$1"
-  local topics
-  if ! topics=$(fm_stack_exec "$overlay" ros2 topic list 2>/dev/null); then
+  local missing
+  if ! missing=$(fm_stack_missing_topics "$overlay"); then
     echo "stack: down"
     return 1
   fi
 
-  local missing=() topic
-  for topic in "${SURFACE_TOPICS[@]}"; do
-    grep -qx "$topic" <<<"$topics" || missing+=("$topic")
-  done
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "stack: partial — missing ${missing[*]}"
+  if [[ -n "$missing" ]]; then
+    echo "stack: partial — missing ${missing//$'\n'/ }"
     return 1
   fi
-  echo "stack: up — surface complete (${SURFACE_TOPICS[*]})"
+  echo "stack: up — surface complete (${FM_SURFACE_TOPICS[*]})"
   fm_stack_exec "$overlay" ros2 control list_controllers 2>/dev/null || true
 }
 
