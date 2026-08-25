@@ -70,7 +70,10 @@ stack_up() {
   fi
 
   if fm_stack_exec "$overlay" ros2 topic list 2>/dev/null | grep -qx /joint_states; then
-    echo ">> stack already up — leaving it alone"
+    for topic in "${SURFACE_TOPICS[@]}"; do
+      fm_stack_wait_topic "$overlay" "$topic" "$READY_TIMEOUT"
+    done
+    echo ">> stack already up — surface complete"
     return 0
   fi
 
@@ -81,8 +84,10 @@ stack_up() {
 
   echo ">> launching $robot on the $backend backend, detached"
   fm_stack_exec_detached "$overlay" "${launch[@]}"
-  fm_stack_wait_topic "$overlay" /joint_states "$READY_TIMEOUT"
-  echo ">> stack up — /joint_states publishing"
+  for topic in "${SURFACE_TOPICS[@]}"; do
+    fm_stack_wait_topic "$overlay" "$topic" "$READY_TIMEOUT"
+  done
+  echo ">> stack up — surface complete (${SURFACE_TOPICS[*]})"
 }
 
 stack_down() {
