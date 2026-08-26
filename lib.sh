@@ -23,8 +23,11 @@ latest_release_tag() {  # dir
 pin_release() {  # dir
   local dir="$1" tag
   [ -d "$dir/.git" ] || return 0
+  local shallow
+  shallow="$(git -C "$dir" rev-parse --is-shallow-repository 2>/dev/null)" \
+    || { item "WARNING: $(basename "$dir") release state is unreadable — not moving it"; return 0; }
   local -a depth=()
-  [ -f "$(git -C "$dir" rev-parse --git-dir)/shallow" ] && depth=(--depth 1)
+  [ "$shallow" = true ] && depth=(--depth 1)
   git -C "$dir" fetch --quiet --force ${depth[@]+"${depth[@]}"} origin \
     '+refs/tags/*:refs/tags/*' 2>/dev/null || true
   tag="$(latest_release_tag "$dir")"
@@ -36,7 +39,40 @@ pin_release() {  # dir
     item "WARNING: $(basename "$dir") has local changes — not moving it to $tag"
     return 0
   fi
-  [ "$(git -C "$dir" rev-parse HEAD)" = "$(git -C "$dir" rev-parse "$tag^{commit}")" ] && return 0
+  local head tagc
+  head="$(git -C "$dir" rev-parse HEAD 2>/dev/null)" || {
+    item "WARNING: $(basename "$dir") HEAD is unreadable — not moving it"
+    return 0
+  }
+  tagc="$(git -C "$dir" rev-parse "$tag^{commit}" 2>/dev/null)" || {
+    item "WARNING: $(basename "$dir") release $tag is unreadable — not moving it"
+    return 0
+  }
+  [ "$head" = "$tagc" ] && return 0
+  if ! git -C "$dir" merge-base --is-ancestor "$head" "$tagc" 2>/dev/null; then
+    if git -C "$dir" merge-base --is-ancestor "$tagc" "$head" 2>/dev/null; then
+      item "WARNING: $(basename "$dir") is ahead of $tag — not moving it backward"
+      return 0
+    fi
+    if [ "$shallow" = true ]; then
+      git -C "$dir" fetch -q --unshallow origin "$tag" 2>/dev/null || {
+        item "WARNING: $(basename "$dir") release ancestry is incomplete — not moving it"
+        return 0
+      }
+      if git -C "$dir" merge-base --is-ancestor "$head" "$tagc" 2>/dev/null; then
+        :
+      elif git -C "$dir" merge-base --is-ancestor "$tagc" "$head" 2>/dev/null; then
+        item "WARNING: $(basename "$dir") is ahead of $tag — not moving it backward"
+        return 0
+      else
+        item "WARNING: $(basename "$dir") diverges from $tag — not moving it"
+        return 0
+      fi
+    else
+      item "WARNING: $(basename "$dir") diverges from $tag — not moving it"
+      return 0
+    fi
+  fi
   item "pinning $(basename "$dir") to release $tag ..."
   git -C "$dir" -c advice.detachedHead=false checkout --quiet "$tag"
 }

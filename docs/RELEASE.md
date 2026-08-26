@@ -11,7 +11,8 @@ mechanism. At install, `setup-<role>.sh` pins each repo to its newest `v*` tag
 [`scripts/service/appliance-update.sh`](../scripts/service/appliance-update.sh)
 about every 15 minutes, and it moves a repo only when a **newer** `v*` tag
 exists. Merging to `main` therefore changes nothing on a rig: a tag is the only
-signal the fleet listens to.
+signal the fleet listens to. Both paths require the tag to descend from the
+current checkout; an ahead or divergent checkout is held for review.
 
 That makes an untagged repo invisible to the channel rather than merely behind.
 The updater reports it `untagged` and leaves it on whatever commit the clone

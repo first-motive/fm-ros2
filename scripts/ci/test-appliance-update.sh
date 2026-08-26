@@ -218,6 +218,89 @@ if [ "$(git -C "$SHALLOW_AHEAD_ROOT" rev-parse HEAD)" != "$ahead_head" ]; then
   exit 1
 fi
 
+# Mixed release state must remain safe through the installer. Updating the
+# workspace causes setup-processor.sh to run with FM_INSTALL_SERVICE=1; its
+# pin_release call must not roll an ahead nested data checkout backward.
+MIXED_ROOT_SEED="$TMP_DIR/mixed-root-seed"
+MIXED_ROOT_REMOTE="$TMP_DIR/mixed-root-origin.git"
+MIXED_ROOT="$TMP_DIR/mixed-ws/fm_ros2"
+git init -q -b main "$MIXED_ROOT_SEED"
+git -C "$MIXED_ROOT_SEED" config user.name "First Motive CI"
+git -C "$MIXED_ROOT_SEED" config user.email "ci@firstmotive.ai"
+mkdir -p "$MIXED_ROOT_SEED/scripts/service" "$MIXED_ROOT_SEED/scripts/install"
+cp "$ROOT/lib.sh" "$MIXED_ROOT_SEED/lib.sh"
+cp "$ROOT/scripts/service/appliance-update.sh" \
+  "$MIXED_ROOT_SEED/scripts/service/appliance-update.sh"
+cat > "$MIXED_ROOT_SEED/scripts/install/setup-processor.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+. "$ROOT/lib.sh"
+pin_release "$ROOT/src/fm_data"
+: > "$FM_TEST_INSTALL_MARKER"
+EOF
+chmod +x "$MIXED_ROOT_SEED/scripts/install/setup-processor.sh"
+printf 'v1\n' > "$MIXED_ROOT_SEED/release-state.txt"
+git -C "$MIXED_ROOT_SEED" add .
+git -C "$MIXED_ROOT_SEED" commit -q -m "release one"
+git -C "$MIXED_ROOT_SEED" tag -a v0.1.0 -m v0.1.0
+git clone -q --bare "$MIXED_ROOT_SEED" "$MIXED_ROOT_REMOTE"
+git clone -q "file://$MIXED_ROOT_REMOTE" "$MIXED_ROOT"
+git -C "$MIXED_ROOT" checkout -q v0.1.0
+printf 'v2\n' > "$MIXED_ROOT_SEED/release-state.txt"
+git -C "$MIXED_ROOT_SEED" add release-state.txt
+git -C "$MIXED_ROOT_SEED" commit -q -m "release two"
+git -C "$MIXED_ROOT_SEED" tag -a v0.1.1 -m v0.1.1
+git -C "$MIXED_ROOT_SEED" remote add origin "$MIXED_ROOT_REMOTE"
+git -C "$MIXED_ROOT_SEED" push -q origin main v0.1.1
+root_release="$(git -C "$MIXED_ROOT_SEED" rev-parse v0.1.1^{commit})"
+
+MIXED_DATA_SEED="$TMP_DIR/mixed-data-seed"
+MIXED_DATA_REMOTE="$TMP_DIR/mixed-data-origin.git"
+git init -q -b main "$MIXED_DATA_SEED"
+git -C "$MIXED_DATA_SEED" config user.name "First Motive CI"
+git -C "$MIXED_DATA_SEED" config user.email "ci@firstmotive.ai"
+printf 'released\n' > "$MIXED_DATA_SEED/data-state.txt"
+git -C "$MIXED_DATA_SEED" add data-state.txt
+git -C "$MIXED_DATA_SEED" commit -q -m "released"
+git -C "$MIXED_DATA_SEED" tag -a v0.1.0 -m v0.1.0
+printf 'ahead\n' > "$MIXED_DATA_SEED/data-state.txt"
+git -C "$MIXED_DATA_SEED" add data-state.txt
+git -C "$MIXED_DATA_SEED" commit -q -m "unreleased"
+data_ahead="$(git -C "$MIXED_DATA_SEED" rev-parse HEAD)"
+git clone -q --bare "$MIXED_DATA_SEED" "$MIXED_DATA_REMOTE"
+mkdir -p "$MIXED_ROOT/src"
+git clone -q "file://$MIXED_DATA_REMOTE" "$MIXED_ROOT/src/fm_data"
+MIXED_MARKER="$TMP_DIR/mixed-installer-ran"
+MIXED_BIN="$TMP_DIR/mixed-bin"
+mkdir -p "$MIXED_BIN"
+cat > "$MIXED_BIN/flock" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$MIXED_BIN/flock"
+output="$(
+  FM_TEST_INSTALL_MARKER="$MIXED_MARKER" \
+    PATH="$MIXED_BIN:$PATH" \
+    "$MIXED_ROOT/scripts/service/appliance-update.sh" processor
+)"
+if [ ! -f "$MIXED_MARKER" ]; then
+  printf 'mixed-state updater did not run the installer; got: %s\n' "$output" >&2
+  exit 1
+fi
+if [ "$(git -C "$MIXED_ROOT" rev-parse HEAD)" != "$root_release" ]; then
+  echo "mixed-state updater did not advance the workspace release" >&2
+  exit 1
+fi
+if [ "$(git -C "$MIXED_ROOT/src/fm_data" rev-parse HEAD)" != "$data_ahead" ]; then
+  echo "installer pin_release rolled the ahead data checkout backward" >&2
+  exit 1
+fi
+if ! grep -q "fm_data is ahead of v0.1.0" <<< "$output"; then
+  printf 'mixed-state hold was not reported; got: %s\n' "$output" >&2
+  exit 1
+fi
+
 touch "$TMP_DIR/recordings/tactile-raw/continuous.tactile.csv"
 output="$(
   FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/recordings" \
