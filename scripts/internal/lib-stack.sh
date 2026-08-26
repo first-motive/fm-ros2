@@ -129,9 +129,14 @@ fm_stack_exec_detached() {
 # took the already-up branch, and the stack was never launched (#136). A
 # publisher count is the question actually being asked: is this stack running.
 fm_stack_has_publisher() {
-  local overlay="$1" topic="$2"
-  fm_stack_exec "$overlay" ros2 topic info "$topic" 2>/dev/null |
-    grep -qE '^Publisher count: [1-9]'
+  local overlay="$1" topic="$2" info
+  # Captured, then matched — never piped into `grep -q`. Under `set -o pipefail`
+  # (every verb here sets it) grep exits at the first match, the command upstream
+  # takes SIGPIPE, and the pipeline's status is that failure rather than the
+  # match. A running stack then read as no publisher, at random. Found on
+  # fm-ws-01 while verifying this fix.
+  info="$(fm_stack_exec "$overlay" ros2 topic info "$topic" 2>/dev/null)" || return 1
+  grep -qE '^Publisher count: [1-9]' <<<"$info"
 }
 
 # fm_stack_wait_publisher <overlay> <topic> <timeout_s>

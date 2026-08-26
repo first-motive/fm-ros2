@@ -26,6 +26,9 @@ fail() {
 # command in the library goes through, so replacing it swaps the whole graph.
 # FIXTURE holds what `ros2 topic info <topic>` answers.
 FIXTURE=""
+long_fixture="$(mktemp)"
+trap 'rm -f "$long_fixture"' EXIT
+# shellcheck disable=SC2329  # invoked through the library, not from here
 fm_stack_exec() {
   shift # overlay
   case "$*" in
@@ -70,6 +73,39 @@ fi
 
 # The bounded wait must give up on a graph that never publishes, rather than
 # returning the subscriber as success.
+# The verbs all run under `set -o pipefail`, where piping into `grep -q` reports
+# the upstream command's SIGPIPE rather than the match — a running stack read as
+# no publisher, at random (seen on fm-ws-01). An EXTERNAL producer is what makes
+# that reproducible: a shell builtin writing into a closed pipe does not die the
+# way `docker compose exec` does.
+set -o pipefail
+# shellcheck disable=SC2329  # invoked through the library, not from here
+fm_stack_exec() {
+  shift
+  case "$*" in
+    "ros2 topic info "*)
+      printf '%s\n' "$PUBLISHED" >"$long_fixture"
+      seq 1 200000 >>"$long_fixture"
+      /bin/cat "$long_fixture"
+      ;;
+    *) return 0 ;;
+  esac
+}
+if fm_stack_has_publisher overlay /joint_states; then
+  pass "a publisher is found however the reader treats the pipe"
+else
+  fail "a publisher is missed when the reader closes the pipe early"
+fi
+set +o pipefail
+# shellcheck disable=SC2329  # invoked through the library, not from here
+fm_stack_exec() {
+  shift
+  case "$*" in
+    "ros2 topic info "*) printf '%s\n' "$FIXTURE" ;;
+    *) return 0 ;;
+  esac
+}
+
 FIXTURE="$SUBSCRIBER_ONLY"
 if fm_stack_wait_publisher overlay /joint_states 1 2>/dev/null; then
   fail "the wait returns success on a subscriber-only topic"
