@@ -140,8 +140,10 @@ it.
 (`annotation_run` / `annotation_verify`), and the supervisor the desktop
 app's Process surface drives (`/process/*`). Deliberately its own workspace,
 separate from a recorder checkout: the recorder later moves to its own device
-while processing stays on the strong host. `--service` installs
-`fm-processor.service`:
+while processing stays on the strong host. On Ubuntu 22.04 it runs natively; on
+any other Linux host with docker (the fm-setup workstation) it runs inside the
+Humble container, with the same units on the host execing into it. `--service`
+installs `fm-processor.service`:
 
 ```bash
 mkdir -p ~/processor && cd ~/processor

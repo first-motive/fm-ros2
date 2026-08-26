@@ -22,9 +22,83 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT/scripts/env/bridge.sh"
 cd "$ROOT"
 
-# 0. ROS 2 Humble. A fresh appliance host arrives without it, so install it here
-#    when the host is Ubuntu 22.04 — the one distro Humble binaries target
-#    (setup-recorder.sh pattern). Any other host keeps the hard requirement.
+# Shared by the native path and the host side of the container path.
+clone_data_engine() {
+  if [ ! -d src/fm_data/.git ]; then
+    _data_repo="$(printf '%s' 'Zm0tZGF0YQ==' | base64 -d)"
+    item "cloning the private data engine (needs first-motive org access) ..."
+    git clone --depth 1 "https://github.com/first-motive/${_data_repo}.git" src/fm_data || {
+      echo "ERROR: could not clone the private data engine (the dataset engine lives there)." >&2
+      echo "       Ensure git can reach the private first-motive org (gh auth login, or an" >&2
+      echo "       SSH key), then re-run." >&2
+      exit 1
+    }
+  fi
+}
+
+install_services() {
+  if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
+    # The auto-update timer below re-runs this installer unattended, and its
+    # apt/systemd steps are all sudo — grant the appliance user passwordless
+    # sudo first (FM_NO_SUDOERS=1 opts out; updates then need a manual re-run).
+    item "granting passwordless sudo for unattended updates (FM_NO_SUDOERS=1 skips) ..."
+    ./scripts/install/install-appliance-sudoers.sh
+    item "installing the processor boot service (fm-processor.service) ..."
+    ./scripts/install/install-processor-service.sh
+    item "installing the local archive service (fm-archive.service) ..."
+    ./scripts/install/install-archive-service.sh
+    # An appliance keeps itself current: fetch every ~15 min, converge on merged
+    # updates (busy runs are never interrupted; see appliance-update.sh).
+    item "installing the auto-update timer (fm-update-processor.timer) ..."
+    ./scripts/install/install-update-timer.sh processor
+    # Recordings transfer for the two-box split: idle no-op until FM_SYNC_SOURCE
+    # is configured (single-box setups need no transfer; see recordings-sync.sh).
+    item "installing the recordings-sync timer (fm-sync.timer) ..."
+    ./scripts/install/install-sync-timer.sh
+    # Make the box discoverable: advertise the processor role over mDNS so the
+    # desktop app's Settings offers this rig instead of a typed IP.
+    item "advertising the processor on the local network (mDNS) ..."
+    ./scripts/install/install-avahi-advert.sh processor
+  else
+    item "boot service not installed — add it anytime with:"
+    item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"
+    item "  ./scripts/install/install-archive-service.sh"
+  fi
+}
+
+# 0. Runtime. Native Humble on Ubuntu 22.04, or — on a Linux host without it, such
+#    as the fm-setup workstation (26.04 / Lyrical) — the published Humble container
+#    (#127). In the container case this host-side run clones the engine (the host
+#    holds the org credentials), starts the container, re-runs this script inside
+#    it for the build, and then installs the host units, which exec into it.
+#    scripts/internal/lib-processor.sh holds the resolution.
+# shellcheck disable=SC1091
+. "$ROOT/scripts/internal/lib-processor.sh"
+FM_PROCESSOR_RUNTIME="$(fm_processor_runtime)" || exit 1
+export FM_PROCESSOR_RUNTIME
+in_container() { [ -f /.dockerenv ]; }
+
+if [ "$FM_PROCESSOR_RUNTIME" = container ] && ! in_container; then
+  item "no native ROS 2 Humble on this host — the processor runs in the Humble container"
+  clone_data_engine
+  if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
+    pin_release src/fm_data
+  fi
+  fm_processor_import_docker "$ROOT"
+  fm_processor_compose "$ROOT"
+  fm_processor_prepare_mounts
+  item "starting the processor container ($FM_IMAGE) ..."
+  "${FM_COMPOSE[@]}" up -d fm
+  item "building the processor inside the container ..."
+  "${FM_COMPOSE[@]}" exec -e FM_PROCESSOR_RUNTIME=container -e FM_INSTALL_SERVICE=0 \
+    -e "FM_INSTALL_RLDS=${FM_INSTALL_RLDS:-0}" fm /ros_entrypoint.sh \
+    bash scripts/install/setup-processor.sh
+  install_services
+  exit 0
+fi
+
+# 0b. ROS 2 Humble, natively. A fresh 22.04 appliance host arrives without it, so
+#     install it here (setup-recorder.sh pattern).
 if [ ! -f /opt/ros/humble/setup.bash ]; then
   _os_id="$(. /etc/os-release 2>/dev/null && echo "${ID:-}")"
   _os_ver="$(. /etc/os-release 2>/dev/null && echo "${VERSION_ID:-}")"
@@ -64,16 +138,7 @@ sudo apt-get install -y \
 #    ROS-free session-index core live there) into src/fm_data if absent. Needs first-motive
 #    org access (gh auth login, or an SSH key). The repo slug is held base64-encoded so the
 #    public tree does not name it (repo-hygiene scan).
-if [ ! -d src/fm_data/.git ]; then
-  _data_repo="$(printf '%s' 'Zm0tZGF0YQ==' | base64 -d)"
-  item "cloning the private data engine (needs first-motive org access) ..."
-  git clone --depth 1 "https://github.com/first-motive/${_data_repo}.git" src/fm_data || {
-    echo "ERROR: could not clone the private data engine (the dataset engine lives there)." >&2
-    echo "       Ensure git can reach the private first-motive org (gh auth login, or an" >&2
-    echo "       SSH key), then re-run." >&2
-    exit 1
-  }
-fi
+clone_data_engine
 
 # 2b. Appliance release channel (--service): pin the engine to its newest release
 #     tag, so the box starts where the auto-updater will keep it (setup-recorder.sh
@@ -164,7 +229,7 @@ colcon build --symlink-install \
 #    recorder host). Auto-source it in every shell. A rig on another profile sets FM_COMMS
 #    or the .fm_ros2.json key.
 item "wiring the comms profile into ~/.bashrc ..."
-if ! grep -Fq "$ROOT/scripts/env/comms.sh" "$HOME/.bashrc" 2>/dev/null; then
+if ! in_container && ! grep -Fq "$ROOT/scripts/env/comms.sh" "$HOME/.bashrc" 2>/dev/null; then
   # Drop the pre-comms.sh line a rig provisioned earlier still carries — comms.sh
   # sources dds-lan.sh itself for the foxglove profile, so keeping both would pin
   # DDS before the profile gets to choose.
@@ -183,33 +248,8 @@ fi
 #    Installs a systemd unit so this host comes up as a headless processing appliance:
 #    process_supervisor up on boot, driven remotely from the desktop app's Process surface.
 #    A plain --processor just builds; the appliance is opt-in.
-if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
-  # The auto-update timer below re-runs this installer unattended, and its
-  # apt/systemd steps are all sudo — grant the appliance user passwordless
-  # sudo first (FM_NO_SUDOERS=1 opts out; updates then need a manual re-run).
-  item "granting passwordless sudo for unattended updates (FM_NO_SUDOERS=1 skips) ..."
-  ./scripts/install/install-appliance-sudoers.sh
-  item "installing the processor boot service (fm-processor.service) ..."
-  ./scripts/install/install-processor-service.sh
-  item "installing the local archive service (fm-archive.service) ..."
-  ./scripts/install/install-archive-service.sh
-  # An appliance keeps itself current: fetch every ~15 min, converge on merged
-  # updates (busy runs are never interrupted; see appliance-update.sh).
-  item "installing the auto-update timer (fm-update-processor.timer) ..."
-  ./scripts/install/install-update-timer.sh processor
-  # Recordings transfer for the two-box split: idle no-op until FM_SYNC_SOURCE
-  # is configured (single-box setups need no transfer; see recordings-sync.sh).
-  item "installing the recordings-sync timer (fm-sync.timer) ..."
-  ./scripts/install/install-sync-timer.sh
-  # Make the box discoverable: advertise the processor role over mDNS so the
-  # desktop app's Settings offers this rig instead of a typed IP.
-  item "advertising the processor on the local network (mDNS) ..."
-  ./scripts/install/install-avahi-advert.sh processor
-else
-  item "boot service not installed — add it anytime with:"
-  item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"
-  item "  ./scripts/install/install-archive-service.sh"
-fi
+install_services
+
 
 # 7. Optional: the REAL annotation model (pinned Qwen weights + locked cu128
 #    runtime). Opt-in — ~22 GB of downloads, GPU hosts only; the fake-adapter

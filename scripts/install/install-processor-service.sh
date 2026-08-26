@@ -22,6 +22,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT/lib.sh"          # item()
 # shellcheck disable=SC1091
 . "$ROOT/scripts/env/bridge.sh"
+# shellcheck disable=SC1091
+. "$ROOT/scripts/internal/lib-processor.sh"
 cd "$ROOT"
 
 UNIT=/etc/systemd/system/fm-processor.service
@@ -81,12 +83,25 @@ do_install() {
   # shellcheck disable=SC1091
   . "$ROOT/scripts/env/bridge.sh"
 
-  item "writing $UNIT (User=$SERVICE_USER, HOME=$SERVICE_HOME, workspace=$ROOT) ..."
+  # In the container runtime the unit execs the same wrapper through compose;
+  # the image, not the host, holds ROS (#127). See scripts/service/container-exec.sh.
+  local runtime exec_start exec_stop="" requires=""
+  runtime="$(fm_processor_runtime)" || return 1
+  if [ "$runtime" = container ]; then
+    exec_start="/bin/bash $ROOT/scripts/service/container-exec.sh scripts/service/processor-boot.sh"
+    exec_stop="ExecStop=/bin/bash $ROOT/scripts/service/container-exec.sh stop 'process_session\\.launch'"
+    requires="Requires=docker.service"
+  else
+    exec_start="/bin/bash $WRAPPER"
+  fi
+
+  item "writing $UNIT (User=$SERVICE_USER, HOME=$SERVICE_HOME, workspace=$ROOT, runtime=$runtime) ..."
   sudo tee "$UNIT" >/dev/null <<EOF
 [Unit]
 Description=First Motive dataset processor (process_supervisor for the app's Process surface)
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
+$requires
 # Never permanently give up: an appliance that boots before the network (or the
 # recorder session) is up should keep retrying rather than land in a failed state.
 StartLimitIntervalSec=0
@@ -98,7 +113,8 @@ Environment=HOME=$SERVICE_HOME
 EnvironmentFile=-$ENVFILE
 EnvironmentFile=-$BRIDGE_ENV
 WorkingDirectory=$ROOT
-ExecStart=/bin/bash $WRAPPER
+ExecStart=$exec_start
+$exec_stop
 Restart=on-failure
 RestartSec=5
 
