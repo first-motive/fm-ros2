@@ -30,6 +30,25 @@ recorded in the pull request.
 Only after that gate passes: delete the FastDDS LAN profile, and keep
 `FM_TRANSPORT=dds-lan` as an escape hatch labelled unsupported.
 
+### The router host
+
+The fleet's single `zenohd` router runs on Rune, the office Mac mini, as a
+LaunchDaemon on the **host**. Rune is the only machine that is always on, wired,
+and on the tailnet. The GPU workstation was the obvious alternative and is the
+wrong one: it is wiped, rebooted, and loaded with sim and inference, and every
+reboot there would take the fleet's discovery point with it. A recorder must keep
+its session through a workstation reboot; that is a gate line (7.2), not a hope.
+
+The router never runs inside Rune's CI guest. The guest is ephemeral and
+Softnet-isolated by design, so a router there is unreachable while it exists and
+gone when the job ends. The installer refuses a virtual machine and refuses the
+`fm-ci` account as owner. Sharing the mini is fine; sharing the sandbox is not.
+
+The router listens on Rune's LAN address and its tailnet address, both. In the
+office a rig connects over plain TCP on the LAN; off-site, or on a Wi-Fi link
+that filters multicast, the same rig connects through the tailnet. A rig that
+moves between the two changes its endpoint, not its transport.
+
 ## Consequences
 
 - `main` never carries a transport nobody has run on three real machines.
