@@ -153,7 +153,7 @@ jobs:
             bash -lc './scripts/install/import-externals.sh'
 
       # The archive and processor must use one receipt-bound LeRobot import
-      # root. This check is source-only and runs after the private fm-data
+      # root. This check is source-only and runs after the private data source
       # checkout is imported, before the assembled build starts.
       - name: LeRobot archive-to-Process root contract
         run: bash scripts/ci/test-processor-lerobot-root.sh
