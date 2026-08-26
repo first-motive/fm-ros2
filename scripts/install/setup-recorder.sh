@@ -26,12 +26,14 @@ fi
 # shellcheck disable=SC1091
 set +u; source /opt/ros/humble/setup.bash; set -u
 
-# 1. Camera driver + compressed transport + build tooling (apt).
-item "installing apt packages (RealSense driver, compressed transport, colcon, rosdep) ..."
+# 1. Camera drivers + compressed transport + build tooling (apt). usb_cam drives the
+#    two USB wrist cameras (fm_data_sensors cameras.launch.py prefers it on Linux).
+item "installing apt packages (RealSense + USB camera drivers, compressed transport, colcon, rosdep) ..."
 sudo apt-get update -qq
 sudo apt-get install -y \
-  ros-humble-realsense2-camera ros-humble-compressed-image-transport \
-  ros-humble-rosbag2-storage-mcap \
+  ros-humble-realsense2-camera ros-humble-usb-cam \
+  ros-humble-compressed-image-transport \
+  ros-humble-rosbag2-storage-mcap v4l-utils \
   python3-colcon-common-extensions python3-vcstool python3-rosdep python3-pip \
   python3-opencv git curl
 

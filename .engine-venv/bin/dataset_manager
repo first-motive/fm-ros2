@@ -1,0 +1,6 @@
+#!/home/nish/jetson/fm_ros2/.engine-venv/bin/python3
+import sys
+from fm_data_dataset.dataset_manager import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())
