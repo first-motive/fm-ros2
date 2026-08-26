@@ -320,14 +320,14 @@ if [ -n "$_error" ]; then
 fi
 
 
-# 5. Comms profile — the default (foxglove) pins FastDDS to the LAN interface so the
-#    /process/* topics reach the capture session's bridge (and, after the Jetson split, the
-#    recorder host). Auto-source it in every shell. A rig on another profile sets FM_COMMS
-#    or the .fm_ros2.json key.
+# 5. Comms profile — the default (zenoh) pins DDS to loopback and carries the
+#    /process/* topics to the capture session's bridge and the recorder host over this
+#    rig's zenoh bridge. Auto-source it in every shell. The profile comes from this
+#    machine's identity card; FM_TRANSPORT=dds-lan overrides one run.
 item "wiring the comms profile into ~/.bashrc ..."
 if ! in_container && ! grep -Fq "$ROOT/scripts/env/comms.sh" "$HOME/.bashrc" 2>/dev/null; then
   # Drop the pre-comms.sh line a rig provisioned earlier still carries — comms.sh
-  # sources dds-lan.sh itself for the foxglove profile, so keeping both would pin
+  # sources dds-lan.sh itself for the dds-lan profile, so keeping both would pin
   # DDS before the profile gets to choose.
   sed -i '\#scripts/run/dds-lan.sh#d' "$HOME/.bashrc" 2>/dev/null || true
   # Drop the line written before the profiles moved to scripts/env/. A rig

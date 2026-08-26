@@ -220,7 +220,7 @@ main() {
   # the LAN interface and sets ROS_DOMAIN_ID/RMW, so the TUI reaches the rig's
   # /vision/* + /capture/* topics over the network (extra NICs otherwise break
   # delivery). Mirrors what recorder-boot.sh does rig-side. FM_LAN_IP=<ip> overrides
-  # a wrong auto-detect; FM_COMMS=<profile> overrides the transport.
+  # a wrong auto-detect; FM_TRANSPORT=<profile> overrides the transport for one run.
   exec pixi run bash -c \
     'source scripts/env/comms.sh && source install/setup.bash && exec ros2 run fm_tui fm_tui_launcher'
 }

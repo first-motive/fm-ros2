@@ -164,7 +164,9 @@ set +u
 source /opt/ros/humble/setup.bash
 # shellcheck disable=SC1091
 source "$ROOT/install/setup.bash"
-# The comms profile — foxglove (dds-lan.sh) unless FM_COMMS or .fm_ros2.json says otherwise.
+# The comms profile — zenoh unless this machine's identity card, or FM_TRANSPORT,
+# says otherwise. A service reads the same card the rig's bridge renders from, so
+# the unit and the bridge cannot end up on different middleware.
 # shellcheck disable=SC1091
 source "$ROOT/scripts/env/comms.sh"
 set -u
