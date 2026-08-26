@@ -326,15 +326,22 @@ main() {
   # up on a different middleware than the host's bridge is routing — a stack that
   # starts, publishes, and is heard by nobody.
   #
-  # Only the two values a container can act on cross the boundary. The dds-lan
-  # profile's FastDDS XML lives in the host's $HOME and is not mounted, which is
-  # the other reason the container path wants zenoh: under it there is nothing
-  # host-specific to carry.
+  # Only what a container can act on crosses the boundary. The dds-lan profile's
+  # FastDDS XML lives in the host's $HOME and is not mounted, which is the other
+  # reason the container path wants zenoh: under it there is nothing host-specific
+  # to carry.
+  #
+  # ROS_LOCALHOST_ONLY is deliberately NOT forwarded. The zenoh profile sets it on
+  # the host so that DDS stays on the host's loopback and the host's bridge carries
+  # everything else. Inside a container, loopback is the container's own — the same
+  # value there would hide the container's graph from a bridge on the host, which
+  # is the opposite of what it means outside. A container that needs to reach the
+  # fabric runs its own bridge, host-networked, from comms/deploy/compose.zenoh.yaml.
   # shellcheck source=../env/comms.sh disable=SC1091
   source scripts/env/comms.sh
   export FM_COMMS_PROFILE
   export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
-  export ROS_LOCALHOST_ONLY="${ROS_LOCALHOST_ONLY:-0}"
+  unset ROS_LOCALHOST_ONLY
   item "comms profile: $FM_COMMS_PROFILE (RMW $RMW_IMPLEMENTATION)"
 
   COMPOSE=(docker compose -p "$(fm_compose_project sim)"
