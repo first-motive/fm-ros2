@@ -27,7 +27,13 @@ fi
 
 PROBE="$ROOT/scripts/service/bridge-probe.py"
 if [ -f "$PROBE" ] && command -v python3 >/dev/null 2>&1; then
-  if timeout 40 python3 "$PROBE" /archive/index /archive/status >/dev/null 2>&1; then
+  # `/archive/stage` is the request channel. Foxglove advertises it alongside
+  # the latched index/status channels, so this check proves Desktop can both
+  # read archive state and submit the bounded stage request. Completion remains
+  # the `stage` block in `/archive/status`; there is intentionally no second
+  # completion topic to keep the archive boundary small.
+  if timeout 40 python3 "$PROBE" \
+      /archive/index /archive/status /archive/stage >/dev/null 2>&1; then
     ok "the Desktop bridge advertises the archive topics"
   else
     bad "the Desktop bridge does not advertise the archive topics"

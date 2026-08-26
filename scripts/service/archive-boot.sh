@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # Start the processor-owned archive browser in its own systemd service.
+#
+# The optional LeRobot source is configured only through the processor's
+# environment file: FM_ARCHIVE_LEROBOT_CATALOGUE_FILE names a local closed
+# catalogue, and FM_ARCHIVE_LEROBOT_STAGE_ENABLED gates its bounded stage job.
+# Desktop cannot provide either value over ROS.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -13,6 +18,11 @@ esac
 case "${FM_ARCHIVE_STAGE_ENABLED:-false}" in
   true|false) ;;
   *) echo "archive-boot: FM_ARCHIVE_STAGE_ENABLED must be true or false" >&2; exit 2 ;;
+esac
+
+case "${FM_ARCHIVE_LEROBOT_STAGE_ENABLED:-false}" in
+  true|false) ;;
+  *) echo "archive-boot: FM_ARCHIVE_LEROBOT_STAGE_ENABLED must be true or false" >&2; exit 2 ;;
 esac
 
 for name in FM_ARCHIVE_MAX_OBJECTS FM_ARCHIVE_MAX_TOTAL_BYTES \
@@ -45,12 +55,23 @@ fi
 
 CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$HOME/.cache/fm-archive}"
 STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$HOME/.cache/fm-archive/staged}"
+LEROBOT_CATALOGUE_FILE="${FM_ARCHIVE_LEROBOT_CATALOGUE_FILE:-}"
+LEROBOT_STAGE_DIR="${FM_ARCHIVE_LEROBOT_STAGE_DIR:-$HOME/.cache/fm-archive/lerobot-staged}"
 
 echo "archive-boot: starting the local archive browser"
 exec ros2 run fm_data_archive archive_browser --ros-args \
   -p cache_dir:="$CACHE_DIR" \
+  -p index_topic:=/archive/index \
+  -p detail_topic:=/archive/detail \
+  -p status_topic:=/archive/status \
+  -p select_topic:=/archive/select \
+  -p sync_topic:=/archive/sync \
+  -p stage_topic:=/archive/stage \
   -p stage_dir:="$STAGE_DIR" \
   -p stage_enabled:="${FM_ARCHIVE_STAGE_ENABLED:-false}" \
+  -p lerobot_catalogue_file:="$LEROBOT_CATALOGUE_FILE" \
+  -p lerobot_stage_dir:="$LEROBOT_STAGE_DIR" \
+  -p lerobot_stage_enabled:="${FM_ARCHIVE_LEROBOT_STAGE_ENABLED:-false}" \
   -p stage_max_objects:="${FM_ARCHIVE_MAX_OBJECTS:-16}" \
   -p stage_max_total_bytes:="${FM_ARCHIVE_MAX_TOTAL_BYTES:-2147483648}" \
   -p stage_max_episodes:="${FM_ARCHIVE_MAX_EPISODES:-32}" \

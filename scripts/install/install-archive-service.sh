@@ -58,6 +58,12 @@ AWS_SECRET_ACCESS_KEY=
 FM_ARCHIVE_STAGE_ENABLED=false
 FM_ARCHIVE_CACHE_DIR=
 FM_ARCHIVE_STAGE_DIR=
+
+# The LeRobot catalogue is a processor-owned closed JSON file. Empty keeps the
+# source unpublished; Desktop cannot provide a bucket prefix or catalogue path.
+FM_ARCHIVE_LEROBOT_CATALOGUE_FILE=
+FM_ARCHIVE_LEROBOT_STAGE_DIR=~/.cache/fm-archive/lerobot-staged
+FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false
 FM_ARCHIVE_MAX_OBJECTS=16
 FM_ARCHIVE_MAX_TOTAL_BYTES=2147483648
 FM_ARCHIVE_MAX_EPISODES=32
