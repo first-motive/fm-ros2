@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Where the processor role runs on this host. Sourced by setup-processor.sh and
+# the service installers — never executed.
+#
+# Two runtimes, one role:
+#
+#   native     ROS 2 Humble on the host (Ubuntu 22.04). Build and services run
+#              directly, as they always have.
+#   container  the host is Linux without Humble (the fm-setup workstation is
+#              26.04 / Lyrical). Build and launch run inside the published Humble
+#              image on the Linux compose overlay; systemd units on the host exec
+#              into it (#127, option 1). The workspace and the user's home are
+#              bind-mounted at their host paths, so every ~/recordings-shaped
+#              knob means the same thing on both sides.
+#
+# Native on a non-22.04 Linux host (option 2 in #127) is future work: it needs
+# the Humble gate dropped and a Lyrical CI job, and nothing here blocks it.
+
+# fm_processor_runtime
+# Echo native | container. Fails with a message when neither is possible.
+# FM_PROCESSOR_RUNTIME, when set, is the answer — the container re-exec sets it,
+# and a host can pin it.
+fm_processor_runtime() {
+  if [ -n "${FM_PROCESSOR_RUNTIME:-}" ]; then
+    printf '%s\n' "$FM_PROCESSOR_RUNTIME"
+    return 0
+  fi
+  if [ -f /opt/ros/humble/setup.bash ] || fm_processor_is_jammy; then
+    echo native
+    return 0
+  fi
+  if [ "$(uname -s)" = Linux ] && fm_processor_has_docker; then
+    echo container
+    return 0
+  fi
+  cat >&2 <<'MSG'
+ERROR: ROS 2 Humble not found at /opt/ros/humble, this host is not Ubuntu 22.04
+       (the one distro its binaries target), and docker is not reachable — so the
+       processor can run neither natively nor in the Humble container. Install
+       docker (fm-setup's docker step), or Humble: https://docs.ros.org/en/humble/Installation.html
+MSG
+  return 1
+}
+
+# Split out so a test can stub them: the real checks read the host.
+fm_processor_is_jammy() {
+  # shellcheck disable=SC1091
+  [ "$(. /etc/os-release 2>/dev/null && echo "${ID:-}:${VERSION_ID:-}")" = "ubuntu:22.04" ]
+}
+fm_processor_has_docker() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
+
+# Directories the processor overlay bind-mounts (compose.processor.yaml). Created
+# on the host before the first `up`, so docker never creates them root-owned.
+FM_PROCESSOR_MOUNTS=(recordings processed annotations fm-data-runs dataset-releases)
+
+# fm_processor_compose <workspace-root>
+# Fill FM_COMPOSE with the compose invocation for the processor container: the
+# shared base, the Linux overlay, and the processor overlay that mounts $HOME.
+# shellcheck disable=SC2034  # FM_COMPOSE is read by the caller
+fm_processor_compose() {
+  local root="$1"
+  export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
+  export FM_WS="$root"
+  FM_COMPOSE=(docker compose -f "$root/docker/compose.yaml" -f "$root/docker/compose.linux.yaml" \
+    -f "$root/compose.processor.yaml")
+}
+
+# fm_processor_prepare_mounts
+# Create the bind-mounted data directories under $HOME, user-owned.
+fm_processor_prepare_mounts() {
+  local d
+  for d in "${FM_PROCESSOR_MOUNTS[@]}"; do mkdir -p "$HOME/$d"; done
+}
+
+# fm_processor_import_docker <workspace-root>
+# Clone the shared container infra into docker/ at the tag fm-ros2.repos pins,
+# when it is absent. The processor role skips the full `vcs import` (it needs
+# none of the package repos), so it fetches the one entry it does need.
+fm_processor_import_docker() {
+  local root="$1" url version
+  [ -d "$root/docker" ] && return 0
+  url="$(awk '/^  docker:/{f=1} f && /url:/{print $2; exit}' "$root/fm-ros2.repos")"
+  version="$(awk '/^  docker:/{f=1} f && /version:/{print $2; exit}' "$root/fm-ros2.repos")"
+  [ -n "$url" ] && [ -n "$version" ] || { echo "ERROR: no docker entry in fm-ros2.repos" >&2; return 1; }
+  git clone --quiet --depth 1 --branch "$version" "$url" "$root/docker"
+}

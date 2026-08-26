@@ -1,0 +1,20 @@
+# Processor overlay — stacked on compose.yaml + compose.linux.yaml when the
+# processor role runs in the Humble container (scripts/internal/lib-processor.sh).
+#
+# The role's data directories are mounted at their host paths and HOME points at
+# the host home, so every ~/...-shaped knob in /etc/fm-processor.env names the
+# same files inside and outside the container. Only these directories cross:
+# the whole home would carry ~/.ssh and ~/.git-credentials into a root
+# container, and nothing in the role reads them (the engine is cloned on the
+# host). A knob pointed outside this set needs its directory added here.
+# setup-processor.sh creates them first, so they mount user-owned.
+services:
+  fm:
+    environment:
+      - HOME=${HOME}
+    volumes:
+      - ${HOME}/recordings:${HOME}/recordings
+      - ${HOME}/processed:${HOME}/processed
+      - ${HOME}/annotations:${HOME}/annotations
+      - ${HOME}/fm-data-runs:${HOME}/fm-data-runs
+      - ${HOME}/dataset-releases:${HOME}/dataset-releases

@@ -5,6 +5,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 . "$ROOT/lib.sh"
+# shellcheck disable=SC1091
+. "$ROOT/scripts/internal/lib-processor.sh"
 
 UNIT=/etc/systemd/system/fm-archive.service
 ENVFILE=/etc/fm-archive.env
@@ -24,12 +26,25 @@ do_install() {
   _require_linux_systemd || return 0
   [ -f "$WRAPPER" ] || { echo "ERROR: $WRAPPER is missing." >&2; return 1; }
 
-  item "writing $UNIT (User=$SERVICE_USER, workspace=$ROOT) ..."
+  # Same runtime split as fm-processor.service (#127): in the container runtime
+  # the wrapper runs through compose, since ROS lives in the image.
+  local runtime exec_start exec_stop="" requires=""
+  runtime="$(fm_processor_runtime)" || return 1
+  if [ "$runtime" = container ]; then
+    exec_start="/bin/bash $ROOT/scripts/service/container-exec.sh scripts/service/archive-boot.sh"
+    exec_stop="ExecStop=/bin/bash $ROOT/scripts/service/container-exec.sh stop archive_browser"
+    requires="Requires=docker.service"
+  else
+    exec_start="/bin/bash $WRAPPER"
+  fi
+
+  item "writing $UNIT (User=$SERVICE_USER, workspace=$ROOT, runtime=$runtime) ..."
   sudo tee "$UNIT" >/dev/null <<EOF
 [Unit]
 Description=First Motive local recording archive browser
-After=network-online.target fm-processor.service
+After=network-online.target fm-processor.service docker.service
 Wants=network-online.target
+$requires
 StartLimitIntervalSec=0
 
 [Service]
@@ -38,7 +53,8 @@ User=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
 EnvironmentFile=-$ENVFILE
 WorkingDirectory=$ROOT
-ExecStart=/bin/bash $WRAPPER
+ExecStart=$exec_start
+$exec_stop
 Restart=on-failure
 RestartSec=10
 

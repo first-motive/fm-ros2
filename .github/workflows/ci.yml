@@ -105,6 +105,12 @@ jobs:
       - name: lifecycle verb resolution
         run: bash scripts/ci/test-lifecycle-verbs.sh
 
+      # The processor role picks native Humble or the Humble container by host
+      # (#127); the picker is stubbed here so a wrong branch fails in CI, not on
+      # the workstation.
+      - name: processor runtime resolution
+        run: bash scripts/ci/test-processor-runtime.sh
+
       # Every install script is Linux-only and mostly unreachable in CI, so a parse
       # error would otherwise surface first on a real rig mid-provision.
       - name: install scripts parse
