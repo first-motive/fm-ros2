@@ -77,7 +77,8 @@ stack_up() {
     return 0
   fi
 
-  local launch=(ros2 launch fm_bringup sim.launch.py
+  # --noninteractive: detached, there is no stdin for launch to read (#130).
+  local launch=(ros2 launch --noninteractive fm_bringup sim.launch.py
     "robot:=$robot" "sim_backend:=$backend" "task_env:=$task_env")
   [[ -n "$variant" ]] && launch+=("variant:=$variant")
   launch+=("$@")

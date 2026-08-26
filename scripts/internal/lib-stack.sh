@@ -18,6 +18,11 @@
 # hardware path, kept in the same list because it picks an overlay the same way.
 FM_BACKENDS=(mock mujoco gazebo isaac real)
 
+# Where detached launches write their output inside the container, one file
+# per launch: `stack up` and `episode` both launch detached in one container,
+# and a single file would be truncated by the second.
+FM_STACK_LOG_DIR=/tmp/fm-launch
+
 # fm_stack_normalize <value>
 # Echo the underscore spelling of a robot/backend/variant argument, so
 # `default-bimanual` and `default_bimanual` are the same value everywhere.
@@ -36,17 +41,20 @@ fm_stack_check_backend() {
 }
 
 # fm_stack_overlay <backend>
-# Echo the compose overlay the backend needs. The CPU simulators run on the macOS
-# daily driver; the GPU simulators and the hardware path need the Linux overlay.
+# Echo the compose overlay for this host and backend. The host OS decides first:
+# the macOS overlay pins linux/arm64, and picking it on an x86-64 Linux box for
+# a CPU simulator pulled the wrong image and died on `exec format error` (#128).
+# On Linux every backend takes the Linux overlay; on macOS the CPU simulators
+# take the macOS one and the GPU/hardware backends still name the Linux overlay,
+# which is what they need wherever they end up running.
 fm_stack_overlay() {
-  case "$1" in
-    mock | mujoco) printf 'docker/compose.macos.yaml\n' ;;
-    gazebo | isaac | real) printf 'docker/compose.linux.yaml\n' ;;
-    *)
-      echo "error: no compose overlay for backend '$1'" >&2
-      return 1
-      ;;
-  esac
+  fm_stack_check_backend "$1" || return 1
+  if [[ "$(uname -s)" == Darwin ]]; then
+    case "$1" in
+      mock | mujoco) printf 'docker/compose.macos.yaml\n'; return ;;
+    esac
+  fi
+  printf 'docker/compose.linux.yaml\n'
 }
 
 # fm_stack_inplace
@@ -95,7 +103,14 @@ fm_stack_exec_detached() {
   fm_stack_compose "$overlay"
   # shellcheck disable=SC2034  # read by the caller in the in-place branch above
   FM_STACK_PID=""
-  "${FM_COMPOSE[@]}" exec -d fm /ros_entrypoint.sh "$@"
+  # Through a shell so the launch's output lands in a file: `exec -d` discards
+  # stdout and stderr, and a launch that died left no trace (#130). stdin is
+  # closed on purpose — the compose service is a tty, and `ros2 launch` reading
+  # an interactive stdin it never gets is the likeliest reason it exited.
+  # shellcheck disable=SC2016  # deliberate: $0 and $@ expand in the far-side shell
+  "${FM_COMPOSE[@]}" exec -d fm /ros_entrypoint.sh bash -c \
+    'mkdir -p "$0" && exec "$@" >"$0/$(date +%s)-$$.log" 2>&1 </dev/null' \
+    "$FM_STACK_LOG_DIR" "$@"
 }
 
 # fm_stack_wait_topic <overlay> <topic> <timeout_s>
@@ -112,6 +127,7 @@ fm_stack_wait_topic() {
     sleep 1
   done
   echo "error: $topic never appeared within ${timeout}s" >&2
+  fm_stack_inplace || echo "launch output: docker compose exec fm sh -c 'tail -n 50 $FM_STACK_LOG_DIR/*.log'" >&2
   return 1
 }
 
