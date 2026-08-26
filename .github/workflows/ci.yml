@@ -332,16 +332,19 @@ jobs:
       # The loop drives the same verbs a person types. Bounded by the script's own
       # timed waits and teardown, with the step timeout as the second bound.
       #
-      # Pinned to dds-lan, deliberately and temporarily.
+      # Pinned to `none`, deliberately and temporarily.
       #
-      # This job runs one container with no zenoh bridge and no router in it, so
-      # it cannot exercise what the zenoh profile is for — it would only subject
-      # an unrelated job to a middleware switch. Left on the default it fails
-      # here: the stack comes up, /joint_states is advertised, and the first
-      # `ros2 topic echo --once` gets no sample within 20s. Cyclone's participant
-      # ceiling on loopback was one cause and is fixed (scripts/env/comms-zenoh.sh);
-      # whatever remains is NOT understood, and pinning the transport is how that
-      # is stated rather than hidden.
+      # This job runs one self-contained container with no zenoh bridge and no
+      # router in it, so it cannot exercise what the zenoh profile is for — it
+      # would only subject an unrelated job to a middleware switch. `none` leaves
+      # the image's own middleware alone, which is exactly what this job had
+      # before the verbs began sourcing a transport at all.
+      #
+      # Left on the default it fails here: the stack comes up, /joint_states is
+      # advertised, and the first `ros2 topic echo --once` gets no sample within
+      # 20s. Cyclone's participant ceiling on loopback was one cause and is fixed
+      # (scripts/env/comms-zenoh.sh); whatever remains is NOT understood, and
+      # pinning the transport is how that is stated rather than hidden.
       #
       # The same stack runs on the workstation, so the question is answered where
       # it matters: section 3 of comms/docs/HARDWARE-GATE.md drives this loop over
@@ -349,7 +352,7 @@ jobs:
       - name: Record and process an episode
         timeout-minutes: 25
         run: |
-          docker run --rm -e FM_TRANSPORT=dds-lan \
+          docker run --rm -e FM_TRANSPORT=none \
             -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc './scripts/ci/loop.sh'
 
