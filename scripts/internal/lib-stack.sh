@@ -18,6 +18,11 @@
 # hardware path, kept in the same list because it picks an overlay the same way.
 FM_BACKENDS=(mock mujoco gazebo isaac real)
 
+# Where detached launches write their output inside the container, one file
+# per launch: `stack up` and `episode` both launch detached in one container,
+# and a single file would be truncated by the second.
+FM_STACK_LOG_DIR=/tmp/fm-launch
+
 # fm_stack_normalize <value>
 # Echo the underscore spelling of a robot/backend/variant argument, so
 # `default-bimanual` and `default_bimanual` are the same value everywhere.
@@ -98,7 +103,14 @@ fm_stack_exec_detached() {
   fm_stack_compose "$overlay"
   # shellcheck disable=SC2034  # read by the caller in the in-place branch above
   FM_STACK_PID=""
-  "${FM_COMPOSE[@]}" exec -d fm /ros_entrypoint.sh "$@"
+  # Through a shell so the launch's output lands in a file: `exec -d` discards
+  # stdout and stderr, and a launch that died left no trace (#130). stdin is
+  # closed on purpose — the compose service is a tty, and `ros2 launch` reading
+  # an interactive stdin it never gets is the likeliest reason it exited.
+  # shellcheck disable=SC2016  # deliberate: $0 and $@ expand in the far-side shell
+  "${FM_COMPOSE[@]}" exec -d fm /ros_entrypoint.sh bash -c \
+    'mkdir -p "$0" && exec "$@" >"$0/$(date +%s)-$$.log" 2>&1 </dev/null' \
+    "$FM_STACK_LOG_DIR" "$@"
 }
 
 # fm_stack_wait_topic <overlay> <topic> <timeout_s>
@@ -115,6 +127,7 @@ fm_stack_wait_topic() {
     sleep 1
   done
   echo "error: $topic never appeared within ${timeout}s" >&2
+  fm_stack_inplace || echo "launch output: docker compose exec fm sh -c 'tail -n 50 $FM_STACK_LOG_DIR/*.log'" >&2
   return 1
 }
 
