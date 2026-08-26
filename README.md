@@ -217,11 +217,27 @@ read-only B2 application key. Local staging is a second, default-off setting in
 that file. Restart `fm-archive.service` after enabling or changing the file.
 The service passes only archive topics over the existing local DDS
 and Foxglove boundary; Desktop never receives a credential, object key, or
-local path. Check the installed path with:
+local path. The `/archive/stage` topic accepts a bounded episode request. The
+latched `/archive/status` topic reports queued, staging, refusal, failure, or
+completion in its `stage` block; there is no separate completion topic. Check
+the installed path with:
 
 ```bash
 bash scripts/service/archive-check.sh
 ```
+
+The optional LeRobot source uses the same processor-owned service. Set
+`FM_ARCHIVE_LEROBOT_CATALOGUE_FILE` in `/etc/fm-archive.env` to a closed local
+catalogue JSON when it is approved for use. The empty default publishes no
+LeRobot episodes. `FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false` is a separate
+default-off gate; when enabled, staged imports use
+`FM_ARCHIVE_LEROBOT_STAGE_DIR` (default
+`~/.cache/fm-archive/lerobot-staged`). Desktop sends only a published episode
+identity and request ID; it never supplies this path, a bucket prefix, or a
+credential. The processor service reads the same canonical root through
+`FM_PROCESSOR_LEROBOT_IMPORTS_DIR`; if either root is customized, set both to
+the same directory before restarting `fm-archive.service` and
+`fm-processor.service`.
 
 <details>
 <summary>Manual steps (fallback)</summary>

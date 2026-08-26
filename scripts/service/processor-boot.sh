@@ -16,6 +16,7 @@
 #   FM_PROCESSOR_ENGINE_PYTHON=<exe>   interpreter for the dataset_process subprocess
 #                                      (default: the workspace .engine-venv when present)
 #   FM_PROCESSOR_ANNOTATIONS_DIR=<dir> per-episode annotation bundle root
+#   FM_PROCESSOR_LEROBOT_IMPORTS_DIR=<dir> receipt-bound LeRobot Process imports
 #   FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=<dir> durable attempt evidence root
 #   FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=<dir> durable human review receipts
 #   FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=<dir> durable corrected outputs
@@ -40,6 +41,7 @@ RECORDINGS_DIR="${FM_PROCESSOR_RECORDINGS_DIR:-~/recordings}"
 OUTPUT_DIR="${FM_PROCESSOR_OUTPUT_DIR:-~/processed}"
 CONFIG="${FM_PROCESSOR_CONFIG:-}"
 ANNOTATIONS_DIR="${FM_PROCESSOR_ANNOTATIONS_DIR:-}"
+LEROBOT_IMPORTS_DIR="${FM_PROCESSOR_LEROBOT_IMPORTS_DIR:-~/.cache/fm-archive/lerobot-staged}"
 ANNOTATION_ATTEMPTS_DIR="${FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR:-~/fm-data-runs/annotation-attempts}"
 ANNOTATION_REVIEWS_DIR="${FM_PROCESSOR_ANNOTATION_REVIEWS_DIR:-~/fm-data-runs/annotation-reviews}"
 ANNOTATION_CORRECTIONS_DIR="${FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR:-~/fm-data-runs/annotation-corrections}"
@@ -93,6 +95,7 @@ set -u
 # absent, the launch file's empty defaults hold. Hit live on the first
 # processor host, 2026-07-22.
 LAUNCH_ARGS=(recordings_dir:="$RECORDINGS_DIR" output_dir:="$OUTPUT_DIR")
+LAUNCH_ARGS+=(lerobot_imports_dir:="$LEROBOT_IMPORTS_DIR")
 LAUNCH_ARGS+=(annotation_attempts_dir:="$ANNOTATION_ATTEMPTS_DIR")
 LAUNCH_ARGS+=(annotation_reviews_dir:="$ANNOTATION_REVIEWS_DIR")
 LAUNCH_ARGS+=(annotation_corrections_dir:="$ANNOTATION_CORRECTIONS_DIR")
