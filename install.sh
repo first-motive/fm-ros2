@@ -147,6 +147,15 @@ Path (where the stack runs):
                       separate from a recorder checkout (run the one-liner from
                       e.g. ~/processor). Ubuntu 22.04 + ROS 2 Humble required.
 
+Transport:
+  --comms PROFILE     zenoh (default) | dds-lan
+                      Which middleware every process on this host speaks. zenoh
+                      pins DDS to loopback and carries cross-machine traffic over
+                      one zenoh router; dds-lan is the labelled escape hatch for
+                      hardware that has not been through the transport migration.
+                      Written to this machine's identity card, so it outlives the
+                      checkout — and to .fm_ros2.json when the host has no card.
+
 Viewer:
   --viewer VIEWER     foxglove (default) | rviz | panel | none
                       panel = the fm_viewer web panel (needs no host install; the
@@ -173,8 +182,10 @@ Options:
   -h, --help          show this help
 
 The chosen path + viewer are written to .fm_ros2.json at the workspace root, which
-run.sh reads to route the launch. Flags override; headless + unflagged falls back
-to the OS default path and the foxglove viewer.
+run.sh reads to route the launch. The transport goes to this machine's identity
+card instead, because it is a fact about the machine rather than the checkout.
+Flags override; headless + unflagged falls back to the OS default path, the
+foxglove viewer, and the zenoh transport.
 EOF
 }
 
@@ -437,7 +448,7 @@ purge_workspace_repos() {
 }
 
 main() {
-  local cmd=install learning=auto dry=0 path="" viewer=foxglove
+  local cmd=install learning=auto dry=0 path="" viewer=foxglove comms=zenoh
   local no_desktop=false no_ai=false purge=0 service=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -447,6 +458,7 @@ main() {
       --recorder) path=recorder; shift ;;
       --processor) path=processor; shift ;;
       --viewer) viewer="${2:?--viewer needs a value}"; shift 2 ;;
+      --comms) comms="${2:?--comms needs a value}"; shift 2 ;;
       --learning) learning=on; shift ;;
       --no-learning) learning=off; shift ;;
       --no-desktop) no_desktop=true; shift ;;
@@ -466,6 +478,11 @@ main() {
   case "$viewer" in
     foxglove|rviz|panel|none) ;;
     *) echo "error: --viewer must be foxglove, rviz, panel, or none (got '$viewer')" >&2; return 1 ;;
+  esac
+
+  case "$comms" in
+    zenoh|dds-lan|foxglove) ;;
+    *) echo "error: --comms must be zenoh or dds-lan (got '$comms')" >&2; return 1 ;;
   esac
 
   # Default path by OS when unflagged: native is the recommended path on macOS and
@@ -490,7 +507,7 @@ main() {
   # stop before any clone, import, or teardown (covers install AND uninstall). Lets
   # the curl-path test prove the script loads and flag/default routing works, no auth.
   if [[ -n "${FM_SELFTEST:-}" ]]; then
-    echo "selftest ok: install.sh parsed under curl|bash (cmd=$cmd, path=$path, viewer=$viewer, learning=$learning, no_desktop=$no_desktop, no_ai=$no_ai, purge=$purge, service=$service)"
+    echo "selftest ok: install.sh parsed under curl|bash (cmd=$cmd, path=$path, viewer=$viewer, comms=$comms, learning=$learning, no_desktop=$no_desktop, no_ai=$no_ai, purge=$purge, service=$service)"
     return 0
   fi
 
@@ -653,10 +670,22 @@ main() {
     warn_kebab_checkouts "$PWD"
   fi
 
+  # The transport, recorded where every process on this host will read it. Last,
+  # and for every path including the two appliance roles: a recorder that speaks
+  # a different middleware than its bridge routes records an empty bag, which is
+  # the failure this one line exists to prevent.
+  #
+  # Not fatal on failure. The workspace above is provisioned and usable, and the
+  # host already has a working default — refusing to finish the install over a
+  # setting the user can change afterwards would be the worse trade.
+  step "Transport"
+  ./scripts/internal/set-comms.sh "$comms" || \
+    echo "warning: could not record the transport — set it later with ./run.sh --comms $comms" >&2
+
   # Setup ends here. run.sh builds and launches the interactive TUI, which needs a
   # controlling terminal — so it is the user's next step, not a curl|bash handoff.
   step "Ready"
-  item "workspace provisioned at $PWD (path=$path, viewer=$viewer)"
+  item "workspace provisioned at $PWD (path=$path, viewer=$viewer, comms=$comms)"
   if [[ "$path" == recorder ]]; then
     item "recorder ready — see the camera/tracker/record commands above (and docs/REALSENSE.md)"
   elif [[ "$path" == processor ]]; then
