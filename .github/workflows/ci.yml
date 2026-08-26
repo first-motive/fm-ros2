@@ -112,6 +112,12 @@ jobs:
       - name: stack publisher detection
         run: bash scripts/ci/test-stack-publisher.sh
 
+      # Each role owns a compose project, so the sim stack and the processor
+      # never share one container (#135). The libraries only build the
+      # invocation, so no Docker is needed to hold them to it.
+      - name: compose project per role
+        run: bash scripts/ci/test-compose-project.sh
+
       # The processor role picks native Humble or the Humble container by host
       # (#127); the picker is stubbed here so a wrong branch fails in CI, not on
       # the workstation.

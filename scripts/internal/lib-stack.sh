@@ -14,6 +14,11 @@
 # compose service; inside the built container ROS is already sourced, so the same
 # verb runs the command in place. One code path, two hosts.
 
+# The compose project this role addresses — `fm-sim`, never the checkout's
+# directory name, which the processor's checkout also carries (#135).
+# shellcheck source=lib-compose.sh disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-compose.sh"
+
 # Every backend sim.launch.py accepts. `real` is not a simulator — it is the
 # hardware path, kept in the same list because it picks an overlay the same way.
 FM_BACKENDS=(mock mujoco gazebo isaac real)
@@ -69,7 +74,8 @@ fm_stack_inplace() { command -v ros2 >/dev/null 2>&1; }
 fm_stack_compose() {
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$PWD"
-  FM_COMPOSE=(docker compose -f docker/compose.yaml -f "$1")
+  FM_COMPOSE=(docker compose -p "$(fm_compose_project sim)"
+    -f docker/compose.yaml -f "$1")
 }
 
 # fm_stack_exec <overlay> <command...>

@@ -116,7 +116,8 @@ main() {
   fi
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$PWD"
-  local COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
+  local COMPOSE=(docker compose -p "$(fm_compose_project sim)"
+    -f docker/compose.yaml -f "$OVERLAY")
   local SERVICE=fm
 
   local LAUNCH=(ros2 launch fm_bringup sim.launch.py \
