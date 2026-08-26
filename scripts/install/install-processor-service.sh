@@ -47,7 +47,9 @@ install-processor-service.sh — install/remove the fm-processor boot service (L
 The service runs scripts/service/processor-boot.sh as the installing user: it sources
 ROS + the workspace overlay + comms.sh, then launches process_session.launch.py
 (the process_supervisor node). Manifests land in ~/processed. Tune it via
-/etc/fm-processor.env (FM_PROCESSOR_RECORDINGS_DIR, FM_PROCESSOR_OUTPUT_DIR, ...).
+/etc/fm-processor.env (FM_PROCESSOR_RECORDINGS_DIR, FM_PROCESSOR_OUTPUT_DIR,
+FM_PROCESSOR_LEROBOT_IMPORTS_DIR, ...). The LeRobot imports root must match the
+archive service's FM_ARCHIVE_LEROBOT_STAGE_DIR when either is customized.
 The shared Foxglove/Avahi endpoint is persisted separately in /etc/fm-bridge.env.
 EOF
 }
@@ -126,6 +128,9 @@ FM_PROCESSOR_CONFIG=
 #FM_PROCESSOR_ENGINE_PYTHON=
 # Per-episode annotation bundle root (empty = the launch default, ~/annotations):
 #FM_PROCESSOR_ANNOTATIONS_DIR=
+# Processor-owned receipt-bound LeRobot imports. Keep this equal to
+# FM_ARCHIVE_LEROBOT_STAGE_DIR in /etc/fm-archive.env when a custom root is used.
+FM_PROCESSOR_LEROBOT_IMPORTS_DIR=~/.cache/fm-archive/lerobot-staged
 # Durable queued/running/generated/failed/blocked annotation attempt evidence:
 FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=~/fm-data-runs/annotation-attempts
 # Durable immutable review, correction, learning, governance, and run lineage:

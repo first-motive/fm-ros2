@@ -152,6 +152,12 @@ jobs:
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc './scripts/install/import-externals.sh'
 
+      # The archive and processor must use one receipt-bound LeRobot import
+      # root. This check is source-only and runs after the private fm-data
+      # checkout is imported, before the assembled build starts.
+      - name: LeRobot archive-to-Process root contract
+        run: bash scripts/ci/test-processor-lerobot-root.sh
+
       - name: colcon build
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
