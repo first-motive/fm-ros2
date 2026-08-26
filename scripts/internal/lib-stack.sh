@@ -36,17 +36,20 @@ fm_stack_check_backend() {
 }
 
 # fm_stack_overlay <backend>
-# Echo the compose overlay the backend needs. The CPU simulators run on the macOS
-# daily driver; the GPU simulators and the hardware path need the Linux overlay.
+# Echo the compose overlay for this host and backend. The host OS decides first:
+# the macOS overlay pins linux/arm64, and picking it on an x86-64 Linux box for
+# a CPU simulator pulled the wrong image and died on `exec format error` (#128).
+# On Linux every backend takes the Linux overlay; on macOS the CPU simulators
+# take the macOS one and the GPU/hardware backends still name the Linux overlay,
+# which is what they need wherever they end up running.
 fm_stack_overlay() {
-  case "$1" in
-    mock | mujoco) printf 'docker/compose.macos.yaml\n' ;;
-    gazebo | isaac | real) printf 'docker/compose.linux.yaml\n' ;;
-    *)
-      echo "error: no compose overlay for backend '$1'" >&2
-      return 1
-      ;;
-  esac
+  fm_stack_check_backend "$1" || return 1
+  if [[ "$(uname -s)" == Darwin ]]; then
+    case "$1" in
+      mock | mujoco) printf 'docker/compose.macos.yaml\n'; return ;;
+    esac
+  fi
+  printf 'docker/compose.linux.yaml\n'
 }
 
 # fm_stack_inplace
