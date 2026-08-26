@@ -331,10 +331,26 @@ jobs:
 
       # The loop drives the same verbs a person types. Bounded by the script's own
       # timed waits and teardown, with the step timeout as the second bound.
+      #
+      # Pinned to dds-lan, deliberately and temporarily.
+      #
+      # This job runs one container with no zenoh bridge and no router in it, so
+      # it cannot exercise what the zenoh profile is for — it would only subject
+      # an unrelated job to a middleware switch. Left on the default it fails
+      # here: the stack comes up, /joint_states is advertised, and the first
+      # `ros2 topic echo --once` gets no sample within 20s. Cyclone's participant
+      # ceiling on loopback was one cause and is fixed (scripts/env/comms-zenoh.sh);
+      # whatever remains is NOT understood, and pinning the transport is how that
+      # is stated rather than hidden.
+      #
+      # The same stack runs on the workstation, so the question is answered where
+      # it matters: section 3 of comms/docs/HARDWARE-GATE.md drives this loop over
+      # zenoh on real hardware. Drop this pin when that line is green.
       - name: Record and process an episode
         timeout-minutes: 25
         run: |
-          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+          docker run --rm -e FM_TRANSPORT=dds-lan \
+            -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc './scripts/ci/loop.sh'
 
   # The real native path, end to end: full pixi env from the lockfile, host colcon
