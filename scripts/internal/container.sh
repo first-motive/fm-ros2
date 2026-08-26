@@ -342,6 +342,10 @@ main() {
   export FM_COMMS_PROFILE
   export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
   unset ROS_LOCALHOST_ONLY
+  # Dropped for the same reason, plus a second one: it names a file in the host's
+  # $HOME, which is not mounted. A container inheriting the path would start every
+  # node against a config that is not there.
+  unset CYCLONEDDS_URI
   item "comms profile: $FM_COMMS_PROFILE (RMW $RMW_IMPLEMENTATION)"
 
   COMPOSE=(docker compose -p "$(fm_compose_project sim)"
