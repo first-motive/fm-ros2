@@ -218,6 +218,24 @@ if [ "$(git -C "$SHALLOW_AHEAD_ROOT" rev-parse HEAD)" != "$ahead_head" ]; then
   exit 1
 fi
 
+# Install-time pinning uses its own shallow ancestry path. Prove that path also
+# completes history and holds an untagged checkout ahead of the latest release.
+SHALLOW_PIN_ROOT="$TMP_DIR/shallow-pin-ws/fm_ros2"
+git clone -q --depth 1 "file://$SHALLOW_REMOTE" "$SHALLOW_PIN_ROOT"
+pin_head="$(git -C "$SHALLOW_PIN_ROOT" rev-parse HEAD)"
+output="$(
+  bash -c '. "$1/lib.sh"; pin_release "$1"' _ "$SHALLOW_PIN_ROOT"
+)"
+if ! grep -q "fm_ros2 is ahead of v0.1.0" <<< "$output"; then
+  printf 'shallow install-time pinning must hold an ahead checkout; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+if [ "$(git -C "$SHALLOW_PIN_ROOT" rev-parse HEAD)" != "$pin_head" ]; then
+  echo "install-time pinning rolled back a shallow ahead checkout" >&2
+  exit 1
+fi
+
 # Mixed release state must remain safe through the installer. Updating the
 # workspace causes setup-processor.sh to run with FM_INSTALL_SERVICE=1; its
 # pin_release call must not roll an ahead nested data checkout backward.
@@ -253,7 +271,7 @@ git -C "$MIXED_ROOT_SEED" commit -q -m "release two"
 git -C "$MIXED_ROOT_SEED" tag -a v0.1.1 -m v0.1.1
 git -C "$MIXED_ROOT_SEED" remote add origin "$MIXED_ROOT_REMOTE"
 git -C "$MIXED_ROOT_SEED" push -q origin main v0.1.1
-root_release="$(git -C "$MIXED_ROOT_SEED" rev-parse v0.1.1^{commit})"
+root_release="$(git -C "$MIXED_ROOT_SEED" rev-parse 'v0.1.1^{commit}')"
 
 MIXED_DATA_SEED="$TMP_DIR/mixed-data-seed"
 MIXED_DATA_REMOTE="$TMP_DIR/mixed-data-origin.git"
