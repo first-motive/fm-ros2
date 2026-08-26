@@ -77,16 +77,7 @@ sudo apt-get install -y \
 item "installing RealSense udev rules (re-plug the camera afterwards) ..."
 bash "$ROOT/scripts/internal/install-realsense-udev-rules.sh"
 
-# 3. MediaPipe + hand model (the tracker's perception). Download the model BEFORE the build so it
-#    is installed into the package share dir.
-item "installing MediaPipe==$MEDIAPIPE_VERSION + downloading the hand model ..."
-pip3 install --user "mediapipe==$MEDIAPIPE_VERSION"
-# MediaPipe pulls numpy 2.x, but the system matplotlib (a MediaPipe import dep) is built for
-# numpy 1.x ("_ARRAY_API not found" / "numpy.core.multiarray failed to import"). Pin numpy < 2.
-pip3 install --user "numpy<2"
-bash src/fm_data/fm_data_perception/scripts/download_model.sh
-
-# 4. Data engine — clone the private data-engine repo (the recorder + sensors live there)
+# 3. Data engine — clone the private data-engine repo (the recorder + sensors live there)
 #    into src/fm_data if absent. Needs first-motive org access (gh auth login, or an SSH
 #    key). The repo slug is held base64-encoded so the public tree does not name it
 #    (repo-hygiene scan).
@@ -100,6 +91,16 @@ if [ ! -d src/fm_data/.git ]; then
     exit 1
   }
 fi
+
+# 4. MediaPipe + hand model (the tracker's perception). Runs after the data engine is cloned —
+#    the model script lives inside it. Download the model BEFORE the build so it
+#    is installed into the package share dir.
+item "installing MediaPipe==$MEDIAPIPE_VERSION + downloading the hand model ..."
+pip3 install --user "mediapipe==$MEDIAPIPE_VERSION"
+# MediaPipe pulls numpy 2.x, but the system matplotlib (a MediaPipe import dep) is built for
+# numpy 1.x ("_ARRAY_API not found" / "numpy.core.multiarray failed to import"). Pin numpy < 2.
+pip3 install --user "numpy<2"
+bash src/fm_data/fm_data_perception/scripts/download_model.sh
 
 # 4c. Tactile glove overlay — the ESP32 receiver (fm_tactile_bridge) and its message package
 #     (fm_tactile_msgs) live in their own private repo. Cloned under src/ so colcon discovers
