@@ -131,6 +131,14 @@ jobs:
           app-id: ${{ secrets.FM_CI_APP_ID }}
           private-key: ${{ secrets.FM_CI_APP_KEY }}
 
+      # The public workspace manifest does not name the private data source.
+      # Check it out separately with the same short-lived read-only App token.
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ format('first-motive/{0}-{1}', 'fm', 'data') }}
+          token: ${{ steps.packages.outputs.token }}
+          path: src/fm_data
+
       # fm-ros2 owns no image — pull the published fm-app full-stack image (the top
       # of the inheritance chain: fm-docker base -> fm-robot -> fm-app), which
       # carries the exact deps the assembled workspace needs (moveit, ros2_control,
