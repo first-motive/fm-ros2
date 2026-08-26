@@ -19,6 +19,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 source "$ROOT/scripts/env/bridge.sh"
+# The transport this host speaks. The bridge endpoint above says where Foxglove
+# connects; this says which middleware the bridge itself will find topics on.
+# shellcheck source=../env/comms.sh disable=SC1091
+source "$ROOT/scripts/env/comms.sh"
 
 usage() {
   cat <<'EOF'

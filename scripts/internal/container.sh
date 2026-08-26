@@ -315,6 +315,24 @@ main() {
   # container, so the same file is $FM_WS/.fm_tui.json on the host and
   # /ws/.fm_tui.json inside — the one path that survives a container teardown.
   export FM_TUI_CONFIG=/ws/.fm_tui.json
+
+  # The transport the container speaks, resolved on the HOST from this machine's
+  # identity card and handed down. Resolving it inside the container instead
+  # would read a card the container does not have, and the container would come
+  # up on a different middleware than the host's bridge is routing — a stack that
+  # starts, publishes, and is heard by nobody.
+  #
+  # Only the two values a container can act on cross the boundary. The dds-lan
+  # profile's FastDDS XML lives in the host's $HOME and is not mounted, which is
+  # the other reason the container path wants zenoh: under it there is nothing
+  # host-specific to carry.
+  # shellcheck source=../env/comms.sh disable=SC1091
+  source scripts/env/comms.sh
+  export FM_COMMS_PROFILE
+  export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
+  export ROS_LOCALHOST_ONLY="${ROS_LOCALHOST_ONLY:-0}"
+  item "comms profile: $FM_COMMS_PROFILE (RMW $RMW_IMPLEMENTATION)"
+
   COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
   SERVICE=fm
 

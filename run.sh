@@ -7,6 +7,7 @@
 #   ./run.sh --native        # force the native path
 #   ./run.sh --container     # force the container path
 #   ./run.sh --desktop           # launch First Motive, the native macOS app
+#   ./run.sh --comms zenoh   # set this host's transport, then exit
 #   ./run.sh --no-foxglove   # (native) skip auto-opening Foxglove Studio
 #   ./run.sh --macos|--linux # (container) force the compose overlay
 #
@@ -24,10 +25,15 @@ usage() {
 run.sh — dispatch the fm_ros2 launch to the native or container path
 
 Usage: ./run.sh [--native|--container|--desktop] [path-specific args...] [-h|--help]
+       ./run.sh --comms <zenoh|dds-lan>
 
   --native      force the native path (pixi/RoboStack); passes on --no-foxglove
   --container   force the container path (Docker); passes on --macos/--linux/--foxglove/--no-webgui
   --desktop         launch First Motive, the native macOS app (macOS only)
+  --comms P     set this host's transport to zenoh or dds-lan and exit. Writes
+                the machine identity card's transport field, which every process
+                on this host reads. zenoh is the default and the supported path;
+                dds-lan is the labelled escape hatch.
   -h, --help    show this help
 
 With no path flag, the profile in .fm_ros2.json decides; absent that, the OS
@@ -55,6 +61,14 @@ main() {
   # straight to its script (it resolves its own checkout + toolchain, and carries
   # its own FM_SELFTEST hook, so this dispatch happens before the path selftest below).
   if [[ "${1:-}" == --desktop ]]; then shift; exec ./scripts/internal/desktop.sh "$@"; fi
+
+  # --comms sets a fact and exits; it launches nothing. Handled before the path
+  # flags because it is not a variation on a launch — it is the setting every
+  # later launch will read.
+  if [[ "${1:-}" == --comms ]]; then
+    shift
+    exec ./scripts/internal/set-comms.sh "${1:?--comms needs a value (zenoh|dds-lan)}"
+  fi
 
   local forced=""
   # Peel a leading path flag; everything else forwards to the path script.

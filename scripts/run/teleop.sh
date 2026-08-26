@@ -46,6 +46,12 @@
 # Extra args pass straight through to `ros2 launch`.
 set -euo pipefail
 
+# The transport this host speaks — RMW, domain, and the DDS scope that follows
+# from the profile. Every run verb sources it, so none can launch on middleware
+# the rig's bridge is not routing. FM_TRANSPORT=dds-lan overrides it for one run.
+# shellcheck source=../env/comms.sh disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/env/comms.sh"
+
 usage() {
   cat <<'EOF'
 teleop.sh — jog a robot's arm interactively through MoveIt Servo

@@ -3,16 +3,29 @@
 # scripts/run/stack.sh, scripts/run/episode.sh, scripts/run/dataset.sh and
 # scripts/run/sim.sh — never executed.
 #
-# Three facts the verbs would otherwise each re-derive:
+# Four facts the verbs would otherwise each re-derive:
 #
-#   1. which sim backend names are real, and which compose overlay each implies
-#   2. whether this shell can run `ros2` itself, or has to route through compose
-#   3. how to run one ROS command either way
+#   1. which transport this host speaks
+#   2. which sim backend names are real, and which compose overlay each implies
+#   3. whether this shell can run `ros2` itself, or has to route through compose
+#   4. how to run one ROS command either way
+#
+# (1) is sourced here rather than in each verb because a verb that skipped it ran
+# on whatever middleware the shell happened to carry. `fm episode record` on
+# FastDDS while the rig's bridge routes a Cyclone graph does not fail — it records
+# an empty bag, which is the worst way for a transport mismatch to show up.
 #
 # (2) is what lets `fm stack up` behave the same on a laptop and inside CI. On a
 # laptop there is no ROS on the host, so every command is routed through the
 # compose service; inside the built container ROS is already sourced, so the same
 # verb runs the command in place. One code path, two hosts.
+
+# The transport every verb below runs on: RMW_IMPLEMENTATION, ROS_DOMAIN_ID, and
+# whatever else the resolved profile exports. Sourced once, here, so `stack up`,
+# `episode record`, and `dataset process` cannot disagree about the middleware
+# they are speaking. FM_TRANSPORT=dds-lan still overrides it for one run.
+# shellcheck source=../env/comms.sh disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/env/comms.sh"
 
 # Every backend sim.launch.py accepts. `real` is not a simulator — it is the
 # hardware path, kept in the same list because it picks an overlay the same way.

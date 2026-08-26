@@ -67,9 +67,9 @@ set +u
 source /opt/ros/humble/setup.bash
 # shellcheck disable=SC1091
 source "$ROOT/install/setup.bash"
-# The comms profile — foxglove (dds-lan.sh) unless FM_COMMS or .fm_ros2.json says
-# otherwise. This is what puts the monitor on the same discovery scope as the
-# recorder and the foxglove bridge.
+# The comms profile — zenoh unless this machine's identity card, or FM_TRANSPORT,
+# says otherwise. This is what puts the monitor on the same discovery scope as
+# the recorder and the foxglove bridge.
 # shellcheck disable=SC1091
 source "$ROOT/scripts/env/comms.sh"
 set -u
