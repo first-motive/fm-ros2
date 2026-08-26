@@ -33,13 +33,37 @@ Usage: ./run.sh [--native|--container|--desktop] [path-specific args...] [-h|--h
   --comms P     set this host's transport to zenoh or dds-lan and exit. Writes
                 the machine identity card's transport field, which every process
                 on this host reads. zenoh is the default and the supported path;
-                dds-lan is the labelled escape hatch.
+                dds-lan is the labelled escape hatch. The launcher's C key
+                requests the same change; this applies it on the next launch.
   -h, --help    show this help
 
 With no path flag, the profile in .fm_ros2.json decides; absent that, the OS
 default applies (macOS/Windows -> native, Linux -> container). Remaining args are
 forwarded to the chosen path — see ./scripts/internal/native.sh -h or ./scripts/internal/container.sh -h.
 EOF
+}
+
+# Apply a transport the launcher requested, then clear the request.
+#
+# Never fatal. A failure here leaves the host on the transport it already had,
+# which is a working state; refusing to launch over it would strand an operator
+# who pressed a key by accident.
+apply_pending_comms() {
+  local pending
+  [[ -f .fm_tui.json ]] || return 0
+  pending=$(sed -n 's/.*"comms"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' .fm_tui.json | head -1)
+  [[ -n "$pending" ]] || return 0
+
+  echo "applying the transport requested in the launcher: $pending"
+  if ./scripts/internal/set-comms.sh "$pending"; then
+    # Cleared only on success, so a request that could not be applied is retried
+    # next launch rather than silently dropped. Read and rewritten as JSON: the
+    # file carries the viewer too, and a regex edit that met an unexpected shape
+    # would drop it.
+    uv run --quiet python -c 'import json,pathlib; p=pathlib.Path(".fm_tui.json"); d=json.loads(p.read_text()); d.pop("comms", None); p.write_text(json.dumps(d, indent=2) + "\n")' || true
+  else
+    echo "warning: could not apply the requested transport — staying as configured" >&2
+  fi
 }
 
 # Detect Windows (Git Bash / MSYS). The container path can't run there.
@@ -69,6 +93,14 @@ main() {
     shift
     exec ./scripts/internal/set-comms.sh "${1:?--comms needs a value (zenoh|dds-lan)}"
   fi
+
+  # A transport the launcher asked for last session. The TUI cannot write the
+  # machine's identity card — it usually runs inside a container where that path
+  # is not mounted — so it parks the request in .fm_tui.json and this applies it
+  # here, on the host, through the same writer --comms uses. Applied before the
+  # path dispatch, because the launch that follows must speak the new transport
+  # rather than the one it is replacing.
+  apply_pending_comms
 
   local forced=""
   # Peel a leading path flag; everything else forwards to the path script.
