@@ -21,6 +21,12 @@
 #   dds-lan    FastDDS pinned to the LAN interface. The labelled escape hatch,
 #              kept for hardware that has not been through the transport
 #              migration. `foxglove` is the old name for it and still works.
+#   none       change nothing. Inherit whatever middleware the environment
+#              already carries — the container image's own default, or an
+#              operator's hand-set variables. For a context that has no transport
+#              decision to make: a single self-contained container with no bridge
+#              and no router in it, or a debugging session where the profile is
+#              the thing under suspicion.
 #
 # An unknown profile warns and falls back to the default: a headless rig coming
 # up on the working transport beats one that does not come up at all.
@@ -106,6 +112,21 @@ fi
 # `dds-lan`. Both spellings reach the same script, so an old .fm_ros2.json and an
 # old runbook keep working.
 [ "$_fm_comms" = foxglove ] && _fm_comms=dds-lan
+
+# `none` is answered here and nothing is sourced. Deliberately not a profile file
+# that exports nothing: the point is that this shell's middleware variables are
+# left exactly as they were found, and an empty profile script would still have
+# to be reasoned about every time someone reads one.
+if [ "$_fm_comms" = none ]; then
+  export FM_COMMS_PROFILE=none
+  echo "comms: none — inheriting this environment's middleware, unchanged"
+  unset -f _fm_comms_profile _fm_comms_from_card _fm_comms_card
+  unset _fm_comms _fm_comms_root _fm_comms_default _fm_comms_schema
+  # Sourced, always — the front doors and every verb `source` this file. The
+  # guard keeps a stray direct execution from dying on a bare `return`.
+  # shellcheck disable=SC2317  # reached when this file is executed, not sourced
+  return 0 2>/dev/null || true
+fi
 
 case "$_fm_comms" in
   dds-lan) _fm_comms_script="$_fm_comms_root/scripts/env/dds-lan.sh" ;;
