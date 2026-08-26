@@ -38,6 +38,10 @@ cd "$(dirname "$0")/../.."
 # shellcheck source=scripts/internal/lib-buildtree.sh
 source scripts/internal/lib-buildtree.sh
 
+# The compose project this checkout's stack runs under (#135).
+# shellcheck source=scripts/internal/lib-compose.sh
+source scripts/internal/lib-compose.sh
+
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
 # run.sh and the TUIs share one source of brand colour. `step` draws a numbered
 # header block as a rich rule; `item` prints a plain status line beneath it. The
@@ -315,7 +319,8 @@ main() {
   # container, so the same file is $FM_WS/.fm_tui.json on the host and
   # /ws/.fm_tui.json inside — the one path that survives a container teardown.
   export FM_TUI_CONFIG=/ws/.fm_tui.json
-  COMPOSE=(docker compose -f docker/compose.yaml -f "$OVERLAY")
+  COMPOSE=(docker compose -p "$(fm_compose_project sim)"
+    -f docker/compose.yaml -f "$OVERLAY")
   SERVICE=fm
 
   # The panel auto-open is viewer-driven: only the `panel` viewer opens the fm_viewer

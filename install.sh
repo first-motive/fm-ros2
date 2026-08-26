@@ -227,12 +227,19 @@ do_uninstall() {  # dry no_desktop no_ai purge
     for o in docker/compose.macos.yaml docker/compose.linux.yaml; do
       [[ -f "$o" ]] && { overlay="$o"; break; }
     done
+    # Each role runs under its own compose project (scripts/internal/lib-compose.sh),
+    # so a bare `down` here would address a project nothing runs under and leave
+    # both containers up (#135). Tear down whichever of the two this checkout
+    # started — the roles share the tree, and only one of them is usually live.
     item "tearing down the compose stack ..."
-    if [[ -n "$overlay" ]]; then
-      docker compose -f docker/compose.yaml -f "$overlay" down 2>/dev/null || true
-    else
-      docker compose -f docker/compose.yaml down 2>/dev/null || true
-    fi
+    local project
+    for project in fm-sim fm-processor; do
+      if [[ -n "$overlay" ]]; then
+        docker compose -p "$project" -f docker/compose.yaml -f "$overlay" down 2>/dev/null || true
+      else
+        docker compose -p "$project" -f docker/compose.yaml down 2>/dev/null || true
+      fi
+    done
   fi
   item "removing the fm-tools lib cache ($CACHE_DIR) ..."
   rm -rf "$CACHE_DIR"

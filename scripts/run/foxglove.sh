@@ -20,6 +20,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 source "$ROOT/scripts/env/bridge.sh"
 
+# The compose project every sim-side verb shares, so `run.sh`, `stack`, and this
+# one address the same container — and never the processor's (#135).
+# shellcheck source=../internal/lib-compose.sh disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../internal" && pwd)/lib-compose.sh"
+
 usage() {
   cat <<'EOF'
 Usage: scripts/run/foxglove.sh [-t] [-p PORT]
@@ -60,7 +65,8 @@ main() {
   [[ -d docker ]] || vcs import < fm-ros2.repos
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$PWD"
-  local COMPOSE=(docker compose -f docker/compose.yaml -f docker/compose.macos.yaml)
+  local COMPOSE=(docker compose -p "$(fm_compose_project sim)"
+    -f docker/compose.yaml -f docker/compose.macos.yaml)
 
   local BRIDGE=(ros2 launch foxglove_bridge foxglove_bridge_launch.xml "port:=${PORT}")
 

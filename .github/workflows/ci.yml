@@ -105,11 +105,30 @@ jobs:
       - name: lifecycle verb resolution
         run: bash scripts/ci/test-lifecycle-verbs.sh
 
+      # `fm stack up` decides whether a stack is running from a publisher count,
+      # never from the topic name: a LAN subscriber makes the name appear on a
+      # container that is running nothing (#136). Stubbed `ros2` output, so this
+      # runs here rather than needing a rig with the Jetson on the same LAN.
+      - name: stack publisher detection
+        run: bash scripts/ci/test-stack-publisher.sh
+
+      # Each role owns a compose project, so the sim stack and the processor
+      # never share one container (#135). The libraries only build the
+      # invocation, so no Docker is needed to hold them to it.
+      - name: compose project per role
+        run: bash scripts/ci/test-compose-project.sh
+
       # The processor role picks native Humble or the Humble container by host
       # (#127); the picker is stubbed here so a wrong branch fails in CI, not on
       # the workstation.
       - name: processor runtime resolution
         run: bash scripts/ci/test-processor-runtime.sh
+
+      # `ros2 launch` exits 0 even when every node it started has died, which let
+      # fm-processor.service report success while the processor was gone (#134).
+      # The wrapper's exit policy is graded here against a stubbed `ros2`.
+      - name: processor service exit policy
+        run: bash scripts/ci/test-processor-service-exit.sh
 
       # Every install script is Linux-only and mostly unreachable in CI, so a parse
       # error would otherwise surface first on a real rig mid-provision.

@@ -16,6 +16,12 @@
 # Native on a non-22.04 Linux host (option 2 in #127) is future work: it needs
 # the Humble gate dropped and a Lyrical CI job, and nothing here blocks it.
 
+# The compose project the processor owns. Without it the role ran under the
+# checkout directory's name, which the sim stack's checkout carries too, and the
+# two shared one container (#135).
+# shellcheck source=lib-compose.sh disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-compose.sh"
+
 # fm_processor_runtime
 # Echo native | container. Fails with a message when neither is possible.
 # FM_PROCESSOR_RUNTIME, when set, is the answer — the container re-exec sets it,
@@ -61,7 +67,8 @@ fm_processor_compose() {
   local root="$1"
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$root"
-  FM_COMPOSE=(docker compose -f "$root/docker/compose.yaml" -f "$root/docker/compose.linux.yaml" \
+  FM_COMPOSE=(docker compose -p "$(fm_compose_project processor)" \
+    -f "$root/docker/compose.yaml" -f "$root/docker/compose.linux.yaml" \
     -f "$root/compose.processor.yaml")
 }
 

@@ -14,6 +14,11 @@
 # compose service; inside the built container ROS is already sourced, so the same
 # verb runs the command in place. One code path, two hosts.
 
+# The compose project this role addresses — `fm-sim`, never the checkout's
+# directory name, which the processor's checkout also carries (#135).
+# shellcheck source=lib-compose.sh disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-compose.sh"
+
 # Every backend sim.launch.py accepts. `real` is not a simulator — it is the
 # hardware path, kept in the same list because it picks an overlay the same way.
 FM_BACKENDS=(mock mujoco gazebo isaac real)
@@ -69,7 +74,8 @@ fm_stack_inplace() { command -v ros2 >/dev/null 2>&1; }
 fm_stack_compose() {
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$PWD"
-  FM_COMPOSE=(docker compose -f docker/compose.yaml -f "$1")
+  FM_COMPOSE=(docker compose -p "$(fm_compose_project sim)"
+    -f docker/compose.yaml -f "$1")
 }
 
 # fm_stack_exec <overlay> <command...>
@@ -111,6 +117,43 @@ fm_stack_exec_detached() {
   "${FM_COMPOSE[@]}" exec -d fm /ros_entrypoint.sh bash -c \
     'mkdir -p "$0" && exec "$@" >"$0/$(date +%s)-$$.log" 2>&1 </dev/null' \
     "$FM_STACK_LOG_DIR" "$@"
+}
+
+# fm_stack_has_publisher <overlay> <topic>
+# 0 when something on this graph PUBLISHES the topic, 1 otherwise.
+#
+# Not `ros2 topic list | grep`: a topic appears in that list as soon as any
+# participant on the domain holds a publisher *or a subscription* on it. The
+# Jetson recorder and watchdog subscribe to /joint_states, so on the office LAN
+# a container with nothing running in it saw the topic immediately, `stack up`
+# took the already-up branch, and the stack was never launched (#136). A
+# publisher count is the question actually being asked: is this stack running.
+fm_stack_has_publisher() {
+  local overlay="$1" topic="$2" info
+  # Captured, then matched — never piped into `grep -q`. Under `set -o pipefail`
+  # (every verb here sets it) grep exits at the first match, the command upstream
+  # takes SIGPIPE, and the pipeline's status is that failure rather than the
+  # match. A running stack then read as no publisher, at random. Found on
+  # fm-ws-01 while verifying this fix.
+  info="$(fm_stack_exec "$overlay" ros2 topic info "$topic" 2>/dev/null)" || return 1
+  grep -qE '^Publisher count: [1-9]' <<<"$info"
+}
+
+# fm_stack_wait_publisher <overlay> <topic> <timeout_s>
+# Poll until the topic has a publisher, or fail after the timeout. The bounded
+# wait of fm_stack_wait_topic, asking fm_stack_has_publisher's question.
+fm_stack_wait_publisher() {
+  local overlay="$1" topic="$2" timeout="$3"
+  local _
+  for _ in $(seq 1 "$timeout"); do
+    if fm_stack_has_publisher "$overlay" "$topic"; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "error: nothing published $topic within ${timeout}s" >&2
+  fm_stack_inplace || echo "launch output: docker compose exec fm sh -c 'tail -n 50 $FM_STACK_LOG_DIR/*.log'" >&2
+  return 1
 }
 
 # fm_stack_wait_topic <overlay> <topic> <timeout_s>
