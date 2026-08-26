@@ -20,6 +20,7 @@
 # not re-run apt.
 #
 #   scripts/service/appliance-update.sh recorder     # or: processor
+#   scripts/service/appliance-update.sh --check processor
 #
 # Safety posture:
 #   - busy gate: never updates mid-take (recent episode writes, excluding the
@@ -123,13 +124,15 @@ usage() {
   cat <<'EOF'
 appliance-update.sh — pull + rebuild + restart one appliance role when behind
 
-  scripts/service/appliance-update.sh recorder|processor
-  -h, --help   show this help
+  scripts/service/appliance-update.sh [--check] recorder|processor
+  --check, --dry-run   resolve release state without checkout, build, or restart
+  -h, --help           show this help
 
 Fetches release tags for the workspace and role repos; exits quietly when every
 repo sits on its newest v* tag. When a newer tag exists: checks it out (dirty
 repos and repos with no tags are skipped with a warning) and re-runs the role
-installer. Driven by fm-update-<role>.timer.
+installer. A tag behind the current checkout is never treated as an update.
+Driven by fm-update-<role>.timer.
 EOF
 }
 
@@ -178,14 +181,19 @@ command -v latest_release_tag >/dev/null 2>&1 || \
 # Fetch one repo's tags; report its release-channel state:
 #   current        HEAD is the newest v* tag
 #   behind <tag>   a newer v* tag exists — check it out
+#   ahead <tag>    HEAD contains the newest tag — wait for a release
+#   diverged <tag> HEAD and the newest tag do not share a forward update path
 #   untagged       no v* tag yet — the release channel has no target here
 #   held           dirty or unfetchable — never moved
 _repo_state() {  # dir
   local dir="$1"
   # Tag tips only, shallow when the repo is shallow (--depth 1 appliance
   # clones stay lean). --force: a re-cut tag moves.
+  local shallow
+  shallow="$(git -C "$dir" rev-parse --is-shallow-repository 2>/dev/null)" \
+    || { echo held; return; }
   local -a depth=()
-  [ -f "$(git -C "$dir" rev-parse --git-dir)/shallow" ] && depth=(--depth 1)
+  [ "$shallow" = true ] && depth=(--depth 1)
   git -C "$dir" fetch -q --force ${depth[@]+"${depth[@]}"} origin \
     '+refs/tags/*:refs/tags/*' 2>/dev/null || { echo held; return; }
   local target
@@ -202,30 +210,68 @@ _repo_state() {  # dir
   local head tagc
   head="$(git -C "$dir" rev-parse HEAD)"
   tagc="$(git -C "$dir" rev-parse "$target^{commit}" 2>/dev/null)" || { echo held; return; }
-  [ "$head" = "$tagc" ] && echo current || echo "behind $target"
+  if [ "$head" = "$tagc" ]; then
+    echo current
+  elif git -C "$dir" merge-base --is-ancestor "$head" "$tagc" 2>/dev/null; then
+    echo "behind $target"
+  elif git -C "$dir" merge-base --is-ancestor "$tagc" "$head" 2>/dev/null; then
+    echo "ahead $target"
+  elif [ "$shallow" = true ]; then
+    # A depth-one appliance checkout may not contain the graph between its HEAD
+    # and a newly fetched tag. Complete the history only when the first ancestry
+    # checks cannot decide; a normal current or one-step release stays shallow.
+    git -C "$dir" fetch -q --unshallow origin "$target" 2>/dev/null \
+      || { echo held; return; }
+    if git -C "$dir" merge-base --is-ancestor "$head" "$tagc" 2>/dev/null; then
+      echo "behind $target"
+      return
+    fi
+    if git -C "$dir" merge-base --is-ancestor "$tagc" "$head" 2>/dev/null; then
+      echo "ahead $target"
+      return
+    fi
+    echo "diverged $target"
+  else
+    echo "diverged $target"
+  fi
 }
 
 main() {
-  case "${1:-}" in
-    recorder|processor) ;;
-    -h|--help) usage; return 0 ;;
-    *) echo "error: role must be 'recorder' or 'processor'" >&2; usage >&2; return 1 ;;
-  esac
-  local role="$1"
-
-  # Overlapping runs (timer tick + manual invocation) collapse to one.
-  exec 9>"/tmp/fm-update-$role.lock"
-  if ! flock -n 9; then
-    item "another update is already running — skipping"
-    return 0
+  local role="" check=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      recorder|processor)
+        [ -z "$role" ] || { echo "error: specify one appliance role" >&2; usage >&2; return 1; }
+        role="$1"
+        ;;
+      --check|--dry-run) check=1 ;;
+      -h|--help) usage; return 0 ;;
+      *) echo "error: unknown argument '$1'" >&2; usage >&2; return 1 ;;
+    esac
+    shift
+  done
+  if [ -z "$role" ]; then
+    echo "error: role must be 'recorder' or 'processor'" >&2
+    usage >&2
+    return 1
   fi
 
-  # Before the first git call, and before the role installer that also runs git.
-  _trust_checkouts
-  _reach_private_repos
+  if [ "$check" = 0 ]; then
+    # Overlapping mutating runs (timer tick + manual) collapse to one. Check mode
+    # does not need a lock and must not create or truncate updater state.
+    exec 9>"/tmp/fm-update-$role.lock"
+    if ! flock -n 9; then
+      item "another update is already running — skipping"
+      return 0
+    fi
 
-  if _busy "$role"; then
-    return 0
+    # Before the first git call, and before the role installer that also runs git.
+    _trust_checkouts
+    _reach_private_repos
+
+    if _busy "$role"; then
+      return 0
+    fi
   fi
 
   # The workspace itself plus the role's package repos. src/fm_teleop exists
@@ -237,6 +283,10 @@ main() {
   for dir in "${repos[@]}"; do
     [ -d "$dir/.git" ] || continue
     state="$(_repo_state "$dir")"
+    if [ "$check" = 1 ]; then
+      item "check $(basename "$dir"): $state"
+      continue
+    fi
     case "$state" in
       behind\ *)
         item "updating $(basename "$dir") -> ${state#behind } ..."
@@ -245,6 +295,12 @@ main() {
         ;;
       untagged)
         item "WARNING: $(basename "$dir") has no release tag yet — left alone (cut a v* tag to put it on the release channel)"
+        ;;
+      ahead\ *)
+        item "WARNING: $(basename "$dir") is ahead of ${state#ahead } — left alone (cut a new release tag before unattended use)"
+        ;;
+      diverged\ *)
+        item "WARNING: $(basename "$dir") diverges from ${state#diverged } — left alone (review the release lineage)"
         ;;
       held)
         item "WARNING: $(basename "$dir") is dirty or unfetchable — left alone"
@@ -268,6 +324,9 @@ main() {
   fm_setup="$(dirname "$ROOT")/fm-setup"
   if [ -d "$fm_setup/.git" ]; then
     state="$(_repo_state "$fm_setup")"
+    if [ "$check" = 1 ]; then
+      item "check fm-setup: $state"
+    else
     case "$state" in
       behind\ *)
         item "updating fm-setup -> ${state#behind } ..."
@@ -277,10 +336,17 @@ main() {
       untagged)
         item "WARNING: fm-setup has no release tag yet — left alone (cut a v* tag to put it on the release channel)"
         ;;
+      ahead\ *)
+        item "WARNING: fm-setup is ahead of ${state#ahead } — left alone (cut a new release tag before unattended use)"
+        ;;
+      diverged\ *)
+        item "WARNING: fm-setup diverges from ${state#diverged } — left alone (review the release lineage)"
+        ;;
       held)
         item "WARNING: fm-setup is dirty or unfetchable — left alone"
         ;;
     esac
+    fi
   else
     # No checkout, no machine layer. Rigs flashed before the workspace step
     # existed keep fm-setup at ~/.first-motive/fm-setup, outside the workspace
@@ -289,6 +355,11 @@ main() {
     # on every tick anyway. Silence is what let that go unnoticed on a fleet.
     item "WARNING: no fm-setup checkout at $fm_setup — machine layer not converged"
     item "         link it once: ln -s ~/.first-motive/fm-setup $fm_setup"
+  fi
+
+  if [ "$check" = 1 ]; then
+    item "release resolution complete — no checkout, build, or service change made"
+    return 0
   fi
 
   # Machine layer first: it owns the drivers, the container runtime, and ROS

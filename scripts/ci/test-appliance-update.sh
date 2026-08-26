@@ -22,14 +22,37 @@ case "${1:-}" in
   # root before it reads them, and this test asserts on what that wrote.
   config) exec /usr/bin/git "$@" ;;
   fetch) exit 0 ;;
+  tag)
+    [ -z "${FM_TEST_TAG_NAME:-}" ] || printf '%s\n' "$FM_TEST_TAG_NAME"
+    exit 0
+    ;;
   status) exit 0 ;;
   rev-parse)
-    printf '%s\n' same-revision
+    case "${*: -1}" in
+      HEAD) printf '%s\n' "${FM_TEST_HEAD_COMMIT:-same-revision}" ;;
+      *\^\{commit\}) printf '%s\n' "${FM_TEST_TAG_COMMIT:-same-revision}" ;;
+      --is-shallow-repository) printf '%s\n' "${FM_TEST_SHALLOW:-false}" ;;
+      *) printf '%s\n' same-revision ;;
+    esac
     exit 0
     ;;
   merge-base)
-    printf '%s\n' same-revision
-    exit 0
+    first="${3:-}"
+    second="${4:-}"
+    case "${FM_TEST_RELATION:-same}" in
+      head-before-tag)
+        [ "$first" = "${FM_TEST_HEAD_COMMIT:-}" ] && \
+          [ "$second" = "${FM_TEST_TAG_COMMIT:-}" ]
+        ;;
+      tag-before-head)
+        [ "$first" = "${FM_TEST_TAG_COMMIT:-}" ] && \
+          [ "$second" = "${FM_TEST_HEAD_COMMIT:-}" ]
+        ;;
+      diverged) exit 1 ;;
+      same) exit 0 ;;
+      *) exit 2 ;;
+    esac
+    exit $?
     ;;
 esac
 
@@ -43,6 +66,258 @@ cat > "$TMP_DIR/bin/flock" <<'EOF'
 exit 0
 EOF
 chmod +x "$TMP_DIR/bin/flock"
+
+# A guarded exact-main installation can be newer than the published release
+# tag. The updater must report that state without rolling the checkout back.
+RESOLUTION_ROOT="$TMP_DIR/resolution-ws/fm_ros2"
+mkdir -p "$RESOLUTION_ROOT/scripts/service" "$RESOLUTION_ROOT/.git"
+cp "$ROOT/lib.sh" "$RESOLUTION_ROOT/lib.sh"
+cp "$ROOT/scripts/service/appliance-update.sh" \
+  "$RESOLUTION_ROOT/scripts/service/appliance-update.sh"
+output="$(
+  FM_TEST_TAG_NAME=v0.1.7 \
+    FM_TEST_HEAD_COMMIT=new-main \
+    FM_TEST_TAG_COMMIT=old-release \
+    FM_TEST_RELATION=tag-before-head \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" --check processor
+)"
+if ! grep -q "check fm_ros2: ahead v0.1.7" <<< "$output"; then
+  printf 'a newer checkout must not resolve as behind an older tag; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+if ! grep -q "no checkout, build, or service change made" <<< "$output"; then
+  printf 'the release check must state its non-mutating boundary; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+
+# Check mode is safe during activity and must not edit unattended Git config.
+CHECK_HOME="$TMP_DIR/check-home"
+mkdir -p "$CHECK_HOME" "$TMP_DIR/check-recordings"
+touch "$TMP_DIR/check-recordings/active.mcap"
+output="$(
+  HOME="$CHECK_HOME" INVOCATION_ID=test \
+    FM_RECORDER_RECORDINGS_DIR="$TMP_DIR/check-recordings" \
+    FM_TEST_TAG_NAME=v0.1.7 \
+    FM_TEST_HEAD_COMMIT=new-main \
+    FM_TEST_TAG_COMMIT=old-release \
+    FM_TEST_RELATION=tag-before-head \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" --check recorder
+)"
+if ! grep -q "check fm_ros2: ahead v0.1.7" <<< "$output"; then
+  printf 'an active recording must not block the read-only release check; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+if [ -e "$CHECK_HOME/.gitconfig" ]; then
+  echo "release check mode edited unattended Git config" >&2
+  exit 1
+fi
+
+output="$(
+  FM_TEST_TAG_NAME=v0.1.7 \
+    FM_TEST_HEAD_COMMIT=new-main \
+    FM_TEST_TAG_COMMIT=old-release \
+    FM_TEST_RELATION=tag-before-head \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" processor
+)"
+if ! grep -q "fm_ros2 is ahead of v0.1.7" <<< "$output"; then
+  printf 'the mutating path must also refuse an older tag; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+
+# A newer descendant tag is a valid update, but check mode must only report it.
+output="$(
+  FM_TEST_TAG_NAME=v0.1.8 \
+    FM_TEST_HEAD_COMMIT=old-release \
+    FM_TEST_TAG_COMMIT=new-release \
+    FM_TEST_RELATION=head-before-tag \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" processor --dry-run
+)"
+if ! grep -q "check fm_ros2: behind v0.1.8" <<< "$output"; then
+  printf 'a descendant release must resolve as a pending update; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+
+# A tagged checkout on divergent history must remain held in mutating mode.
+output="$(
+  FM_TEST_TAG_NAME=v0.1.8 \
+    FM_TEST_HEAD_COMMIT=other-lineage \
+    FM_TEST_TAG_COMMIT=new-release \
+    FM_TEST_RELATION=diverged \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" processor
+)"
+if ! grep -q "fm_ros2 diverges from v0.1.8" <<< "$output"; then
+  printf 'divergent tagged history must stay held; got: %s\n' "$output" >&2
+  exit 1
+fi
+
+# Prove a real depth-one checkout created before the first release can resolve a
+# later descendant tag without moving HEAD. The updater may complete missing
+# history to prove ancestry, but check mode must not check out the release.
+SHALLOW_SEED="$TMP_DIR/shallow-seed"
+SHALLOW_REMOTE="$TMP_DIR/shallow-origin.git"
+SHALLOW_ROOT="$TMP_DIR/shallow-ws/fm_ros2"
+git init -q -b main "$SHALLOW_SEED"
+git -C "$SHALLOW_SEED" config user.name "First Motive CI"
+git -C "$SHALLOW_SEED" config user.email "ci@firstmotive.ai"
+mkdir -p "$SHALLOW_SEED/scripts/service"
+cp "$ROOT/lib.sh" "$SHALLOW_SEED/lib.sh"
+cp "$ROOT/scripts/service/appliance-update.sh" \
+  "$SHALLOW_SEED/scripts/service/appliance-update.sh"
+printf 'initial\n' > "$SHALLOW_SEED/release-state.txt"
+git -C "$SHALLOW_SEED" add .
+git -C "$SHALLOW_SEED" commit -q -m "initial"
+initial_head="$(git -C "$SHALLOW_SEED" rev-parse HEAD)"
+git clone -q --bare "$SHALLOW_SEED" "$SHALLOW_REMOTE"
+git clone -q --depth 1 "file://$SHALLOW_REMOTE" "$SHALLOW_ROOT"
+printf 'released\n' > "$SHALLOW_SEED/release-state.txt"
+git -C "$SHALLOW_SEED" add release-state.txt
+git -C "$SHALLOW_SEED" commit -q -m "release"
+git -C "$SHALLOW_SEED" tag -a v0.1.0 -m v0.1.0
+git -C "$SHALLOW_SEED" remote add origin "$SHALLOW_REMOTE"
+git -C "$SHALLOW_SEED" push -q origin main v0.1.0
+output="$("$SHALLOW_ROOT/scripts/service/appliance-update.sh" --check processor)"
+if ! grep -q "check fm_ros2: behind v0.1.0" <<< "$output"; then
+  printf 'a shallow untagged checkout must resolve a descendant release; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+if [ "$(git -C "$SHALLOW_ROOT" rev-parse HEAD)" != "$initial_head" ]; then
+  echo "release check moved a shallow checkout" >&2
+  exit 1
+fi
+
+# The reverse shallow case is the original failure: an untagged main checkout
+# newer than the latest release must resolve as ahead and never roll back.
+SHALLOW_AHEAD_ROOT="$TMP_DIR/shallow-ahead-ws/fm_ros2"
+printf 'unreleased\n' > "$SHALLOW_SEED/release-state.txt"
+git -C "$SHALLOW_SEED" add release-state.txt
+git -C "$SHALLOW_SEED" commit -q -m "unreleased"
+git -C "$SHALLOW_SEED" push -q origin main
+git clone -q --depth 1 "file://$SHALLOW_REMOTE" "$SHALLOW_AHEAD_ROOT"
+ahead_head="$(git -C "$SHALLOW_AHEAD_ROOT" rev-parse HEAD)"
+output="$(
+  "$SHALLOW_AHEAD_ROOT/scripts/service/appliance-update.sh" --check processor
+)"
+if ! grep -q "check fm_ros2: ahead v0.1.0" <<< "$output"; then
+  printf 'a shallow checkout newer than its release must stay ahead; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+if [ "$(git -C "$SHALLOW_AHEAD_ROOT" rev-parse HEAD)" != "$ahead_head" ]; then
+  echo "release check rolled back a shallow ahead checkout" >&2
+  exit 1
+fi
+
+# Install-time pinning uses its own shallow ancestry path. Prove that path also
+# completes history and holds an untagged checkout ahead of the latest release.
+SHALLOW_PIN_ROOT="$TMP_DIR/shallow-pin-ws/fm_ros2"
+git clone -q --depth 1 "file://$SHALLOW_REMOTE" "$SHALLOW_PIN_ROOT"
+pin_head="$(git -C "$SHALLOW_PIN_ROOT" rev-parse HEAD)"
+output="$(
+  bash -c '. "$1/lib.sh"; pin_release "$1"' _ "$SHALLOW_PIN_ROOT"
+)"
+if ! grep -q "fm_ros2 is ahead of v0.1.0" <<< "$output"; then
+  printf 'shallow install-time pinning must hold an ahead checkout; got: %s\n' \
+    "$output" >&2
+  exit 1
+fi
+if [ "$(git -C "$SHALLOW_PIN_ROOT" rev-parse HEAD)" != "$pin_head" ]; then
+  echo "install-time pinning rolled back a shallow ahead checkout" >&2
+  exit 1
+fi
+
+# Mixed release state must remain safe through the installer. Updating the
+# workspace causes setup-processor.sh to run with FM_INSTALL_SERVICE=1; its
+# pin_release call must not roll an ahead nested data checkout backward.
+MIXED_ROOT_SEED="$TMP_DIR/mixed-root-seed"
+MIXED_ROOT_REMOTE="$TMP_DIR/mixed-root-origin.git"
+MIXED_ROOT="$TMP_DIR/mixed-ws/fm_ros2"
+git init -q -b main "$MIXED_ROOT_SEED"
+git -C "$MIXED_ROOT_SEED" config user.name "First Motive CI"
+git -C "$MIXED_ROOT_SEED" config user.email "ci@firstmotive.ai"
+mkdir -p "$MIXED_ROOT_SEED/scripts/service" "$MIXED_ROOT_SEED/scripts/install"
+cp "$ROOT/lib.sh" "$MIXED_ROOT_SEED/lib.sh"
+cp "$ROOT/scripts/service/appliance-update.sh" \
+  "$MIXED_ROOT_SEED/scripts/service/appliance-update.sh"
+cat > "$MIXED_ROOT_SEED/scripts/install/setup-processor.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+. "$ROOT/lib.sh"
+pin_release "$ROOT/src/fm_data"
+: > "$FM_TEST_INSTALL_MARKER"
+EOF
+chmod +x "$MIXED_ROOT_SEED/scripts/install/setup-processor.sh"
+printf 'v1\n' > "$MIXED_ROOT_SEED/release-state.txt"
+git -C "$MIXED_ROOT_SEED" add .
+git -C "$MIXED_ROOT_SEED" commit -q -m "release one"
+git -C "$MIXED_ROOT_SEED" tag -a v0.1.0 -m v0.1.0
+git clone -q --bare "$MIXED_ROOT_SEED" "$MIXED_ROOT_REMOTE"
+git clone -q "file://$MIXED_ROOT_REMOTE" "$MIXED_ROOT"
+git -C "$MIXED_ROOT" checkout -q v0.1.0
+printf 'v2\n' > "$MIXED_ROOT_SEED/release-state.txt"
+git -C "$MIXED_ROOT_SEED" add release-state.txt
+git -C "$MIXED_ROOT_SEED" commit -q -m "release two"
+git -C "$MIXED_ROOT_SEED" tag -a v0.1.1 -m v0.1.1
+git -C "$MIXED_ROOT_SEED" remote add origin "$MIXED_ROOT_REMOTE"
+git -C "$MIXED_ROOT_SEED" push -q origin main v0.1.1
+root_release="$(git -C "$MIXED_ROOT_SEED" rev-parse 'v0.1.1^{commit}')"
+
+MIXED_DATA_SEED="$TMP_DIR/mixed-data-seed"
+MIXED_DATA_REMOTE="$TMP_DIR/mixed-data-origin.git"
+git init -q -b main "$MIXED_DATA_SEED"
+git -C "$MIXED_DATA_SEED" config user.name "First Motive CI"
+git -C "$MIXED_DATA_SEED" config user.email "ci@firstmotive.ai"
+printf 'released\n' > "$MIXED_DATA_SEED/data-state.txt"
+git -C "$MIXED_DATA_SEED" add data-state.txt
+git -C "$MIXED_DATA_SEED" commit -q -m "released"
+git -C "$MIXED_DATA_SEED" tag -a v0.1.0 -m v0.1.0
+printf 'ahead\n' > "$MIXED_DATA_SEED/data-state.txt"
+git -C "$MIXED_DATA_SEED" add data-state.txt
+git -C "$MIXED_DATA_SEED" commit -q -m "unreleased"
+data_ahead="$(git -C "$MIXED_DATA_SEED" rev-parse HEAD)"
+git clone -q --bare "$MIXED_DATA_SEED" "$MIXED_DATA_REMOTE"
+mkdir -p "$MIXED_ROOT/src"
+git clone -q "file://$MIXED_DATA_REMOTE" "$MIXED_ROOT/src/fm_data"
+MIXED_MARKER="$TMP_DIR/mixed-installer-ran"
+MIXED_BIN="$TMP_DIR/mixed-bin"
+mkdir -p "$MIXED_BIN"
+cat > "$MIXED_BIN/flock" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$MIXED_BIN/flock"
+output="$(
+  FM_TEST_INSTALL_MARKER="$MIXED_MARKER" \
+    PATH="$MIXED_BIN:$PATH" \
+    "$MIXED_ROOT/scripts/service/appliance-update.sh" processor
+)"
+if [ ! -f "$MIXED_MARKER" ]; then
+  printf 'mixed-state updater did not run the installer; got: %s\n' "$output" >&2
+  exit 1
+fi
+if [ "$(git -C "$MIXED_ROOT" rev-parse HEAD)" != "$root_release" ]; then
+  echo "mixed-state updater did not advance the workspace release" >&2
+  exit 1
+fi
+if [ "$(git -C "$MIXED_ROOT/src/fm_data" rev-parse HEAD)" != "$data_ahead" ]; then
+  echo "installer pin_release rolled the ahead data checkout backward" >&2
+  exit 1
+fi
+if ! grep -q "fm_data is ahead of v0.1.0" <<< "$output"; then
+  printf 'mixed-state hold was not reported; got: %s\n' "$output" >&2
+  exit 1
+fi
 
 touch "$TMP_DIR/recordings/tactile-raw/continuous.tactile.csv"
 output="$(
