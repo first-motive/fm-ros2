@@ -23,6 +23,7 @@ fail() {
 
 stub_dir="$(mktemp -d)"
 trap 'rm -rf "$stub_dir"' EXIT
+# shellcheck disable=SC2016  # deliberate: the stub reads STUB_EXIT when it runs
 printf '#!/usr/bin/env bash\nexit "${STUB_EXIT:-0}"\n' >"$stub_dir/ros2"
 chmod +x "$stub_dir/ros2"
 
@@ -55,6 +56,16 @@ if grep -q 'process_session\\\.launch' "$UNIT_INSTALLER"; then
   fail "the unit's stop pattern still carries a backslash escape"
 else
   pass "the unit's stop pattern carries no backslash escape"
+fi
+
+# A stop must reach the wrapper, whose trap ends the launch and exits clean.
+# Signalling only the launch left a deliberate stop in `failed (exit-code)`,
+# because `ros2 launch` exits 0 on SIGTERM — the case the wrapper now reports as
+# a failure.
+if grep -q "stop 'processor-boot.sh'" "$UNIT_INSTALLER"; then
+  pass "the unit stops the wrapper by name"
+else
+  fail "the unit's stop never reaches the wrapper"
 fi
 
 # The restart policy is the other half: a real failure must be acted on.

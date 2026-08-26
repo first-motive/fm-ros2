@@ -89,11 +89,15 @@ do_install() {
   runtime="$(fm_processor_runtime)" || return 1
   if [ "$runtime" = container ]; then
     exec_start="/bin/bash $ROOT/scripts/service/container-exec.sh scripts/service/processor-boot.sh"
-    # No backslash in the pattern: systemd parses the ExecStart/ExecStop line
-    # itself and warned "Ignoring unknown escape sequences" on the escaped dot,
-    # which left the stop command holding a pattern systemd had already mangled
-    # (#134). pkill reads it as a regex, where the plain dot matches anyway.
-    exec_stop="ExecStop=/bin/bash $ROOT/scripts/service/container-exec.sh stop 'process_session.launch'"
+    # Stop the WRAPPER, not the launch. `docker compose exec` does not forward
+    # SIGTERM, so a stop has to reach in by name; signalling the launch directly
+    # left the wrapper watching a launch that exits 0 on SIGTERM, which is the
+    # very thing it now reports as a failure — a deliberate stop ended in
+    # `failed (exit-code)`. The wrapper's own trap forwards the signal and exits
+    # clean. No backslash in either pattern: systemd parses the Exec lines itself
+    # and warned "Ignoring unknown escape sequences" on an escaped dot (#134).
+    exec_stop="ExecStop=/bin/bash $ROOT/scripts/service/container-exec.sh stop 'processor-boot.sh'
+ExecStop=/bin/bash $ROOT/scripts/service/container-exec.sh stop 'process_session.launch'"
     requires="Requires=docker.service"
   else
     exec_start="/bin/bash $WRAPPER"
