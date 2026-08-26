@@ -31,8 +31,11 @@
 #   FM_LAN_IP=<ip>                     pin the DDS LAN interface (else auto-detected)
 #
 # No `set -e`: this is a long-lived bring-up wrapper, and a non-matching grep in the
-# wait loop must not abort it. It ends in `exec ros2 launch`, so the launch's exit is
-# the service's exit (systemd restarts it per the unit's Restart= policy).
+# wait loop must not abort it. The launch's exit becomes the service's exit, with one
+# correction: `ros2 launch` returns 0 even when every node it started has died, so a
+# supervisor that dies on a missing dependency looked like a clean shutdown and
+# systemd's Restart=on-failure never fired (#134). A long-lived supervisor that
+# returns at all has failed, unless it was asked to stop.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -139,4 +142,33 @@ LAUNCH_ARGS+=(stage_script:="$ROOT/src/fm_data/fm_data_annotate/scripts/stage_qw
 if [ -n "$AWS_INFERENCE_SCRIPT" ]; then
   LAUNCH_ARGS+=(aws_inference_script:="$AWS_INFERENCE_SCRIPT")
 fi
-exec ros2 launch fm_data process_session.launch.py "${LAUNCH_ARGS[@]}"
+# Stopped on purpose, or failed? A stop reaches this wrapper as a signal on the
+# native runtime, and as a TERM on the launch itself in the container runtime,
+# where the unit's ExecStop kills it by name from outside (container-exec.sh).
+# Both are clean; anything else is a failure systemd should act on.
+stopping=0
+trap 'stopping=1; [ -n "${launch_pid:-}" ] && kill -TERM "$launch_pid" 2>/dev/null' TERM INT
+
+ros2 launch fm_data process_session.launch.py "${LAUNCH_ARGS[@]}" &
+launch_pid=$!
+wait "$launch_pid"
+status=$?
+# The trap interrupts `wait`, which then returns 128+signal rather than the
+# launch's own status — wait again, now that the launch is tearing down.
+if [ "$stopping" = 1 ]; then
+  wait "$launch_pid" 2>/dev/null
+  exit 0
+fi
+# 143 = SIGTERM, 130 = SIGINT: the launch was killed from outside, which is what
+# a `systemctl stop` looks like under the container runtime.
+if [ "$status" = 143 ] || [ "$status" = 130 ]; then
+  exit 0
+fi
+if [ "$status" = 0 ]; then
+  echo "ERROR: the processing launch returned with its nodes stopped. ros2 launch exits" >&2
+  echo "       0 even when every node has died, so this reports the failure instead —" >&2
+  echo "       the service must not come back as 'inactive (dead), status=0/SUCCESS'." >&2
+  echo "       The node that died first is in the log above (journalctl -u fm-processor)." >&2
+  status=1
+fi
+exit "$status"

@@ -124,6 +124,12 @@ jobs:
       - name: processor runtime resolution
         run: bash scripts/ci/test-processor-runtime.sh
 
+      # `ros2 launch` exits 0 even when every node it started has died, which let
+      # fm-processor.service report success while the processor was gone (#134).
+      # The wrapper's exit policy is graded here against a stubbed `ros2`.
+      - name: processor service exit policy
+        run: bash scripts/ci/test-processor-service-exit.sh
+
       # Every install script is Linux-only and mostly unreachable in CI, so a parse
       # error would otherwise surface first on a real rig mid-provision.
       - name: install scripts parse

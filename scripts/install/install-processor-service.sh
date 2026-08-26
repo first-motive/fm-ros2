@@ -89,7 +89,11 @@ do_install() {
   runtime="$(fm_processor_runtime)" || return 1
   if [ "$runtime" = container ]; then
     exec_start="/bin/bash $ROOT/scripts/service/container-exec.sh scripts/service/processor-boot.sh"
-    exec_stop="ExecStop=/bin/bash $ROOT/scripts/service/container-exec.sh stop 'process_session\\.launch'"
+    # No backslash in the pattern: systemd parses the ExecStart/ExecStop line
+    # itself and warned "Ignoring unknown escape sequences" on the escaped dot,
+    # which left the stop command holding a pattern systemd had already mangled
+    # (#134). pkill reads it as a regex, where the plain dot matches anyway.
+    exec_stop="ExecStop=/bin/bash $ROOT/scripts/service/container-exec.sh stop 'process_session.launch'"
     requires="Requires=docker.service"
   else
     exec_start="/bin/bash $WRAPPER"
