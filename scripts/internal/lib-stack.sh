@@ -113,6 +113,38 @@ fm_stack_exec_detached() {
     "$FM_STACK_LOG_DIR" "$@"
 }
 
+# fm_stack_has_publisher <overlay> <topic>
+# 0 when something on this graph PUBLISHES the topic, 1 otherwise.
+#
+# Not `ros2 topic list | grep`: a topic appears in that list as soon as any
+# participant on the domain holds a publisher *or a subscription* on it. The
+# Jetson recorder and watchdog subscribe to /joint_states, so on the office LAN
+# a container with nothing running in it saw the topic immediately, `stack up`
+# took the already-up branch, and the stack was never launched (#136). A
+# publisher count is the question actually being asked: is this stack running.
+fm_stack_has_publisher() {
+  local overlay="$1" topic="$2"
+  fm_stack_exec "$overlay" ros2 topic info "$topic" 2>/dev/null |
+    grep -qE '^Publisher count: [1-9]'
+}
+
+# fm_stack_wait_publisher <overlay> <topic> <timeout_s>
+# Poll until the topic has a publisher, or fail after the timeout. The bounded
+# wait of fm_stack_wait_topic, asking fm_stack_has_publisher's question.
+fm_stack_wait_publisher() {
+  local overlay="$1" topic="$2" timeout="$3"
+  local _
+  for _ in $(seq 1 "$timeout"); do
+    if fm_stack_has_publisher "$overlay" "$topic"; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "error: nothing published $topic within ${timeout}s" >&2
+  fm_stack_inplace || echo "launch output: docker compose exec fm sh -c 'tail -n 50 $FM_STACK_LOG_DIR/*.log'" >&2
+  return 1
+}
+
 # fm_stack_wait_topic <overlay> <topic> <timeout_s>
 # Poll until the topic is advertised, or fail after the timeout. A bounded wait,
 # never a fixed sleep: a cold container takes far longer than a warm one, and a

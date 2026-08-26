@@ -69,9 +69,12 @@ stack_up() {
     "${FM_COMPOSE[@]}" up -d
   fi
 
-  if fm_stack_exec "$overlay" ros2 topic list 2>/dev/null | grep -qx /joint_states; then
+  # A publisher, never the topic name: a LAN subscriber (the Jetson recorder
+  # subscribes to /joint_states) makes the name appear on a container that is
+  # running nothing at all, and this branch then skips the launch (#136).
+  if fm_stack_has_publisher "$overlay" /joint_states; then
     for topic in "${SURFACE_TOPICS[@]}"; do
-      fm_stack_wait_topic "$overlay" "$topic" "$READY_TIMEOUT"
+      fm_stack_wait_publisher "$overlay" "$topic" "$READY_TIMEOUT"
     done
     echo ">> stack already up — surface complete"
     return 0
@@ -86,7 +89,7 @@ stack_up() {
   echo ">> launching $robot on the $backend backend, detached"
   fm_stack_exec_detached "$overlay" "${launch[@]}"
   for topic in "${SURFACE_TOPICS[@]}"; do
-    fm_stack_wait_topic "$overlay" "$topic" "$READY_TIMEOUT"
+    fm_stack_wait_publisher "$overlay" "$topic" "$READY_TIMEOUT"
   done
   echo ">> stack up — surface complete (${SURFACE_TOPICS[*]})"
 }
@@ -116,15 +119,18 @@ stack_down() {
 
 stack_status() {
   local overlay="$1"
-  local topics
-  if ! topics=$(fm_stack_exec "$overlay" ros2 topic list 2>/dev/null); then
+  # Reachability first: no ROS graph at all is "down", which is a different
+  # answer from a graph that carries no stack.
+  if ! fm_stack_exec "$overlay" ros2 topic list >/dev/null 2>&1; then
     echo "stack: down"
     return 1
   fi
 
+  # Publishers, for the reason stack_up tests them: an idle LAN with a remote
+  # subscriber reported "up" here too (#136).
   local missing=() topic
   for topic in "${SURFACE_TOPICS[@]}"; do
-    grep -qx "$topic" <<<"$topics" || missing+=("$topic")
+    fm_stack_has_publisher "$overlay" "$topic" || missing+=("$topic")
   done
 
   if [[ ${#missing[@]} -gt 0 ]]; then

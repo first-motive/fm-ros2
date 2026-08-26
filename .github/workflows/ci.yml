@@ -105,6 +105,13 @@ jobs:
       - name: lifecycle verb resolution
         run: bash scripts/ci/test-lifecycle-verbs.sh
 
+      # `fm stack up` decides whether a stack is running from a publisher count,
+      # never from the topic name: a LAN subscriber makes the name appear on a
+      # container that is running nothing (#136). Stubbed `ros2` output, so this
+      # runs here rather than needing a rig with the Jetson on the same LAN.
+      - name: stack publisher detection
+        run: bash scripts/ci/test-stack-publisher.sh
+
       # The processor role picks native Humble or the Humble container by host
       # (#127); the picker is stubbed here so a wrong branch fails in CI, not on
       # the workstation.
