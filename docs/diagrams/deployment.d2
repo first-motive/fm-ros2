@@ -2,6 +2,11 @@
 # provides Docker, the browser, and (on Linux) the GPU and CAN bus. Compose
 # overlays adapt the same base image per platform. Dashed edges are runtime /
 # bus links from the container to host hardware.
+#
+# Transport (ADR 0004): DDS never leaves a host. Each host runs one
+# zenoh-bridge-ros2dds on the HOST (systemd on Linux, a LaunchAgent on macOS)
+# that republishes its loopback DDS graph to the fleet's single zenohd router on
+# Rune, the office Mac mini — a LaunchDaemon on the host, never in the CI guest.
 ...@styles
 direction: right
 
@@ -13,6 +18,7 @@ mac: macOS · M5 · OrbStack {
     macgraph: "node graph\nbackend: mock / mujoco" { class: node }
     macbridge: foxglove_bridge :8765 { class: node }
   }
+  maczenoh: "zenoh-bridge-ros2dds\nLaunchAgent · profile cockpit" { class: node }
 }
 
 linux: Linux · GPU + hardware {
@@ -23,11 +29,21 @@ linux: Linux · GPU + hardware {
     lingraph: "node graph\nbackend: any incl. real" { class: node }
     linbridge: foxglove_bridge :8765 { class: node }
   }
+  linzenoh: "zenoh-bridge-ros2dds\nsystemd · profile per workload" { class: node }
   gpu: GPU { shape: cylinder; class: art }
   can: "CAN bus → arms" { shape: cylinder; class: art }
+}
+
+rune: Rune · office Mac mini · always on {
+  class: block
+  zenohd: "zenohd router\nLaunchDaemon · :7447 LAN + tailnet" { class: node }
 }
 
 mac.macbrowser <-> mac.maccontainer.macbridge
 linux.linbrowser <-> linux.lincontainer.linbridge
 linux.lincontainer -> linux.gpu: NVIDIA runtime { style.stroke-dash: 4 }
 linux.lincontainer -> linux.can: SocketCAN { style.stroke-dash: 4 }
+mac.maccontainer <-> mac.maczenoh: DDS · loopback only { style.stroke-dash: 4 }
+linux.lincontainer <-> linux.linzenoh: DDS · loopback only { style.stroke-dash: 4 }
+mac.maczenoh <-> rune.zenohd: zenoh · tcp
+linux.linzenoh <-> rune.zenohd: zenoh · tcp
