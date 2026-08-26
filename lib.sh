@@ -11,8 +11,20 @@ item() { echo "$1"; }
 # Newest release tag of a checkout (vN.N.N-style, highest by version sort), or
 # empty when the repo has none. The appliance release channel keys off this:
 # installers pin to it and appliance-update.sh converges to it.
+#
+# Pre-release tags are excluded. A tag with a suffix — v0.2.0-zenoh.1 — sorts
+# ABOVE v0.1.5 under -v:refname, so without this filter cutting one would roll
+# every appliance on the update timer onto unvalidated code within fifteen
+# minutes. That is the opposite of what a pre-release is for: it exists so a
+# named few machines can be moved onto a branch state by hand, ahead of the
+# gate that decides whether the rest ever follow.
+#
+# Move a machine onto one deliberately:
+#   git -C <dir> fetch --tags && git -C <dir> checkout --detach v0.2.0-zenoh.1
 latest_release_tag() {  # dir
-  git -C "$1" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null | head -1
+  git -C "$1" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null \
+    | grep -vE '^v[0-9][^-]*-' \
+    | head -1
 }
 
 # Move a checkout onto its newest release tag — the appliance install-time half
