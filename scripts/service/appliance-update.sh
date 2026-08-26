@@ -175,8 +175,14 @@ _busy() {  # role
 
 # lib.sh normally provides this; keep an inline fallback so the script stays
 # runnable over `ssh 'bash -s'` with no workspace file to source.
+# The pre-release filter matters more here than anywhere: this runs unattended on
+# a timer. See lib.sh for why a suffixed tag must never be a convergence target.
 command -v latest_release_tag >/dev/null 2>&1 || \
-  latest_release_tag() { git -C "$1" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null | head -1; }
+  latest_release_tag() {
+    git -C "$1" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null \
+      | grep -vE '^v[0-9][^-]*-' \
+      | head -1
+  }
 
 # Fetch one repo's tags; report its release-channel state:
 #   current        HEAD is the newest v* tag
