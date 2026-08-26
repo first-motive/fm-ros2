@@ -73,10 +73,14 @@ sprint so no rig drifts more than a sprint behind `main`. Two rules around that:
 After a release, on a provisioned rig:
 
 ```bash
+./scripts/service/appliance-update.sh --check recorder
 ./scripts/service/appliance-update.sh recorder
 ```
 
-Run once by hand rather than waiting for the timer. It converges the repos that
-moved, re-runs the role installer, and restarts the services. A second run
-prints `up to date` with no `untagged` warning left — that is the check that the
-set was complete.
+Run `--check` first. It fetches and reports the release state without checking
+out source, building, or changing a service. A checkout ahead of the latest tag
+is held until a new release is cut; the updater never rolls it back. Then run
+the updater once by hand rather than waiting for the timer. It converges the
+repos that moved, re-runs the role installer, and restarts the services. A
+second `--check` reports each repo as `current`; that proves the release set was
+complete.
