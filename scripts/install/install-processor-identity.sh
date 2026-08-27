@@ -228,7 +228,10 @@ verify_tool_version() { # tool expected version
   local tool="$1" expected="$2" output
   [ -x "$tool" ] || return 1
   output="$($tool --version 2>&1 || true)"
-  [ -n "$output" ] || output="$($tool version 2>&1 || true)"
+  if printf '%s\n' "$output" | grep -Fq "$expected"; then
+    return 0
+  fi
+  output="$($tool version 2>&1 || true)"
   printf '%s\n' "$output" | grep -Fq "$expected"
 }
 

@@ -20,8 +20,11 @@ echo 'aws-cli/2.36.32 Python/3.11 Linux/ci'
 EOF
 cat > "$TMP_DIR/bin/aws_signing_helper" <<'EOF'
 #!/usr/bin/env bash
-if [ "${1:-}" = version ] || [ "${1:-}" = --version ]; then
+if [ "${1:-}" = version ]; then
   echo 'aws_signing_helper 1.8.4'
+elif [ "${1:-}" = --version ]; then
+  echo 'unknown flag: --version' >&2
+  exit 2
 else
   printf '{"Version":1,"AccessKeyId":"fake","SecretAccessKey":"fake","SessionToken":"fake","Expiration":"2099-01-01T00:00:00Z"}\n'
 fi
