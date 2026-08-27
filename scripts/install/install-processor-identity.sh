@@ -369,27 +369,35 @@ ensure_key() {
 }
 
 ensure_csr() {
-  local subject csr_digest key_digest staging
+  local subject csr_digest key_digest reason staging
   if [ -e "$CSR_FILE" ]; then
     [ -f "$CSR_FILE" ] || { die "$CSR_FILE is not a regular file"; return 1; }
-    openssl req -in "$CSR_FILE" -noout -verify >/dev/null 2>&1 || {
-      die "existing processor CSR is unreadable or does not verify with the tower key"
-      return 1
-    }
-    subject="$(openssl req -in "$CSR_FILE" -nameopt RFC2253 -noout -subject 2>/dev/null || true)"
-    case "$subject" in *"CN=$CERTIFICATE_CN"*) ;; *) die "processor CSR subject must be CN=$CERTIFICATE_CN"; return 1 ;; esac
-    key_digest="$(openssl pkey -in "$KEY_FILE" -pubout -outform DER 2>/dev/null | \
-      openssl dgst -sha256 -binary | od -An -tx1 | tr -d ' \n')"
-    csr_digest="$(openssl req -in "$CSR_FILE" -pubkey -noout 2>/dev/null | \
-      openssl pkey -pubin -outform DER 2>/dev/null | openssl dgst -sha256 -binary | \
-      od -An -tx1 | tr -d ' \n')"
-    [ -n "$key_digest" ] && [ "$key_digest" = "$csr_digest" ] || {
-      die "existing processor CSR public key does not match the tower-local private key"
-      return 1
-    }
-    return 0
+    reason=""
+    if ! openssl req -in "$CSR_FILE" -noout -verify >/dev/null 2>&1; then
+      reason="it is unreadable or its self-signature is invalid"
+    else
+      subject="$(openssl req -in "$CSR_FILE" -nameopt RFC2253 -noout -subject 2>/dev/null || true)"
+      case "$subject" in
+        *"CN=$CERTIFICATE_CN"*) ;;
+        *) reason="its subject is not CN=$CERTIFICATE_CN" ;;
+      esac
+      key_digest="$(openssl pkey -in "$KEY_FILE" -pubout -outform DER 2>/dev/null | \
+        openssl dgst -sha256 -binary | od -An -tx1 | tr -d ' \n')"
+      csr_digest="$(openssl req -in "$CSR_FILE" -pubkey -noout 2>/dev/null | \
+        openssl pkey -pubin -outform DER 2>/dev/null | openssl dgst -sha256 -binary | \
+        od -An -tx1 | tr -d ' \n')"
+      if [ -z "$key_digest" ] || [ "$key_digest" != "$csr_digest" ]; then
+        reason="its public key does not match the tower-local private key"
+      fi
+    fi
+    if [ -z "$reason" ]; then
+      return 0
+    fi
+    item "replacing the stale processor CSR because $reason ..."
   fi
-  item "creating the processor CSR (the encrypted CA key stays offline) ..."
+  if [ ! -e "$CSR_FILE" ]; then
+    item "creating the processor CSR (the encrypted CA key stays offline) ..."
+  fi
   staging="$(mktemp "${TMPDIR:-/tmp}/fm-processor-csr.XXXXXX")"
   openssl req -new -sha384 -key "$KEY_FILE" -subj "/CN=$CERTIFICATE_CN" -out "$staging" >/dev/null 2>&1
   root_install 0644 "$SERVICE_USER" "$(service_group)" "$staging" "${CSR_FILE}.staging.$$"

@@ -74,6 +74,24 @@ key_mode="$(stat -c '%a' "$TMP_DIR/state/private-key.pem" 2>/dev/null || stat -f
 [ "$key_mode" = 600 ] || fail "private key is not mode 0600 (mode=$key_mode)"
 pass "first install creates a protected key/CSR and pauses safely"
 
+# A reset can remove the private key while a public CSR survives. The installer
+# must replace that stale CSR with one derived from the new tower-local key.
+stale_csr_digest="$(openssl req -in "$TMP_DIR/state/processor.csr.pem" -pubkey -noout | \
+  openssl pkey -pubin -outform DER | openssl dgst -sha256)"
+rm "$TMP_DIR/state/private-key.pem"
+if bash "$IDENTITY" install >"$TMP_DIR/reset.out" 2>"$TMP_DIR/reset.err"; then
+  fail "reset recovery must stop at the offline CA boundary"
+else
+  rc=$?
+  [ "$rc" -eq 3 ] || fail "reset recovery returned $rc, expected 3 while waiting for CA"
+fi
+reset_key_digest="$(openssl pkey -in "$TMP_DIR/state/private-key.pem" -pubout -outform DER | openssl dgst -sha256)"
+reset_csr_digest="$(openssl req -in "$TMP_DIR/state/processor.csr.pem" -pubkey -noout | \
+  openssl pkey -pubin -outform DER | openssl dgst -sha256)"
+[ "$reset_key_digest" = "$reset_csr_digest" ] || fail "reset recovery left a CSR that does not match the new key"
+[ "$stale_csr_digest" != "$reset_csr_digest" ] || fail "reset recovery reused the stale CSR"
+pass "reset recovery replaces a stale CSR without exporting the new private key"
+
 key_digest_before="$(openssl pkey -in "$TMP_DIR/state/private-key.pem" -pubout -outform DER | openssl dgst -sha256)"
 
 # Sign the CSR with a local test CA carrying the same client-auth constraints as
