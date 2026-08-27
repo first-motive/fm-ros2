@@ -13,7 +13,8 @@
 # environment (or in the generated identity.env file):
 #   ACCOUNT_ID, REGION, PROFILE, TRUST_ANCHOR_ARN, PROFILE_ARN, ROLE_ARN, BUCKET
 # Region and account are intentionally fixed to the Ohio data plane.  This
-# script installs no IAM or CloudFormation resources; fm-data owns those.
+# script installs no IAM or CloudFormation resources; the infrastructure layer
+# owns those.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
