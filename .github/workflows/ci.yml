@@ -130,6 +130,13 @@ jobs:
       - name: processor service exit policy
         run: bash scripts/ci/test-processor-service-exit.sh
 
+      # The processor Roles Anywhere installer is tested entirely offline: fake
+      # pinned AWS binaries and a temporary OpenSSL CA cover first/repeat/partial
+      # states, certificate validation, check/receipt/uninstall, and the
+      # read-only container boundary without touching a real tower or AWS account.
+      - name: processor AWS identity installer
+        run: bash scripts/ci/test-processor-identity.sh
+
       # Every install script is Linux-only and mostly unreachable in CI, so a parse
       # error would otherwise surface first on a real rig mid-provision.
       - name: install scripts parse

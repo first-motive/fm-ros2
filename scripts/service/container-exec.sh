@@ -6,11 +6,11 @@
 #
 # Brings the compose service up (idempotent), then execs the wrapper through the
 # image entrypoint so ROS and the overlay are sourced. The unit's environment
-# (its EnvironmentFile knobs) is passed through by prefix — FM_*, ROS_*, and
-# AWS_* — so /etc/fm-processor.env and /etc/fm-archive.env keep working
-# unchanged. AWS_* is there on purpose: the archive browser reads the B2 key
-# and it runs inside the container. The container is a process boundary on the
-# same host, not a trust boundary, which is also why nothing else crosses.
+# (its EnvironmentFile knobs) is passed through for FM_* and ROS_* values plus
+# the non-secret AWS profile/region selectors needed by credential_process. Do
+# not forward arbitrary AWS_* values: the archive service may still use static
+# B2 credentials, but those must not cross into the processor container's
+# Roles Anywhere process environment.
 #
 # `docker compose exec` does not forward SIGTERM to the process it started, so
 # the unit pairs this with an ExecStop that stops the wrapper's launch by name.
@@ -36,7 +36,11 @@ wrapper="${1:?boot wrapper path, relative to the workspace root}"
 
 pass=()
 while IFS= read -r name; do
-  pass+=(-e "$name")
+  case "$name" in
+    FM_*|ROS_*|AWS_CONFIG_FILE|AWS_PROFILE|AWS_DEFAULT_PROFILE|AWS_REGION|AWS_DEFAULT_REGION|AWS_CA_BUNDLE)
+      pass+=(-e "$name")
+      ;;
+  esac
 done < <(env | grep -E '^(FM_|ROS_|AWS_)' | cut -d= -f1)
 
 exec "${FM_COMPOSE[@]}" exec ${pass[@]+"${pass[@]}"} fm /ros_entrypoint.sh bash "/ws/$wrapper"

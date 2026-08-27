@@ -30,6 +30,8 @@ UNIT=/etc/systemd/system/fm-processor.service
 ENVFILE=/etc/fm-processor.env
 BRIDGE_ENV="${FM_BRIDGE_ENV_FILE:-/etc/fm-bridge.env}"
 WRAPPER="$ROOT/scripts/service/processor-boot.sh"
+IDENTITY_INSTALLER="$ROOT/scripts/install/install-processor-identity.sh"
+IDENTITY_PROFILE="${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config"
 
 # Run the service as the human who installed it, not root — so ~/recordings and
 # ~/processed resolve to their account. SUDO_USER covers a `sudo ./install.sh`.
@@ -53,6 +55,11 @@ ROS + the workspace overlay + comms.sh, then launches process_session.launch.py
 FM_PROCESSOR_LEROBOT_IMPORTS_DIR, ...). The LeRobot imports root must match the
 archive service's FM_ARCHIVE_LEROBOT_STAGE_DIR when either is customized.
 The shared Foxglove/Avahi endpoint is persisted separately in /etc/fm-bridge.env.
+
+When the processor identity has been installed, its systemd drop-in supplies the
+Ohio-only Roles Anywhere profile and runs the certificate monitor before launch.
+The standalone installer refuses to restart a processor whose identity profile
+exists but does not pass the read-only identity check.
 EOF
 }
 
@@ -77,6 +84,18 @@ do_install() {
     return 1
   fi
 
+  # setup-processor.sh installs the identity before this service.  If a durable
+  # profile is already present, verify it before writing/restarting the unit; a
+  # partially copied certificate must never result in a service that appears
+  # healthy while its credential_process is unusable.
+  if [ -f "$IDENTITY_PROFILE" ]; then
+    [ -f "$IDENTITY_INSTALLER" ] || { echo "ERROR: processor identity installer is missing." >&2; return 1; }
+    bash "$IDENTITY_INSTALLER" check || {
+      echo "ERROR: processor identity check failed; service was not restarted." >&2
+      return 1
+    }
+  fi
+
   # Processor discovery adverts use the same durable endpoint file as the
   # recorder and standalone bridge. Preserve an existing tower override.
   FM_BRIDGE_ENV_FILE="$BRIDGE_ENV" ./scripts/install/install-bridge-config.sh
@@ -88,6 +107,9 @@ do_install() {
   local runtime exec_start exec_stop="" requires=""
   runtime="$(fm_processor_runtime)" || return 1
   if [ "$runtime" = container ]; then
+    if [ -f "$IDENTITY_PROFILE" ] && type fm_processor_prepare_identity_mounts >/dev/null 2>&1; then
+      fm_processor_prepare_identity_mounts
+    fi
     exec_start="/bin/bash $ROOT/scripts/service/container-exec.sh scripts/service/processor-boot.sh"
     # Stop the WRAPPER, not the launch. `docker compose exec` does not forward
     # SIGTERM, so a stop has to reach in by name; signalling the launch directly

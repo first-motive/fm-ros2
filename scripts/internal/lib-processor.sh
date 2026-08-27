@@ -59,6 +59,16 @@ fm_processor_has_docker() { command -v docker >/dev/null 2>&1 && docker info >/d
 # on the host before the first `up`, so docker never creates them root-owned.
 FM_PROCESSOR_MOUNTS=(recordings processed annotations fm-data-runs dataset-releases)
 
+# Roles Anywhere material is deliberately a separate, read-only mount set.  It
+# must never be folded into the HOME bind mount: the latter would expose SSH and
+# Git credentials to the Humble container.  The identity installer creates these
+# paths before compose starts; this helper only verifies that a container launch
+# cannot silently proceed with Docker-created root-owned placeholders.
+FM_PROCESSOR_IDENTITY_MOUNTS=(
+  "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}"
+  "${FM_AWS_IDENTITY_STATE_DIR:-/var/lib/fm-processor/identity}"
+)
+
 # fm_processor_compose <workspace-root>
 # Fill FM_COMPOSE with the compose invocation for the processor container: the
 # shared base, the Linux overlay, and the processor overlay that mounts $HOME.
@@ -70,6 +80,9 @@ fm_processor_compose() {
   FM_COMPOSE=(docker compose -p "$(fm_compose_project processor)" \
     -f "$root/docker/compose.yaml" -f "$root/docker/compose.linux.yaml" \
     -f "$root/compose.processor.yaml")
+  if [ -f "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config" ]; then
+    FM_COMPOSE+=(-f "$root/compose.processor.aws.yaml")
+  fi
 }
 
 # fm_processor_prepare_mounts
@@ -77,6 +90,21 @@ fm_processor_compose() {
 fm_processor_prepare_mounts() {
   local d
   for d in "${FM_PROCESSOR_MOUNTS[@]}"; do mkdir -p "$HOME/$d"; done
+}
+
+# fm_processor_prepare_identity_mounts
+# Fail closed when the identity installer has not completed its protected
+# directories.  The compose overlay mounts both paths read-only.
+fm_processor_prepare_identity_mounts() {
+  local path
+  [ -f "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config" ] || return 0
+  for path in "${FM_PROCESSOR_IDENTITY_MOUNTS[@]}"; do
+    [ -d "$path" ] || {
+      echo "ERROR: processor identity path is missing: $path" >&2
+      echo "       Run scripts/install/install-processor-identity.sh first." >&2
+      return 1
+    }
+  done
 }
 
 # fm_processor_import_docker <workspace-root>

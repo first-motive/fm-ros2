@@ -180,6 +180,45 @@ ros2 run fm_sim_core sim_loop
 For GPU, hardware, or GUI tools, use the Linux native path
 (`scripts/install/setup-linux.sh` + `compose.linux.yaml`).
 
+## Processor AWS identity (Linux tower)
+
+The processor service uses AWS IAM Roles Anywhere. It does not store an IAM
+access key. Supply the reviewed account, Ohio region, profile, trust anchor,
+Roles Anywhere profile, role, and data-plane bucket as explicit
+`FM_AWS_IDENTITY_*` values before you install the processor service.
+
+```bash
+export FM_AWS_IDENTITY_ACCOUNT_ID=624198668504
+export FM_AWS_IDENTITY_REGION=us-east-2
+export FM_AWS_IDENTITY_PROFILE=fmtower-processor
+export FM_AWS_IDENTITY_TRUST_ANCHOR_ARN=<reviewed-trust-anchor-arn>
+export FM_AWS_IDENTITY_PROFILE_ARN=<reviewed-roles-anywhere-profile-arn>
+export FM_AWS_IDENTITY_ROLE_ARN=<reviewed-processor-role-arn>
+export FM_AWS_IDENTITY_BUCKET=<reviewed-ohio-bucket>
+./install.sh --processor --service
+```
+
+The first run creates the tower-local private key and CSR, then exits with code
+`3`. Sign that CSR with the offline First Motive CA. Return only the public
+certificate and public CA certificate to the tower, set
+`FM_AWS_IDENTITY_CERTIFICATE_INPUT` and
+`FM_AWS_IDENTITY_CA_CERTIFICATE_INPUT`, and run the same install command again.
+The installer verifies the chain, certificate purpose, identity, expiry window,
+and key match before it changes the active certificate.
+
+Use these commands for repeatable checks and recovery:
+
+```bash
+sudo scripts/install/install-processor-identity.sh check
+sudo scripts/install/install-processor-identity.sh receipt
+sudo scripts/install/install-processor-identity.sh uninstall
+```
+
+`uninstall` removes generated service wiring. It keeps the private key, CSR,
+public certificate, and receipt so an interrupted install can resume. The
+processor must pass the live caller-identity and allowed/denied AWS probes before
+it is ready for a cloud job.
+
 ## Wrist cameras (capture rig)
 
 The studio capture rig uses two USB RGB wrist cameras, driven by the
