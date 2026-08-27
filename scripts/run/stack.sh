@@ -138,7 +138,11 @@ stack_status() {
     return 1
   fi
   echo "stack: up — surface complete (${SURFACE_TOPICS[*]})"
-  fm_stack_exec "$overlay" ros2 control list_controllers 2>/dev/null || true
+  # Bounded: this line is decoration, and `ros2 control list_controllers` waits
+  # on the controller_manager service forever when it is busy or a second
+  # graph participant confuses discovery — it held the sim loop for 34 minutes
+  # on fm-ws-01 (2026-08-27).
+  fm_stack_exec "$overlay" timeout 15 ros2 control list_controllers 2>/dev/null || true
 }
 
 main() {
