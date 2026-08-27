@@ -124,6 +124,18 @@ jobs:
       - name: processor runtime resolution
         run: bash scripts/ci/test-processor-runtime.sh
 
+      # The optional Ohio route is a real installer transaction: first/repeat
+      # convergence and malformed/conflicting values must fail before any unit,
+      # env, or systemd mutation.
+      - name: processor service config transaction
+        run: bash scripts/ci/test-processor-service-config.sh
+
+      # Container entry resolves the nested fm-data source on the host because
+      # Git ownership checks can reject that checkout as container root. Verify
+      # valid/mismatched/sentinel, tracked-dirty, and offline paths without Docker.
+      - name: processor container source identity
+        run: bash scripts/ci/test-processor-container-exec.sh
+
       # `ros2 launch` exits 0 even when every node it started has died, which let
       # fm-processor.service report success while the processor was gone (#134).
       # The wrapper's exit policy is graded here against a stubbed `ros2`.

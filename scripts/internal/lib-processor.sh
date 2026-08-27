@@ -94,9 +94,10 @@ fm_processor_prepare_mounts() {
 
 # fm_processor_prepare_identity_mounts
 # Fail closed when the identity installer has not completed its protected
-# directories.  The compose overlay mounts both paths read-only.
+# directories and the complete pinned AWS CLI runtime.  The compose overlay
+# mounts them read-only and puts the runtime's own bin directory on PATH.
 fm_processor_prepare_identity_mounts() {
-  local path
+  local path aws_install aws_runtime
   [ -f "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config" ] || return 0
   for path in "${FM_PROCESSOR_IDENTITY_MOUNTS[@]}"; do
     [ -d "$path" ] || {
@@ -105,6 +106,18 @@ fm_processor_prepare_identity_mounts() {
       return 1
     }
   done
+  aws_install="${FM_AWS_IDENTITY_AWS_INSTALL_DIR:-/usr/local/aws-cli}"
+  [ -d "$aws_install" ] || {
+    echo "ERROR: pinned AWS CLI install tree is missing: $aws_install" >&2
+    echo "       Run scripts/install/install-processor-identity.sh first." >&2
+    return 1
+  }
+  aws_runtime="$aws_install/v2/current/bin/aws"
+  [ -x "$aws_runtime" ] || {
+    echo "ERROR: pinned AWS CLI runtime is missing or not executable: $aws_runtime" >&2
+    echo "       Run scripts/install/install-processor-identity.sh first." >&2
+    return 1
+  }
 }
 
 # fm_processor_import_docker <workspace-root>

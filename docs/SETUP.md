@@ -190,6 +190,7 @@ Roles Anywhere profile, role, and data-plane bucket as explicit
 ```bash
 export FM_AWS_IDENTITY_ACCOUNT_ID=624198668504
 export FM_AWS_IDENTITY_REGION=us-east-2
+# Use the profile selector approved by the installed identity contract.
 export FM_AWS_IDENTITY_PROFILE=fmtower-processor
 export FM_AWS_IDENTITY_TRUST_ANCHOR_ARN=<reviewed-trust-anchor-arn>
 export FM_AWS_IDENTITY_PROFILE_ARN=<reviewed-roles-anywhere-profile-arn>
@@ -218,6 +219,31 @@ sudo scripts/install/install-processor-identity.sh uninstall
 public certificate, and receipt so an interrupted install can resume. The
 processor must pass the live caller-identity and allowed/denied AWS probes before
 it is ready for a cloud job.
+
+The processor stays local-only unless the Ohio service lane is explicitly enabled.
+On a host where the identity bucket is already reviewed, set the opt-in before
+the service install:
+
+```bash
+export FM_AWS_INFERENCE_SERVICE_MODE=1
+export FM_AWS_INFERENCE_BUCKET="$FM_AWS_IDENTITY_BUCKET"
+export FM_AWS_INFERENCE_READINESS_DIR=~/fm-data-runs/aws-readiness
+./scripts/install/install-processor-service.sh
+```
+
+The installer requires the installed identity profile to pass its read-only
+check, then derives that profile and the Ohio region before it writes the
+non-secret selectors atomically to `/etc/fm-processor-aws.env`. It refuses
+conflicting existing settings and never creates readiness receipts. The
+read-only AWS preflight must supply fresh, profile-bound `qwen2.5.json` and
+`qwen3.5.json` receipts in that directory; missing or stale receipts keep both
+lanes offline. The managed file remains active on a later service reinstall when
+the mode variable is not exported, so an ordinary reinstall cannot silently
+disable the route. To disable the route, stop the service and remove that
+managed file after review (or run the installer's `uninstall`, which removes all
+managed service files), then install again with the mode unset. The service
+wrapper resolves the nested `fm-data` source commit before launch and keeps it
+in the annotation evidence.
 
 ## Wrist cameras (capture rig)
 

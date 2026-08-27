@@ -83,6 +83,36 @@ else
   fail "the installer never verifies the supervisors' imports"
 fi
 
+# The processor installer owns a separate, atomic Ohio service env file. This
+# keeps the opt-in values out of the general host config and refuses conflicting
+# pre-existing selectors instead of silently appending a partial route.
+if grep -q '^AWS_ENVFILE=/etc/fm-processor-aws.env' "$UNIT_INSTALLER" && \
+   grep -q '_check_aws_env_conflicts' "$UNIT_INSTALLER" && \
+   grep -q '_write_aws_service_env' "$UNIT_INSTALLER" && \
+   grep -q 'EnvironmentFile=-\$AWS_ENVFILE' "$UNIT_INSTALLER"; then
+  pass "the installer uses an atomic, conflict-checked Ohio service env file"
+else
+  fail "the installer does not persist Ohio service settings safely"
+fi
+preflight_line="$(grep -n '_preflight_aws_service_env || return 1' "$UNIT_INSTALLER" | head -1 | cut -d: -f1)"
+unit_write_line="$(grep -n 'sudo tee "\$UNIT"' "$UNIT_INSTALLER" | head -1 | cut -d: -f1)"
+if [ -n "$preflight_line" ] && [ -n "$unit_write_line" ] && [ "$preflight_line" -lt "$unit_write_line" ] && \
+   grep -q 'Refusing to overwrite it' "$UNIT_INSTALLER"; then
+  pass "conflicting Ohio settings are rejected before unit writes"
+else
+  fail "conflicting Ohio settings could mutate the service before rejection"
+fi
+
+# Container boot resolves the host-owned nested fm-data commit before Docker
+# entry (container root is intentionally rejected by Git ownership checks).
+if grep -q 'FM_PROCESSOR_ANNOTATE_GIT_COMMIT' scripts/service/container-exec.sh && \
+   grep -q 'src/fm_data.*rev-parse' scripts/service/container-exec.sh && \
+   grep -q 'FM_AWS_INFERENCE_SERVICE_MODE' scripts/service/container-exec.sh; then
+  pass "container entry forwards a validated host fm-data commit"
+else
+  fail "container entry does not establish source identity before launch"
+fi
+
 echo
 if [[ "$fails" -gt 0 ]]; then
   echo "$fails check(s) failed"

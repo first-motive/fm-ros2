@@ -583,12 +583,12 @@ write_units() {
   atomic_install_text 0644 "$ROOT_OWNER" "$ROOT_GROUP" "$EXPIRY_SERVICE" <<EOF
 [Unit]
 Description=Check the First Motive processor Roles Anywhere certificate
+OnFailure=fm-aws-identity-expiry-warning.service
 
 [Service]
 Type=oneshot
 User=root
 ExecStart=$MONITOR_BIN
-OnFailure=fm-aws-identity-expiry-warning.service
 EOF
   atomic_install_text 0644 "$ROOT_OWNER" "$ROOT_GROUP" "$WARNING_SERVICE" <<EOF
 [Unit]

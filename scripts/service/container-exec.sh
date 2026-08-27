@@ -23,9 +23,62 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 #   container-exec.sh stop <pattern>
 #
 # is the ExecStop half: it ends the matching process inside the container.
+mode="${1:-start}"
+wrapper="${1:-}"
+if [ "$mode" != stop ] && [ "$wrapper" = scripts/service/processor-boot.sh ]; then
+  # The nested fm-data checkout is owned by the appliance user on the host. Git
+  # quite correctly rejects that checkout from the container's root user, so
+  # resolve its exact source identity before entering Docker and pass it through
+  # the narrow FM_* environment allowlist below.
+  _is_full_commit() {
+    [[ "$1" =~ ^[0-9a-f]{40}$ ]] &&
+      [ "$1" != 0000000000000000000000000000000000000000 ]
+  }
+  _host_data_commit=""
+  _host_data_dirty=0
+  if [ -e "$ROOT/src/fm_data/.git" ]; then
+    _host_data_commit="$(git -C "$ROOT/src/fm_data" rev-parse --verify HEAD 2>/dev/null || true)"
+    _is_full_commit "$_host_data_commit" || _host_data_commit=""
+    # HEAD is not a truthful source identity when tracked files differ from it.
+    # Ignore untracked runtime outputs (the processor creates those under the
+    # checkout), but refuse a cloud launch from a tracked dirty checkout.
+    if [ -n "$_host_data_commit" ] && ! git -C "$ROOT/src/fm_data" diff --quiet HEAD -- >/dev/null 2>&1; then
+      _host_data_dirty=1
+      _host_data_commit=""
+    fi
+  fi
+  _cloud_requested=0
+  [ -n "${FM_PROCESSOR_AWS_INFERENCE_SCRIPT:-}" ] && _cloud_requested=1
+  [ "${FM_AWS_INFERENCE_SERVICE_MODE:-0}" = 1 ] && _cloud_requested=1
+  if [ "$_host_data_dirty" = 1 ]; then
+    if [ -n "${FM_PROCESSOR_ANNOTATE_GIT_COMMIT:-}" ] || [ "$_cloud_requested" = 1 ]; then
+      echo "ERROR: tracked changes in $ROOT/src/fm_data prevent a trusted annotation source identity" >&2
+      echo "       Commit or stash tracked fm-data changes before the AWS annotation launch." >&2
+      exit 1
+    fi
+  fi
+  if [ -n "${FM_PROCESSOR_ANNOTATE_GIT_COMMIT:-}" ]; then
+    _is_full_commit "$FM_PROCESSOR_ANNOTATE_GIT_COMMIT" || {
+      echo "ERROR: FM_PROCESSOR_ANNOTATE_GIT_COMMIT must be a full 40-character lowercase Git commit" >&2
+      exit 1
+    }
+    if [ -n "$_host_data_commit" ] && [ "$FM_PROCESSOR_ANNOTATE_GIT_COMMIT" != "$_host_data_commit" ]; then
+      echo "ERROR: FM_PROCESSOR_ANNOTATE_GIT_COMMIT does not match the host fm-data checkout" >&2
+      echo "       expected $_host_data_commit" >&2
+      exit 1
+    fi
+  elif [ -n "$_host_data_commit" ]; then
+    export FM_PROCESSOR_ANNOTATE_GIT_COMMIT="$_host_data_commit"
+  elif [ "$_cloud_requested" = 1 ]; then
+    echo "ERROR: AWS annotation requires a resolvable host fm-data source commit" >&2
+    echo "       Check out $ROOT/src/fm_data or set a matching reviewed full commit." >&2
+    exit 1
+  fi
+fi
+
 fm_processor_compose "$ROOT"
 
-if [ "${1:-}" = stop ]; then
+if [ "$mode" = stop ]; then
   pattern="${2:?process pattern to stop}"
   "${FM_COMPOSE[@]}" exec fm pkill -f "$pattern" || true
   exit 0
