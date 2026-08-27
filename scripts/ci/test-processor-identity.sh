@@ -97,6 +97,11 @@ key_digest_after="$(openssl pkey -in "$TMP_DIR/state/private-key.pem" -pubout -o
 [ "$key_digest_before" = "$key_digest_after" ] || fail "repeat install changed the private key"
 pass "repeat install preserves the tower-local key"
 
+if FM_AWS_IDENTITY_BUCKET='' bash "$IDENTITY" check >/dev/null 2>&1; then
+  fail "missing required identity configuration was accepted"
+fi
+pass "missing required identity configuration fails closed"
+
 if FM_AWS_IDENTITY_REGION=us-east-1 bash "$IDENTITY" check >/dev/null 2>&1; then
   fail "Virginia region was accepted"
 fi
@@ -107,6 +112,21 @@ if FM_AWS_IDENTITY_ROLE_ARN=$'arn:aws:iam::624198668504:role/good\nBAD=value' \
   fail "newline injection in an identity ARN was accepted"
 fi
 pass "identity config rejects shell and EnvironmentFile injection characters"
+
+# A renewed certificate for the same tower key must replace only the public
+# endpoint material. The private key and its digest stay fixed.
+openssl x509 -req -in "$TMP_DIR/state/processor.csr.pem" -CA "$TMP_DIR/ca.pem" \
+  -CAkey "$TMP_DIR/ca.key" -CAcreateserial -out "$TMP_DIR/renewed-cert.pem" \
+  -days 365 -sha384 -extfile <(printf '%s\n' \
+    'basicConstraints=critical,CA:FALSE' 'keyUsage=critical,digitalSignature' \
+    'extendedKeyUsage=clientAuth') >/dev/null 2>&1
+certificate_digest_before="$(openssl dgst -sha256 "$TMP_DIR/etc/certificate.pem")"
+FM_AWS_IDENTITY_CERTIFICATE_INPUT="$TMP_DIR/renewed-cert.pem" bash "$IDENTITY" install >/dev/null
+certificate_digest_after="$(openssl dgst -sha256 "$TMP_DIR/etc/certificate.pem")"
+[ "$certificate_digest_before" != "$certificate_digest_after" ] || fail "certificate renewal did not activate the new public certificate"
+[ "$key_digest_before" = "$(openssl pkey -in "$TMP_DIR/state/private-key.pem" -pubout -outform DER | openssl dgst -sha256)" ] || \
+  fail "certificate renewal changed the tower-local key"
+pass "certificate renewal replaces public material and preserves the private key"
 
 # A bad certificate must be rejected before replacing the currently valid cert.
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-384 -out "$TMP_DIR/wrong.key" >/dev/null 2>&1
