@@ -71,6 +71,8 @@ if [ "$TEST_MODE" = 1 ]; then
   ROOT_GROUP="${FM_AWS_IDENTITY_ROOT_GROUP:-$(id -gn)}"
 fi
 
+readonly ROOT_ENV_ALLOWLIST="FM_AWS_IDENTITY_ACCOUNT_ID,FM_AWS_IDENTITY_ACCOUNT,FM_AWS_IDENTITY_REGION,FM_AWS_IDENTITY_PROFILE,FM_AWS_IDENTITY_TRUST_ANCHOR_ARN,FM_AWS_IDENTITY_PROFILE_ARN,FM_AWS_IDENTITY_ROLE_ARN,FM_AWS_IDENTITY_BUCKET,FM_AWS_IDENTITY_CERTIFICATE_INPUT,FM_AWS_IDENTITY_CERTIFICATE,FM_AWS_IDENTITY_CA_CERTIFICATE_INPUT,FM_AWS_IDENTITY_CA_CERTIFICATE,FM_AWS_IDENTITY_ETC_DIR,FM_AWS_IDENTITY_STATE_DIR,FM_AWS_IDENTITY_SYSTEMD_DIR,FM_AWS_IDENTITY_SBIN_DIR,FM_AWS_IDENTITY_BIN_DIR,FM_AWS_IDENTITY_AWS_INSTALL_DIR,FM_AWS_IDENTITY_CONFIG_FILE,FM_AWS_IDENTITY_SERVICE_USER,FM_AWS_IDENTITY_CALLER_USER,FM_AWS_IDENTITY_AWS_PATH,FM_AWS_IDENTITY_SIGNING_HELPER_PATH,FM_AWS_IDENTITY_SUDOERS_FILE,FM_AWS_IDENTITY_SKIP_DOWNLOAD,FM_AWS_IDENTITY_SKIP_SYSTEMD"
+
 usage() {
   cat <<'EOF'
 install-processor-identity.sh — install the Ohio Roles Anywhere processor identity
@@ -116,6 +118,18 @@ root_install() { # mode owner group source destination
 root_mkdir() { # mode owner group path
   local mode="$1" owner="$2" group="$3" path="$4"
   root_run install -d -m "$mode" -o "$owner" -g "$group" "$path"
+}
+
+ensure_privileged_runtime() {
+  [ "$TEST_MODE" = 1 ] && return 0
+  [ "$NO_ROOT" = 1 ] && return 0
+  [ "$(uname -s)" = Linux ] || return 0
+  [ "$(id -u)" -eq 0 ] && return 0
+  command -v sudo >/dev/null 2>&1 || {
+    die "sudo is required to access the protected processor identity state"
+    return 1
+  }
+  exec sudo --preserve-env="$ROOT_ENV_ALLOWLIST" -- bash "$0" "$@"
 }
 
 atomic_install_text() { # mode owner group destination
@@ -754,8 +768,9 @@ do_uninstall() {
 }
 
 main() {
+  case "${1:-install}" in -h|--help) usage; return 0 ;; esac
+  ensure_privileged_runtime "$@"
   case "${1:-install}" in
-    -h|--help) usage; return 0 ;;
     install) do_install ;;
     check|--check) do_check ;;
     receipt|--receipt) do_receipt ;;

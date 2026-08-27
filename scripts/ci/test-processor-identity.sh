@@ -198,4 +198,46 @@ grep -Eq 'AWS_CONFIG_FILE\|AWS_PROFILE' "$ROOT/scripts/service/container-exec.sh
   fail "container exec does not document the explicit AWS allowlist"
 pass "optional container identity mounts and AWS environment allowlist are present"
 
+# Production keeps the state directory 0700 and owned by fm-processor. Exercise
+# the real sudo re-entry boundary on Linux so the caller cannot silently recreate
+# a key it cannot inspect. This remains a temporary, offline identity fixture.
+if [ "$(/usr/bin/uname -s)" = Linux ] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+  protected_root="$TMP_DIR/protected"
+  mkdir -p "$protected_root"
+  if (
+    unset FM_AWS_IDENTITY_TEST_MODE FM_AWS_IDENTITY_NO_ROOT
+    export FM_AWS_IDENTITY_ETC_DIR="$protected_root/etc"
+    export FM_AWS_IDENTITY_STATE_DIR="$protected_root/state"
+    export FM_AWS_IDENTITY_SYSTEMD_DIR="$protected_root/systemd"
+    export FM_AWS_IDENTITY_SBIN_DIR="$protected_root/sbin"
+    export FM_AWS_IDENTITY_BIN_DIR="$TMP_DIR/bin"
+    export FM_AWS_IDENTITY_AWS_INSTALL_DIR="$protected_root/aws-cli"
+    export FM_AWS_IDENTITY_CONFIG_FILE="$protected_root/etc/identity.env"
+    export FM_AWS_IDENTITY_SERVICE_USER=nobody
+    FM_AWS_IDENTITY_CALLER_USER="$(id -un)"
+    export FM_AWS_IDENTITY_CALLER_USER
+    export FM_AWS_IDENTITY_AWS_PATH="$TMP_DIR/bin/aws"
+    export FM_AWS_IDENTITY_SIGNING_HELPER_PATH="$TMP_DIR/bin/aws_signing_helper"
+    export FM_AWS_IDENTITY_SUDOERS_FILE="$protected_root/fm-processor-aws-identity.sudoers"
+    export FM_AWS_IDENTITY_SKIP_DOWNLOAD=1
+    export FM_AWS_IDENTITY_SKIP_SYSTEMD=1
+    bash "$IDENTITY" install
+  ) >"$TMP_DIR/protected.out" 2>"$TMP_DIR/protected.err"; then
+    fail "protected-state install must stop at the offline CA boundary"
+  else
+    rc=$?
+    [ "$rc" -eq 3 ] || fail "protected-state install returned $rc, expected 3 while waiting for CA"
+  fi
+  protected_mode="$(sudo stat -c '%a' "$protected_root/state")"
+  [ "$protected_mode" = 700 ] || fail "protected identity state is not mode 0700 (mode=$protected_mode)"
+  protected_key_digest="$(sudo openssl pkey -in "$protected_root/state/private-key.pem" -pubout -outform DER | openssl dgst -sha256)"
+  protected_csr_digest="$(sudo openssl req -in "$protected_root/state/processor.csr.pem" -pubkey -noout | \
+    openssl pkey -pubin -outform DER | openssl dgst -sha256)"
+  [ "$protected_key_digest" = "$protected_csr_digest" ] || fail "protected-state CSR does not match its private key"
+  sudo rm -rf "$protected_root"
+  pass "production sudo boundary preserves protected state and creates a matching CSR"
+else
+  pass "production sudo boundary test skipped because passwordless Linux sudo is unavailable"
+fi
+
 echo "processor identity: all checks passed"
