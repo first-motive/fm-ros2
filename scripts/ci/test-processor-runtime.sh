@@ -41,7 +41,7 @@ grep -q 'FM_AWS_INFERENCE_SERVICE_MODE' scripts/install/install-processor-servic
   && echo "PASS: processor service exposes the explicit Ohio readiness route" || { echo "FAIL: Ohio readiness route missing"; fail=1; }
 grep -q 'annotate_git_commit' scripts/service/processor-boot.sh \
   && grep -q 'FM_PROCESSOR_ANNOTATE_GIT_COMMIT' scripts/service/container-exec.sh \
-  && echo "PASS: processor boot carries exact fm-data source identity" || { echo "FAIL: source identity route missing"; fail=1; }
+  && echo "PASS: processor boot carries exact data package source identity" || { echo "FAIL: source identity route missing"; fail=1; }
 
 [ "$fail" = 0 ] && echo "processor runtime: all checks passed"
 exit "$fail"

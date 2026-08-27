@@ -23,7 +23,7 @@
 #   FM_PROCESSOR_ANNOTATION_LEARNING_DIR=<dir> durable learning records
 #   FM_PROCESSOR_OPERATOR_EVIDENCE_DIR=<dir> selected operator evidence receipts
 #   FM_PROCESSOR_AWS_INFERENCE_SCRIPT=<file> AWS annotation adapter (optional)
-#   FM_PROCESSOR_ANNOTATE_GIT_COMMIT=<40-hex> explicit fm-data source commit (optional;
+#   FM_PROCESSOR_ANNOTATE_GIT_COMMIT=<40-hex> explicit data package source commit (optional;
 #                                      otherwise resolved from src/fm_data at boot)
 #   FM_AWS_INFERENCE_SERVICE_MODE=1    opt in to the persistent Ohio worker service
 #   FM_AWS_INFERENCE_REGION=us-east-2  Ohio region (service mode only)
@@ -83,7 +83,7 @@ if [ -z "$ENGINE_PYTHON" ] && [ -x "$ROOT/.engine-venv/bin/python" ]; then
   ENGINE_PYTHON="$ROOT/.engine-venv/bin/python"
 fi
 
-# Annotation evidence must identify the actual fm-data source. Resolve the
+# Annotation evidence must identify the actual data package source. Resolve the
 # nested checkout used by this workspace (the same path is mounted at /ws in
 # the Humble container); an explicit value is accepted only when it is a full
 # immutable Git object id. A missing source is tolerated for the offline/local
@@ -116,7 +116,7 @@ if [ "$_DATA_SOURCE_DIRTY" = 1 ] &&
    { [ -n "$ANNOTATE_GIT_COMMIT" ] || [ -n "$AWS_INFERENCE_SCRIPT" ] ||
      [ "${FM_AWS_INFERENCE_SERVICE_MODE:-0}" = 1 ]; }; then
   echo "ERROR: tracked changes in $ROOT/src/fm_data prevent a trusted annotation source identity" >&2
-  echo "       Commit or stash tracked fm-data changes before the AWS annotation launch." >&2
+  echo "       Commit or stash tracked data package changes before the AWS annotation launch." >&2
   exit 1
 fi
 if [ -n "$ANNOTATE_GIT_COMMIT" ] && ! _is_full_commit "$ANNOTATE_GIT_COMMIT"; then
@@ -125,7 +125,7 @@ if [ -n "$ANNOTATE_GIT_COMMIT" ] && ! _is_full_commit "$ANNOTATE_GIT_COMMIT"; th
 fi
 if [ -n "$ANNOTATE_GIT_COMMIT" ] && [ -n "$_DISCOVERED_DATA_COMMIT" ] &&
    [ "$ANNOTATE_GIT_COMMIT" != "$_DISCOVERED_DATA_COMMIT" ]; then
-  echo "ERROR: FM_PROCESSOR_ANNOTATE_GIT_COMMIT does not match the local fm-data checkout" >&2
+  echo "ERROR: FM_PROCESSOR_ANNOTATE_GIT_COMMIT does not match the local data package checkout" >&2
   echo "       expected $_DISCOVERED_DATA_COMMIT" >&2
   exit 1
 fi
@@ -134,12 +134,12 @@ if [ -z "$ANNOTATE_GIT_COMMIT" ]; then
     ANNOTATE_GIT_COMMIT="$_DISCOVERED_DATA_COMMIT"
   else
     if [ -n "$AWS_INFERENCE_SCRIPT" ] || [ "${FM_AWS_INFERENCE_SERVICE_MODE:-0}" = 1 ]; then
-      echo "ERROR: AWS annotation requires an fm-data source commit at $ROOT/src/fm_data" >&2
-      echo "       Check out the processor's nested fm-data repository or set a reviewed" >&2
+      echo "ERROR: AWS annotation requires a data package source commit at $ROOT/src/fm_data" >&2
+      echo "       Check out the processor's nested data package repository or set a reviewed" >&2
       echo "       full 40-character FM_PROCESSOR_ANNOTATE_GIT_COMMIT." >&2
       exit 1
     fi
-    echo "WARNING: fm-data source commit unavailable; cloud annotation is disabled" >&2
+    echo "WARNING: data package source commit unavailable; cloud annotation is disabled" >&2
   fi
 fi
 

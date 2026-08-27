@@ -103,12 +103,12 @@ else
   fail "conflicting Ohio settings could mutate the service before rejection"
 fi
 
-# Container boot resolves the host-owned nested fm-data commit before Docker
+# Container boot resolves the host-owned nested data package commit before Docker
 # entry (container root is intentionally rejected by Git ownership checks).
 if grep -q 'FM_PROCESSOR_ANNOTATE_GIT_COMMIT' scripts/service/container-exec.sh && \
    grep -q 'src/fm_data.*rev-parse' scripts/service/container-exec.sh && \
    grep -q 'FM_AWS_INFERENCE_SERVICE_MODE' scripts/service/container-exec.sh; then
-  pass "container entry forwards a validated host fm-data commit"
+  pass "container entry forwards a validated host data package commit"
 else
   fail "container entry does not establish source identity before launch"
 fi

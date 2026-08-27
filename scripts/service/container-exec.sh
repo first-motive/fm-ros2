@@ -26,7 +26,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 mode="${1:-start}"
 wrapper="${1:-}"
 if [ "$mode" != stop ] && [ "$wrapper" = scripts/service/processor-boot.sh ]; then
-  # The nested fm-data checkout is owned by the appliance user on the host. Git
+  # The nested data package checkout is owned by the appliance user on the host. Git
   # quite correctly rejects that checkout from the container's root user, so
   # resolve its exact source identity before entering Docker and pass it through
   # the narrow FM_* environment allowlist below.
@@ -53,7 +53,7 @@ if [ "$mode" != stop ] && [ "$wrapper" = scripts/service/processor-boot.sh ]; th
   if [ "$_host_data_dirty" = 1 ]; then
     if [ -n "${FM_PROCESSOR_ANNOTATE_GIT_COMMIT:-}" ] || [ "$_cloud_requested" = 1 ]; then
       echo "ERROR: tracked changes in $ROOT/src/fm_data prevent a trusted annotation source identity" >&2
-      echo "       Commit or stash tracked fm-data changes before the AWS annotation launch." >&2
+      echo "       Commit or stash tracked data package changes before the AWS annotation launch." >&2
       exit 1
     fi
   fi
@@ -63,14 +63,14 @@ if [ "$mode" != stop ] && [ "$wrapper" = scripts/service/processor-boot.sh ]; th
       exit 1
     }
     if [ -n "$_host_data_commit" ] && [ "$FM_PROCESSOR_ANNOTATE_GIT_COMMIT" != "$_host_data_commit" ]; then
-      echo "ERROR: FM_PROCESSOR_ANNOTATE_GIT_COMMIT does not match the host fm-data checkout" >&2
+      echo "ERROR: FM_PROCESSOR_ANNOTATE_GIT_COMMIT does not match the host data package checkout" >&2
       echo "       expected $_host_data_commit" >&2
       exit 1
     fi
   elif [ -n "$_host_data_commit" ]; then
     export FM_PROCESSOR_ANNOTATE_GIT_COMMIT="$_host_data_commit"
   elif [ "$_cloud_requested" = 1 ]; then
-    echo "ERROR: AWS annotation requires a resolvable host fm-data source commit" >&2
+    echo "ERROR: AWS annotation requires a resolvable host data package source commit" >&2
     echo "       Check out $ROOT/src/fm_data or set a matching reviewed full commit." >&2
     exit 1
   fi

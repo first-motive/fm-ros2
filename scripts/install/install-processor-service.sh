@@ -406,7 +406,7 @@ FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR=~/fm-data-runs/annotation-learnin
 FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR=~/fm-data-runs/annotation-improvement-runs
 # Optional selected operator evidence receipts for the desktop status surface:
 #FM_PROCESSOR_OPERATOR_EVIDENCE_DIR=
-# The boot wrapper resolves the nested fm-data HEAD and passes this exact source
+# The boot wrapper resolves the nested data package HEAD and passes this exact source
 # identity to the supervisor. Set only for an installed source tree with a
 # separately reviewed commit; a short hash or all-zero sentinel is rejected.
 #FM_PROCESSOR_ANNOTATE_GIT_COMMIT=

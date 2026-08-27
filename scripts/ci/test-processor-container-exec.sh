@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Offline behavior test for the processor container entry. A temporary nested
-# fm-data Git repo and fake docker prove the host-side source identity route;
+# data package Git repo and fake docker prove the host-side source identity route;
 # no Docker daemon, ROS image, network, credentials, or host checkout is used.
 set -euo pipefail
 
@@ -49,7 +49,7 @@ run_entry() {
 run_entry || { cat "$TMP_DIR/entry.err" >&2; fail "valid host source launch failed"; }
 grep -Fxq "commit=$COMMIT" "$FM_TEST_DOCKER_LOG" || fail "valid host source commit was not forwarded"
 grep -q 'FM_PROCESSOR_ANNOTATE_GIT_COMMIT' "$FM_TEST_DOCKER_LOG" || fail "compose exec did not receive the source identity variable"
-pass "clean host fm-data HEAD is forwarded before container entry"
+pass "clean host data package HEAD is forwarded before container entry"
 
 clear_log
 if FM_PROCESSOR_ANNOTATE_GIT_COMMIT="$(printf 'a%.0s' {1..40})" \
@@ -107,10 +107,10 @@ if FM_AWS_INFERENCE_SERVICE_MODE=1 \
 fi
 [ ! -s "$FM_TEST_DOCKER_LOG" ] || fail "missing source cloud launch reached Docker"
 grep -q 'source commit' "$TMP_DIR/missing-cloud.err" || fail "missing source error did not identify source identity"
-pass "missing fm-data source refuses cloud launch"
+pass "missing data package source refuses cloud launch"
 
 run_entry || { cat "$TMP_DIR/entry.err" >&2; fail "offline launch without source failed"; }
 grep -Fxq 'commit=<unset>' "$FM_TEST_DOCKER_LOG" || fail "offline missing source stamped a commit"
-pass "offline launch without fm-data remains supported"
+pass "offline launch without data package remains supported"
 
 echo "processor container-exec behavior: all checks passed"

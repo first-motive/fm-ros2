@@ -242,7 +242,7 @@ the mode variable is not exported, so an ordinary reinstall cannot silently
 disable the route. To disable the route, stop the service and remove that
 managed file after review (or run the installer's `uninstall`, which removes all
 managed service files), then install again with the mode unset. The service
-wrapper resolves the nested `fm-data` source commit before launch and keeps it
+wrapper resolves the nested `src/fm_data` source commit before launch and keeps it
 in the annotation evidence.
 
 ## Wrist cameras (capture rig)
