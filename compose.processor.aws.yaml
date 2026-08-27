@@ -1,0 +1,10 @@
+services:
+  fm:
+    volumes:
+      # Roles Anywhere is an optional processor capability. Keep its public
+      # config and tower-local key boundary outside the broad HOME mounts and
+      # add this overlay only after the identity installer is complete.
+      - ${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}:${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}:ro
+      - ${FM_AWS_IDENTITY_STATE_DIR:-/var/lib/fm-processor/identity}:${FM_AWS_IDENTITY_STATE_DIR:-/var/lib/fm-processor/identity}:ro
+      - ${FM_AWS_IDENTITY_SBIN_DIR:-/usr/local/sbin}/fm-aws-credential-process:${FM_AWS_IDENTITY_SBIN_DIR:-/usr/local/sbin}/fm-aws-credential-process:ro
+      - ${FM_AWS_IDENTITY_BIN_DIR:-/usr/local/bin}/aws_signing_helper:${FM_AWS_IDENTITY_BIN_DIR:-/usr/local/bin}/aws_signing_helper:ro

@@ -63,7 +63,30 @@ install_services() {
     item "boot service not installed — add it anytime with:"
     item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"
     item "  ./scripts/install/install-archive-service.sh"
+    item "  ./scripts/install/install-processor-identity.sh (after setting FM_AWS_IDENTITY_* config)"
   fi
+}
+
+# A processor appliance must not start with an unverified AWS profile.  The
+# identity installer is deliberately run before the container is created (so
+# Docker cannot create root-owned identity mount points) and before the service
+# installer/restart.  Exit 3 is the resumable offline-CA boundary: the key and
+# CSR remain on the tower, while no service is enabled or advertised as ready.
+install_processor_identity() {
+  [ "${FM_INSTALL_SERVICE:-0}" = 1 ] || return 0
+  if [ ! -f "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/identity.env" ] &&
+     [ -z "${FM_AWS_IDENTITY_ACCOUNT_ID:-}${FM_AWS_IDENTITY_TRUST_ANCHOR_ARN:-}${FM_AWS_IDENTITY_PROFILE_ARN:-}${FM_AWS_IDENTITY_ROLE_ARN:-}" ]; then
+    item "AWS identity not requested — processor service remains local-only"
+    return 0
+  fi
+  local status=0
+  item "installing the processor's Ohio Roles Anywhere identity ..."
+  bash ./scripts/install/install-processor-identity.sh install || status=$?
+  if [ "$status" -eq 3 ]; then
+    echo "processor identity is waiting for offline CA approval; resume after copying the signed certificate" >&2
+    return 3
+  fi
+  [ "$status" -eq 0 ] || return "$status"
 }
 
 # 0. Runtime. Native Humble on Ubuntu 22.04, or — on a Linux host without it, such
@@ -78,6 +101,13 @@ FM_PROCESSOR_RUNTIME="$(fm_processor_runtime)" || exit 1
 export FM_PROCESSOR_RUNTIME
 in_container() { [ -f /.dockerenv ]; }
 
+# Install identity material on the host before the first compose `up`.  A nested
+# setup inside the Humble image has FM_INSTALL_SERVICE=0 and therefore does not
+# attempt to create users or touch host systemd state.
+if ! in_container; then
+  install_processor_identity
+fi
+
 if [ "$FM_PROCESSOR_RUNTIME" = container ] && ! in_container; then
   item "no native ROS 2 Humble on this host — the processor runs in the Humble container"
   clone_data_engine
@@ -87,6 +117,7 @@ if [ "$FM_PROCESSOR_RUNTIME" = container ] && ! in_container; then
   fm_processor_import_docker "$ROOT"
   fm_processor_compose "$ROOT"
   fm_processor_prepare_mounts
+  fm_processor_prepare_identity_mounts
   item "starting the processor container ($FM_IMAGE) ..."
   "${FM_COMPOSE[@]}" up -d fm
   item "building the processor inside the container ..."

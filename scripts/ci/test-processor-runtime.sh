@@ -33,7 +33,7 @@ fi
 FM_PROCESSOR_RUNTIME=container check "an explicit pin wins" container
 
 # The container side stacks three compose files; each must exist or be imported.
-[ -f compose.processor.yaml ] && echo "PASS: processor overlay present" || { echo "FAIL: compose.processor.yaml missing"; fail=1; }
+[ -f compose.processor.yaml ] && [ -f compose.processor.aws.yaml ] && echo "PASS: processor overlays present" || { echo "FAIL: processor overlay missing"; fail=1; }
 grep -q 'container-exec.sh' scripts/install/install-processor-service.sh \
   && echo "PASS: processor unit knows the container runtime" || { echo "FAIL: unit ignores runtime"; fail=1; }
 
