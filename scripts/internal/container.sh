@@ -438,7 +438,11 @@ main() {
   # working_dir). Incremental, so a warm tree returns fast. -T disables TTY
   # allocation: the build is non-interactive, and `docker compose exec` otherwise
   # demands a terminal on stdin and aborts when there is none (e.g. a piped run).
-  "${COMPOSE[@]}" exec -T "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
+  #
+  # Through the verb, not a bare `colcon build`: the packages nested inside a repo
+  # that ships a metapackage at its root need naming as extra base paths, and a
+  # bare build silently omits them (fm-ros2#147).
+  "${COMPOSE[@]}" exec -T "$SERVICE" /ros_entrypoint.sh ./scripts/run/build.sh
 
   step "Launcher"
   # The web GUI now carries everything: camera, controls, AND the 3D arm (self-rendered

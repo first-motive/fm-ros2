@@ -139,9 +139,13 @@ The launcher's robot list is empty until this runs.
 
 ## Every Run Rebuilds
 
-`run.sh` runs `colcon build --symlink-install` on each invocation, so source and
-console-script changes are always picked up. The build is incremental — a warm
-tree returns fast.
+`run.sh` runs the `build` verb on each invocation, so source and console-script
+changes are always picked up. The build is incremental — a warm tree returns fast.
+
+The verb rather than a bare `colcon build`: a package repo ships a metapackage at
+its root, so colcon stops descending there and never sees the packages nested
+inside. `fm build` names those directories as extra base paths, which is why the
+recorder and the data engine are in the workspace the launcher opens.
 
 ## After the Launcher Opens
 

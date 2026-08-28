@@ -81,10 +81,14 @@ Run the test suite before opening a PR. This is a ROS2 workspace built
 with colcon:
 
 ```bash
-colcon build --symlink-install
+./scripts/run/build.sh                         # or `fm build` — src/, external/, nested repos
 colcon test --packages-select $(colcon list --names-only | grep '^fm_')
 colcon test-result --verbose
 ```
+
+`fm build` rather than a bare `colcon build`: a package repo ships a metapackage
+at its root, colcon stops descending there, and the packages nested inside it are
+silently never built.
 
 ## Onboarding
 

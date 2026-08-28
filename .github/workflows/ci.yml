@@ -118,6 +118,11 @@ jobs:
       - name: compose project per role
         run: bash scripts/ci/test-compose-project.sh
 
+      # A repo with a metapackage at its root hides the packages nested inside it,
+      # and a build that misses them fails an hour later inside the loop (#147).
+      - name: the build verb sees the whole workspace
+        run: bash scripts/ci/test-build-verb.sh
+
       # Whether the container joins the host's loopback DDS island depends on the
       # overlay and the profile, and when it is wrong nothing errors — the bridge
       # simply routes an empty graph (#148). Asserted, not read.
@@ -315,8 +320,10 @@ jobs:
       # here and the container is committed back as the image the loop step runs
       # — a `--rm` step would drop them before the next one started. The overlay
       # repos carry a metapackage at their root, so colcon and rosdep stop there
-      # and never see the nested packages: the nested dirs are listed explicitly,
-      # as the provisioning scripts do. -r keeps a stray unresolvable key from
+      # and never see the nested packages: rosdep is given the nested dirs
+      # explicitly, and the build goes through `fm build`, which discovers them —
+      # the same verb a person types, so CI cannot pass on a workspace shape the
+      # verb would miss. -r keeps a stray unresolvable key from
       # masking the loop's own verdict. The engine's bag-ingest tier is pip, not
       # rosdep — numpy pinned to the last 3.10-compatible release because the
       # Humble image's Python is 3.10, exactly as setup-processor.sh does.
@@ -330,8 +337,7 @@ jobs:
                    --ignore-src -y -r --rosdistro humble \
               && pip install --quiet "numpy==2.2.6" \
                    "$(grep -E "^rosbags==" src/fm_data/fm_data_dataset/requirements-bags.txt)" \
-              && colcon build --symlink-install \
-                   --base-paths src external src/fm_data/fm_data_* src/fm_policy/fm_policy_*'
+              && ./scripts/run/build.sh'
           docker commit ws-build fm-ros2:ci >/dev/null
           docker rm ws-build >/dev/null
 
