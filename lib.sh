@@ -10,9 +10,12 @@ item() { echo "$1"; }
 
 # Newest release tag of a checkout (vN.N.N-style, highest by version sort), or
 # empty when the repo has none. The appliance release channel keys off this:
-# installers pin to it and appliance-update.sh converges to it.
+# installers pin to it and appliance-update.sh converges to it. Prerelease and
+# transport-specific suffixes require an explicit deployment; never select them
+# for the stable appliance channel.
 latest_release_tag() {  # dir
-  git -C "$1" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null | head -1
+  git -C "$1" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null \
+    | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ && !found { print; found=1 }'
 }
 
 # Move a checkout onto its newest release tag — the appliance install-time half

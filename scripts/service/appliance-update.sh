@@ -176,7 +176,10 @@ _busy() {  # role
 # lib.sh normally provides this; keep an inline fallback so the script stays
 # runnable over `ssh 'bash -s'` with no workspace file to source.
 command -v latest_release_tag >/dev/null 2>&1 || \
-  latest_release_tag() { git -C "$1" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null | head -1; }
+  latest_release_tag() {
+    git -C "$1" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null \
+      | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ && !found { print; found=1 }'
+  }
 
 # Fetch one repo's tags; report its release-channel state:
 #   current        HEAD is the newest v* tag
@@ -234,6 +237,26 @@ _repo_state() {  # dir
   else
     echo "diverged $target"
   fi
+}
+
+# The machine card is authoritative when a role uses a separate workspace.
+# Keep the sibling fallback only for installations without a machine card.
+_machine_setup_dir() {
+  local card="${FM_MACHINE_FILE:-/etc/fm/machine.json}" workspace
+  if [ ! -e "$card" ] && [ ! -L "$card" ]; then
+    printf '%s/fm-setup\n' "$(dirname "$ROOT")"
+    return
+  fi
+  workspace="$(jq -er '.workspace | select(type == "string")' "$card" 2>/dev/null)" \
+    || return 1
+  case "$workspace" in
+    /*) ;;
+    *) return 1 ;;
+  esac
+  case "$workspace" in
+    *$'\n'*|*$'\r'*) return 1 ;;
+  esac
+  printf '%s/fm-setup\n' "${workspace%/}"
 }
 
 main() {
@@ -308,7 +331,7 @@ main() {
     esac
   done
 
-  # The machine layer is a sibling checkout under the same workspace, not a src/
+  # The machine layer belongs to the machine card's workspace, not a src/
   # overlay, and it converges through its own entry point rather than this
   # role installer. It is tracked apart from the repos above for two reasons: a
   # machine-layer bump must not drag the ROS stack through a rebuild and a
@@ -321,8 +344,11 @@ main() {
   # hardcoded `install.sh --jetson` would be a second place a machine's role is
   # written down, and the card exists to delete those.
   local fm_setup setup_updated=0
-  fm_setup="$(dirname "$ROOT")/fm-setup"
-  if [ -d "$fm_setup/.git" ]; then
+  fm_setup="$(_machine_setup_dir)" || {
+    item "WARNING: invalid or unreadable machine workspace — machine layer held"
+    fm_setup=""
+  }
+  if [ -n "$fm_setup" ] && [ -d "$fm_setup/.git" ]; then
     state="$(_repo_state "$fm_setup")"
     if [ "$check" = 1 ]; then
       item "check fm-setup: $state"
@@ -354,7 +380,7 @@ main() {
     # container runtime, and ROS never converged, and the timer reported success
     # on every tick anyway. Silence is what let that go unnoticed on a fleet.
     item "WARNING: no fm-setup checkout at $fm_setup — machine layer not converged"
-    item "         link it once: ln -s ~/.first-motive/fm-setup $fm_setup"
+    item "         restore the reviewed machine checkout; do not invent a workspace link"
   fi
 
   if [ "$check" = 1 ]; then

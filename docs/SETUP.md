@@ -211,9 +211,17 @@ Use these commands for repeatable checks and recovery:
 
 ```bash
 sudo scripts/install/install-processor-identity.sh check
+sudo scripts/install/install-processor-identity.sh --repair-expiry-units
 sudo scripts/install/install-processor-identity.sh receipt
 sudo scripts/install/install-processor-identity.sh uninstall
 ```
+
+`--repair-expiry-units` is a wiring-only repair for a host that has an existing
+identity monitor but a stale expiry service. It rewrites only the expiry service,
+warning service, and timer, reloads systemd, and enables the timer. It does not
+read or replace the private key, CSR, CA, certificate, identity configuration,
+credential wrapper, or service drop-in. Run `check` after the repair; the command
+stops if the installed monitor or `/usr/bin/logger` is missing.
 
 `uninstall` removes generated service wiring. It keeps the private key, CSR,
 public certificate, and receipt so an interrupted install can resume. The

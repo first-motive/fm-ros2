@@ -7,6 +7,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+# Never consult a real host's machine card during fixture tests.
+export FM_MACHINE_FILE="$TMP_DIR/machine.json"
+
 mkdir -p "$TMP_DIR/bin" "$TMP_DIR/recordings/tactile-raw"
 
 cat > "$TMP_DIR/bin/git" <<'EOF'
@@ -74,6 +77,67 @@ mkdir -p "$RESOLUTION_ROOT/scripts/service" "$RESOLUTION_ROOT/.git"
 cp "$ROOT/lib.sh" "$RESOLUTION_ROOT/lib.sh"
 cp "$ROOT/scripts/service/appliance-update.sh" \
   "$RESOLUTION_ROOT/scripts/service/appliance-update.sh"
+# A transport prerelease is not an unattended stable-channel target. Exercise
+# both the shared selector and its standalone fallback without moving HEAD.
+for selector in shared fallback; do
+  if [ "$selector" = fallback ]; then
+    mv "$RESOLUTION_ROOT/lib.sh" "$RESOLUTION_ROOT/lib.saved"
+  fi
+  output="$(
+    FM_TEST_TAG_NAME=$'v0.2.0-zenoh.2\nv0.1.8\nv0.1.7' \
+      FM_TEST_HEAD_COMMIT=old-release \
+      FM_TEST_TAG_COMMIT=new-release \
+      FM_TEST_RELATION=head-before-tag \
+      PATH="$TMP_DIR/bin:$PATH" \
+      "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" --check processor
+  )"
+  if ! grep -q "check fm_ros2: behind v0.1.8" <<< "$output"; then
+    printf '%s selector chose a prerelease: %s\n' "$selector" "$output" >&2
+    exit 1
+  fi
+  output="$(
+    FM_TEST_TAG_NAME=v0.2.0-zenoh.2 PATH="$TMP_DIR/bin:$PATH" \
+      "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" --check processor
+  )"
+  if ! grep -q "check fm_ros2: untagged" <<< "$output"; then
+    printf '%s selector must ignore a prerelease-only repository: %s\n' \
+      "$selector" "$output" >&2
+    exit 1
+  fi
+done
+mv "$RESOLUTION_ROOT/lib.saved" "$RESOLUTION_ROOT/lib.sh"
+
+mkdir -p "$TMP_DIR/canonical-workspace/fm-setup/.git"
+jq -n --arg workspace "$TMP_DIR/canonical-workspace" \
+  '{workspace: $workspace}' > "$FM_MACHINE_FILE"
+output="$(
+  FM_TEST_TAG_NAME=v0.1.8 PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" --check processor
+)"
+if ! grep -q "check fm-setup: current" <<< "$output"; then
+  printf 'the machine card checkout was not checked: %s\n' "$output" >&2
+  exit 1
+fi
+printf '{"workspace":"relative/path"}\n' > "$FM_MACHINE_FILE"
+output="$(
+  FM_TEST_TAG_NAME=v0.1.8 PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" --check processor
+)"
+if ! grep -q "invalid or unreadable machine workspace" <<< "$output"; then
+  printf 'invalid machine card did not hold the machine layer: %s\n' "$output" >&2
+  exit 1
+fi
+mv "$FM_MACHINE_FILE" "$TMP_DIR/invalid-machine.saved"
+ln -s "$TMP_DIR/missing-machine.json" "$FM_MACHINE_FILE"
+output="$(
+  FM_TEST_TAG_NAME=v0.1.8 PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" --check processor
+)"
+if ! grep -q "invalid or unreadable machine workspace" <<< "$output"; then
+  printf 'dangling machine card did not hold the machine layer: %s\n' "$output" >&2
+  exit 1
+fi
+mv "$FM_MACHINE_FILE" "$TMP_DIR/dangling-machine.saved"
 output="$(
   FM_TEST_TAG_NAME=v0.1.7 \
     FM_TEST_HEAD_COMMIT=new-main \

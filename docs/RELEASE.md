@@ -14,6 +14,17 @@ exists. Merging to `main` therefore changes nothing on a rig: a tag is the only
 signal the fleet listens to. Both paths require the tag to descend from the
 current checkout; an ahead or divergent checkout is held for review.
 
+The stable channel selects only complete `vMAJOR.MINOR.PATCH` tags. It ignores
+suffixes such as `-rc1` or `-zenoh.2`, even when Git sorts them above a stable
+release. Deploy those tags only through a separately reviewed exact-pin change.
+This rule also applies to the release script's version-bump baseline.
+
+The updater resolves `fm-setup` from the `workspace` field in
+`/etc/fm/machine.json` (`FM_MACHINE_FILE` for a test card). A separate processor
+workspace does not need a guessed sibling link. A missing card keeps the legacy
+sibling lookup; an invalid card holds the machine layer. The selected checkout
+still has to pass the same clean-source, fetch, and ancestry checks.
+
 That makes an untagged repo invisible to the channel rather than merely behind.
 The updater reports it `untagged` and leaves it on whatever commit the clone
 landed on, forever. So a release is the whole set of repos the workspace
