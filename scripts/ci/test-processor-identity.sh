@@ -184,6 +184,51 @@ else
   fail "expiry unit places OnFailure in [Service]"
 fi
 
+# Older tower installs placed OnFailure under [Service].  check must reject that
+# stale binding, while repair rewrites only the three expiry units and leaves all
+# identity material untouched.
+awk '
+  /^OnFailure=fm-aws-identity-expiry-warning\.service$/ { next }
+  /^\[Service\]$/ { print; print "OnFailure=fm-aws-identity-expiry-warning.service"; next }
+  { print }
+' "$expiry_unit" > "$expiry_unit.stale"
+mv "$expiry_unit.stale" "$expiry_unit"
+if bash "$IDENTITY" check >/dev/null 2>&1; then
+  fail "check accepted an expiry OnFailure binding under [Service]"
+fi
+pass "check rejects a stale expiry OnFailure binding"
+
+key_file_digest_before_repair="$(openssl dgst -sha256 "$TMP_DIR/state/private-key.pem" | awk '{print $2}')"
+certificate_file_digest_before_repair="$(openssl dgst -sha256 "$TMP_DIR/etc/certificate.pem" | awk '{print $2}')"
+identity_env_digest_before_repair="$(openssl dgst -sha256 "$TMP_DIR/etc/identity.env" | awk '{print $2}')"
+printf 'exit 71\n' > "$TMP_DIR/forbidden-identity.env"
+FM_AWS_IDENTITY_CONFIG_FILE="$TMP_DIR/forbidden-identity.env" \
+  bash "$IDENTITY" --repair-expiry-units >/dev/null
+pass "expiry repair rewrites the stale binding without reading identity.env"
+
+for unit in "$expiry_unit" "$TMP_DIR/systemd/fm-aws-identity-expiry-warning.service" "$TMP_DIR/systemd/fm-aws-identity-expiry.timer"; do
+  [ -f "$unit" ] || fail "expiry repair did not recreate $unit"
+done
+bash "$IDENTITY" check >/dev/null
+repair_expiry_digest="$(openssl dgst -sha256 "$expiry_unit" | awk '{print $2}')"
+repair_warning_digest="$(openssl dgst -sha256 "$TMP_DIR/systemd/fm-aws-identity-expiry-warning.service" | awk '{print $2}')"
+repair_timer_digest="$(openssl dgst -sha256 "$TMP_DIR/systemd/fm-aws-identity-expiry.timer" | awk '{print $2}')"
+FM_AWS_IDENTITY_CONFIG_FILE="$TMP_DIR/forbidden-identity.env" \
+  bash "$IDENTITY" --repair-expiry-units >/dev/null
+[ "$repair_expiry_digest" = "$(openssl dgst -sha256 "$expiry_unit" | awk '{print $2}')" ] || \
+  fail "repeat expiry repair changed the expiry service"
+[ "$repair_warning_digest" = "$(openssl dgst -sha256 "$TMP_DIR/systemd/fm-aws-identity-expiry-warning.service" | awk '{print $2}')" ] || \
+  fail "repeat expiry repair changed the warning service"
+[ "$repair_timer_digest" = "$(openssl dgst -sha256 "$TMP_DIR/systemd/fm-aws-identity-expiry.timer" | awk '{print $2}')" ] || \
+  fail "repeat expiry repair changed the timer"
+[ "$key_file_digest_before_repair" = "$(openssl dgst -sha256 "$TMP_DIR/state/private-key.pem" | awk '{print $2}')" ] || \
+  fail "expiry repair changed the private key"
+[ "$certificate_file_digest_before_repair" = "$(openssl dgst -sha256 "$TMP_DIR/etc/certificate.pem" | awk '{print $2}')" ] || \
+  fail "expiry repair changed the certificate"
+[ "$identity_env_digest_before_repair" = "$(openssl dgst -sha256 "$TMP_DIR/etc/identity.env" | awk '{print $2}')" ] || \
+  fail "expiry repair changed identity.env"
+pass "expiry repair is idempotent and preserves key, certificate, and identity.env"
+
 bash "$IDENTITY" uninstall >/dev/null
 [ -f "$TMP_DIR/state/private-key.pem" ] && [ -f "$TMP_DIR/etc/certificate.pem" ] || \
   fail "uninstall removed resumable identity material"

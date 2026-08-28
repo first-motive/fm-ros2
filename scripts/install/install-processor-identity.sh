@@ -81,6 +81,9 @@ install-processor-identity.sh — install the Ohio Roles Anywhere processor iden
              and profile, expiry monitor, timer, and processor service drop-in
   check      read-only validation; exits 3 while waiting for offline CA signing
   receipt    print safe JSON status (never prints a key or temporary credentials)
+  --repair-expiry-units
+             rewrite only the expiry monitor, warning, and timer units; preserve
+             all key, certificate, identity configuration, and credential files
   uninstall  remove generated wiring only; preserve the key, CSR, CA, certificate
              and other identity material for a later resume
 
@@ -614,6 +617,50 @@ WantedBy=timers.target
 EOF
 }
 
+verify_expiry_units() {
+  [ -f "$EXPIRY_SERVICE" ] || { die "identity expiry service is missing: $EXPIRY_SERVICE"; return 1; }
+  [ -f "$WARNING_SERVICE" ] || { die "identity expiry warning service is missing: $WARNING_SERVICE"; return 1; }
+  [ -f "$EXPIRY_TIMER" ] || { die "identity expiry timer is missing: $EXPIRY_TIMER"; return 1; }
+  [ -x "$MONITOR_BIN" ] || { die "identity expiry monitor is missing or not executable: $MONITOR_BIN"; return 1; }
+
+  if ! awk '
+    /^\[Unit\][[:space:]]*$/ { section="unit"; next }
+    /^\[/ { section="other"; next }
+    /^OnFailure=fm-aws-identity-expiry-warning\.service[[:space:]]*$/ {
+      found=1
+      if (section != "unit") bad=1
+    }
+    END { exit !(found && !bad) }
+  ' "$EXPIRY_SERVICE"; then
+    die "identity expiry service must bind OnFailure in [Unit] to fm-aws-identity-expiry-warning.service"
+    return 1
+  fi
+  grep -Fqx "ExecStart=$MONITOR_BIN" "$EXPIRY_SERVICE" || {
+    die "identity expiry service is not pinned to the installed monitor: $MONITOR_BIN"
+    return 1
+  }
+  grep -Fqx 'Type=oneshot' "$EXPIRY_SERVICE" || {
+    die "identity expiry service must remain a oneshot service"
+    return 1
+  }
+  grep -Fqx 'Type=oneshot' "$WARNING_SERVICE" || {
+    die "identity expiry warning service must remain a oneshot service"
+    return 1
+  }
+  grep -Fqx 'ExecStart=/usr/bin/logger -p authpriv.crit -t fm-aws-identity "processor certificate is expired or inside its 30-day renewal window"' "$WARNING_SERVICE" || {
+    die "identity expiry warning service is not pinned to /usr/bin/logger"
+    return 1
+  }
+  grep -Fqx 'Unit=fm-aws-identity-expiry.service' "$EXPIRY_TIMER" || {
+    die "identity expiry timer is not bound to fm-aws-identity-expiry.service"
+    return 1
+  }
+  grep -Fqx 'Persistent=true' "$EXPIRY_TIMER" || {
+    die "identity expiry timer must remain persistent"
+    return 1
+  }
+}
+
 install_monitor() {
   [ -f "$ROOT/scripts/service/fm-aws-identity-monitor.sh" ] || { die "identity monitor source is missing"; return 1; }
   root_mkdir 0755 "$ROOT_OWNER" "$ROOT_GROUP" "$IDENTITY_SBIN_DIR"
@@ -734,9 +781,28 @@ do_check() {
   [ -f "$PROFILE_FILE" ] || { die "credential_process profile is missing: $PROFILE_FILE"; return 1; }
   grep -Fq "credential_process = $CREDENTIAL_WRAPPER" "$PROFILE_FILE" || { die "profile credential_process is not pinned to the wrapper"; return 1; }
   [ -f "$DROPIN_FILE" ] || { die "processor service identity drop-in is missing"; return 1; }
-  [ -f "$EXPIRY_TIMER" ] || { die "identity expiry timer is missing"; return 1; }
+  verify_expiry_units
   printf 'check: processor identity valid (account=%s region=%s profile=%s)\n' \
     "$FM_AWS_IDENTITY_ACCOUNT_ID" "$AWS_REGION" "$FM_AWS_IDENTITY_PROFILE"
+}
+
+do_repair_expiry_units() {
+  require_linux || return 0
+  # This mode deliberately does not load identity.env, validate AWS settings,
+  # inspect the private key/certificate, or invoke either AWS binary.  It only
+  # repairs the three systemd units that enforce certificate-expiry warnings.
+  [ -x "$MONITOR_BIN" ] || {
+    die "identity expiry monitor is missing or not executable: $MONITOR_BIN; run install first"
+    return 1
+  }
+  [ -x /usr/bin/logger ] || {
+    die "identity expiry warning executable is missing: /usr/bin/logger"
+    return 1
+  }
+  write_units
+  verify_expiry_units
+  enable_units
+  item "processor identity expiry units repaired (timer enabled: fm-aws-identity-expiry.timer)"
 }
 
 do_receipt() {
@@ -774,6 +840,7 @@ main() {
     install) do_install ;;
     check|--check) do_check ;;
     receipt|--receipt) do_receipt ;;
+    repair-expiry-units|--repair-expiry-units) do_repair_expiry_units ;;
     uninstall|--uninstall) do_uninstall ;;
     *) echo "error: unknown mode '$1'" >&2; usage >&2; return 2 ;;
   esac
