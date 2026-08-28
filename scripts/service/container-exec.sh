@@ -80,12 +80,32 @@ fm_processor_compose "$ROOT"
 
 if [ "$mode" = stop ]; then
   pattern="${2:?process pattern to stop}"
-  "${FM_COMPOSE[@]}" exec fm pkill -f "$pattern" || true
+  # docker compose exec does not forward SIGTERM to the process it starts. Run
+  # the canonical, bounded process-tree helper inside the role-owned container;
+  # it never kills by name on the host and never changes container lifecycle.
+  "${FM_COMPOSE[@]}" exec -T -e "FM_STOP_PATTERN=$pattern" \
+    -e FM_CONTAINER_STOP_IN_CONTAINER=1 fm \
+    bash /ws/scripts/service/container-stop.sh || true
   exit 0
 fi
 
 wrapper="${1:?boot wrapper path, relative to the workspace root}"
-"${FM_COMPOSE[@]}" up -d fm
+# The normal processor service owns the container lifecycle and brings its role
+# container up when needed.  A standalone bridge must never do that: `up -d`
+# may recreate a prepared processor container when compose inputs changed, which
+# would interrupt the processor (or a sibling role) just to restore the viewer.
+# Its caller opts into an existing-only check and receives an actionable failure
+# when the processor role is not already running.
+if [ "${FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING:-0}" = 1 ]; then
+  if ! "${FM_COMPOSE[@]}" ps --status running --services 2>/dev/null \
+      | grep -Fxq fm; then
+    echo "ERROR: processor container is not already running; refusing to start $wrapper" >&2
+    echo "       Start the prepared processor role first (fm-processor.service), then retry." >&2
+    exit 1
+  fi
+else
+  "${FM_COMPOSE[@]}" up -d fm
+fi
 
 pass=()
 while IFS= read -r name; do

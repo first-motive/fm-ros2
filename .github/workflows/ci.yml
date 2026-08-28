@@ -124,6 +124,12 @@ jobs:
       - name: processor runtime resolution
         run: bash scripts/ci/test-processor-runtime.sh
 
+      # A non-Humble Linux processor uses its prepared Humble container for the
+      # standalone Foxglove bridge. Exercise the existing-only route and scoped
+      # stop helper with stubs; never launch systemd, Docker, or ROS in CI.
+      - name: standalone Foxglove service routes
+        run: bash scripts/ci/test-foxglove-service.sh
+
       # The optional Ohio route is a real installer transaction: first/repeat
       # convergence and malformed/conflicting values must fail before any unit,
       # env, or systemd mutation.

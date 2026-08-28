@@ -31,6 +31,23 @@ recorder package checkout can keep the embedded bridge only at the historic defa
 the boot script passes `foxglove_port:=<configured port>` when that launch
 argument is available and refuses a non-default embedded port otherwise.
 
+On a Linux processor host without native Humble (for example Ubuntu 26.04),
+`fm-foxglove.service` reuses the already-running `fm-processor` compose
+container and starts only `foxglove_bridge` through its ROS entrypoint. The
+installer refuses a missing or stopped processor container; it does not run
+`docker compose up` or recreate the role as a bridge side effect. The service
+stop hook terminates the bridge wrapper and its in-container launch tree with a
+bounded grace period, then escalates only inside that processor container. The
+sim project and any Zenoh services remain independent.
+
+Prepare the processor role first, then install the bridge owner:
+
+```bash
+systemctl status fm-processor
+./scripts/install/install-foxglove-service.sh --port 8765
+python3 scripts/internal/bridge-probe.py
+```
+
 If startup reports a port conflict, inspect the listener before changing the
 configuration:
 
