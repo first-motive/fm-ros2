@@ -32,6 +32,55 @@ else
 fi
 FM_PROCESSOR_RUNTIME=container check "an explicit pin wins" container
 
+# Simulate the protected service-user parent even when CI itself runs as root.
+# Only the exact read-only probe is permitted; no real sudo or key is needed.
+(
+  fixture="$(mktemp -d)"
+  trap 'rm -rf "$fixture"' EXIT
+  export FM_AWS_IDENTITY_ETC_DIR="$fixture/etc"
+  export FM_AWS_IDENTITY_AWS_INSTALL_DIR="$fixture/aws-cli"
+  protected="$fixture/protected/identity"
+  mkdir -p "$FM_AWS_IDENTITY_ETC_DIR" "$protected" \
+    "$FM_AWS_IDENTITY_AWS_INSTALL_DIR/v2/current/bin"
+  touch "$FM_AWS_IDENTITY_ETC_DIR/aws-config" \
+    "$FM_AWS_IDENTITY_AWS_INSTALL_DIR/v2/current/bin/aws"
+  chmod +x "$FM_AWS_IDENTITY_AWS_INSTALL_DIR/v2/current/bin/aws"
+  FM_PROCESSOR_IDENTITY_MOUNTS=("$FM_AWS_IDENTITY_ETC_DIR" "$protected")
+  probe_count=0
+  probe_allowed=1
+  probe_exists=1
+  test() {
+    if [ "$#" = 2 ] && [ "$1" = -d ] && [ "$2" = "$protected" ]; then
+      return 1
+    fi
+    builtin test "$@"
+  }
+  sudo() {
+    [ "$#" = 5 ] && [ "$1" = -n ] && [ "$2" = -- ] &&
+      [ "$3" = /usr/bin/test ] && [ "$4" = -d ] && [ "$5" = "$protected" ] || return 1
+    probe_count=$((probe_count + 1))
+    [ "$probe_allowed" = 1 ] && [ "$probe_exists" = 1 ]
+  }
+  fm_processor_prepare_identity_mounts
+  fm_processor_prepare_identity_mounts
+  [ "$probe_count" = 2 ]
+  echo "PASS: protected identity directory passes repeated read-only privileged probes"
+  probe_exists=0
+  if fm_processor_prepare_identity_mounts 2>"$fixture/error"; then
+    echo "FAIL: missing protected identity directory was accepted" >&2
+    exit 1
+  fi
+  grep -q 'missing or cannot be verified' "$fixture/error"
+  echo "PASS: missing protected identity directory is refused"
+  probe_exists=1
+  probe_allowed=0
+  if fm_processor_prepare_identity_mounts 2>"$fixture/error"; then
+    echo "FAIL: unavailable noninteractive privilege was accepted" >&2
+    exit 1
+  fi
+  echo "PASS: unavailable noninteractive privilege is refused without prompting"
+)
+
 # The container side stacks three compose files; each must exist or be imported.
 [ -f compose.processor.yaml ] && [ -f compose.processor.aws.yaml ] && echo "PASS: processor overlays present" || { echo "FAIL: processor overlay missing"; fail=1; }
 grep -q 'container-exec.sh' scripts/install/install-processor-service.sh \
