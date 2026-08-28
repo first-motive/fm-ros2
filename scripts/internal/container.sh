@@ -42,6 +42,19 @@ source scripts/internal/lib-buildtree.sh
 # shellcheck source=scripts/internal/lib-compose.sh
 source scripts/internal/lib-compose.sh
 
+# The repo's own shared library, for the org gate and the auth-gated team-setup
+# fetch (team_member / fetch_run_team_setup). install.sh owns the same two through
+# this file, and the run path needs them to import an overlay a launch is missing.
+# Its narration helpers are redefined below, which is deliberate: the container
+# path draws its own step banners.
+#
+# Sourced from the clone, never fetched: this path always has a checkout, so the
+# gate it runs is the one git handed the user and reviewed here. Only install.sh's
+# curl-pipe path fetches this file, and it fetches itself over the same ref, so
+# that trust chain is unchanged by the two functions living here.
+# shellcheck source=../../lib.sh disable=SC1091
+source lib.sh
+
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
 # run.sh and the TUIs share one source of brand colour. `step` draws a numbered
 # header block as a rich rule; `item` prints a plain status line beneath it. The
@@ -399,6 +412,62 @@ main() {
   # heal it before step 3 execs into working_dir /ws and dies on the chdir.
   ensure_ws_live
   item "Container up"
+
+  # The loop's record and process stages run packages that live in the private
+  # overlay (fm_data), and the public manifest names no private repo. A member's
+  # rig gets them at install time — but a rig provisioned by the appliance flash,
+  # or a checkout that predates the overlay, reaches its first launch without them
+  # and fails deep inside the loop with `Package 'fm_data_dataset' not found`
+  # (fm-ros2#147). Import them here, behind the same org gate install.sh uses.
+  #
+  # Never fatal: the stack itself does not need the overlay, and a non-member's
+  # workspace is a legitimate thing to launch.
+  #
+  # The import runs a script fetched from the private org through gh — the same
+  # thing install.sh does, now reachable from a launch. Two bounds on that: the
+  # org gate has to pass first, and it only fires when src/fm_data is absent, so a
+  # provisioned workspace never reaches it twice. FM_NO_OVERLAY_IMPORT=1 declines
+  # it outright, for a host that should fetch nothing at launch.
+  step "Workspace Packages"
+  if [[ -d src/fm_data ]]; then
+    item "data packages present"
+  elif [[ -n "${FM_NO_OVERLAY_IMPORT:-}" ]]; then
+    item "data packages absent — import declined (FM_NO_OVERLAY_IMPORT)"
+  elif team_member; then
+    item "data packages absent — importing the private overlay (org access detected)"
+    # --no-desktop --no-ai: the overlay import is the only half wanted here; the
+    # app and the AI harness are an install-time concern, not a launch-time one.
+    if fetch_run_team_setup --no-desktop --no-ai; then
+      warn_kebab_checkouts "$PWD"
+    else
+      item "overlay import did not complete — the loop's record and process stages will not run"
+    fi
+  else
+    item "data packages absent and no org access — the stack runs, the record and process stages do not"
+  fi
+
+  # The published image can lag its Dockerfile, on the apt side first. fm-app's
+  # Dockerfile installs the MoveIt and MuJoCo runtime the sim stack needs, but a host
+  # that pulled the published tag before those lines landed has an image without
+  # them — and the failure is a build error in fm_control plus a mujoco backend that
+  # cannot exist (fm-ros2#147), an hour into a fresh provision. Install whatever is
+  # missing, apt cache and all.
+  # Idempotent and self-neutralising: once the republished image carries them, the
+  # check costs one `dpkg-query` and installs nothing.
+  step "Stack Dependencies"
+  "${COMPOSE[@]}" exec -T "$SERVICE" bash -c '
+    need=""
+    for p in ros-humble-moveit-servo ros-humble-mujoco-ros2-control; do
+      dpkg-query -W -f="\${Status}" "$p" 2>/dev/null | grep -q "install ok installed" \
+        || need="$need $p"
+    done
+    if [ -n "$need" ]; then
+      echo "installing apt packages the running image lacks:$need"
+      apt-get update -qq && apt-get install -y --no-install-recommends $need
+    else
+      echo "stack apt dependencies present"
+    fi
+  '
 
   # The published fm-app image can lag its Dockerfile — mediapipe was added after the
   # last publish, and the mesh-converter deps (trimesh/pycollada) only just landed in the

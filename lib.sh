@@ -135,6 +135,24 @@ warn_kebab_checkouts() {  # workspace root
   done
 }
 
+# The org-membership gate: gh present, authenticated, and able to read the private
+# config repo. Only a member passes. Non-members skip the team extras silently — a
+# laptop with no gh, or a contractor's checkout, is a legitimate thing to be.
+team_member() {
+  command -v gh >/dev/null 2>&1 || return 1
+  gh auth status >/dev/null 2>&1 || return 1
+  gh api repos/first-motive/.github-private >/dev/null 2>&1 || return 1
+}
+
+# Fetch the auth-gated team-setup.sh over gh's authenticated API and run it with the
+# given args (subcommand + flags) — no extra clone, no token handling. This public
+# repo names no private repo beyond fetching that one script, which only resolves
+# for an authenticated org member.
+fetch_run_team_setup() {  # args...
+  gh api repos/first-motive/.github-private/contents/internal/team-setup.sh \
+    --jq '.content' | base64 --decode | bash -s -- "$@"
+}
+
 # Run a long command with live feedback. TTY: fork it, spin a frame + elapsed
 # seconds on one \r line until it exits, then clear the line — replaying the
 # captured output only on failure so a green run stays quiet and a red one is

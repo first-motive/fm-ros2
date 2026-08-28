@@ -381,20 +381,9 @@ ensure_vcs() {
   esac
 }
 
-# The org-membership gate: gh present, authenticated, and able to read the
-# private config repo. Only a member passes. Non-members skip the team extras.
-team_member() {
-  command -v gh >/dev/null 2>&1 || return 1
-  gh auth status >/dev/null 2>&1 || return 1
-  gh api repos/first-motive/.github-private >/dev/null 2>&1 || return 1
-}
-
-# Fetch the auth-gated team-setup.sh over gh's authenticated API and run it with
-# the given args (subcommand + flags) — no extra clone, no token handling.
-fetch_run_team_setup() {  # args...
-  gh api repos/first-motive/.github-private/contents/internal/team-setup.sh \
-    --jq '.content' | base64 --decode | bash -s -- "$@"
-}
+# team_member and fetch_run_team_setup live in lib.sh: the run path needs the same
+# gate to import the overlay a launch is missing, and two copies of an auth gate is
+# one copy too many.
 
 # Offer the private team stack — the First Motive app and the AI harness — once
 # the public workspace is assembled. Everything private lives behind the auth-gated

@@ -147,6 +147,14 @@ its root, so colcon stops descending there and never sees the packages nested
 inside. `fm build` names those directories as extra base paths, which is why the
 recorder and the data engine are in the workspace the launcher opens.
 
+## Workspace Packages
+
+The loop's record and process stages live in the private overlay. A launch that
+finds `src/fm_data` absent imports it, behind the same org gate `install.sh` uses —
+a non-member's workspace skips the step and the stack still runs. Set
+`FM_NO_OVERLAY_IMPORT=1` to decline it on a host that should fetch nothing at
+launch.
+
 ## After the Launcher Opens
 
 The launcher dispatches the chosen launch. Robot description, simulation, and
