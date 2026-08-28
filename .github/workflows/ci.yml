@@ -135,6 +135,12 @@ jobs:
       - name: processor runtime resolution
         run: bash scripts/ci/test-processor-runtime.sh
 
+      # The dataset verbs must reach the runtime that HAS the engine. Routing them
+      # on --backend sent them into the sim container, which is built without it
+      # (#145).
+      - name: dataset verbs run where the engine is
+        run: bash scripts/ci/test-dataset-runtime.sh
+
       # A non-Humble Linux processor uses its prepared Humble container for the
       # standalone Foxglove bridge. Exercise the existing-only route and scoped
       # stop helper with stubs; never launch systemd, Docker, or ROS in CI.

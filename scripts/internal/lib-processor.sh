@@ -28,8 +28,20 @@
 # install-foxglove-service.sh) do not source a profile of their own — without this
 # they would start the processor on `none` on a zenoh host, and its nodes would
 # publish where the host's bridge is not listening.
-# shellcheck source=../env/comms.sh disable=SC1091
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/env/comms.sh"
+#
+# Guarded, because this library is also sourced from synthetic workspaces in the
+# service tests, which carry the libraries and none of the profiles. A real
+# checkout always has the file — it is tracked — so an absence is a fixture, and
+# saying so beats aborting every caller.
+_fm_processor_comms="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/env/comms.sh"
+if [ -f "$_fm_processor_comms" ]; then
+  # shellcheck source=../env/comms.sh disable=SC1091
+  . "$_fm_processor_comms"
+else
+  echo "processor: no scripts/env/comms.sh beside this library — the container will" >&2
+  echo "           inherit whatever middleware its image defaults to." >&2
+fi
+unset _fm_processor_comms
 
 # fm_processor_runtime
 # Echo native | container. Fails with a message when neither is possible.
@@ -146,4 +158,37 @@ fm_processor_import_docker() {
   version="$(awk '/^  docker:/{f=1} f && /version:/{print $2; exit}' "$root/fm-ros2.repos")"
   [ -n "$url" ] && [ -n "$version" ] || { echo "ERROR: no docker entry in fm-ros2.repos" >&2; return 1; }
   git clone --quiet --depth 1 --branch "$version" "$url" "$root/docker"
+}
+
+# fm_processor_installed
+# 0 when this host carries the processor role. The role's EnvironmentFile is the
+# marker: install-processor-service.sh writes it, and nothing else does.
+#
+# Used to decide where a dataset verb runs. `fm dataset process` used to resolve
+# the SIM stack's compose project, so on a workstation it ran the engine inside a
+# container built without it and reported `Package 'fm_data_dataset' not found`
+# while the processor container sat beside it with the engine built (fm-ros2#145).
+fm_processor_installed() {
+  [ -f "${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}" ]
+}
+
+# fm_processor_exec <workspace-root> <command...>
+# Run one command in the processor's runtime — natively on a Humble host, or
+# through the role's own container anywhere else. The same split the systemd units
+# take (scripts/service/container-exec.sh), so a verb and a unit cannot end up
+# running the engine in two different places.
+fm_processor_exec() {
+  local root="${1:?workspace root}"
+  shift
+  case "$(fm_processor_runtime)" in
+    native)
+      "$@"
+      ;;
+    *)
+      fm_processor_compose "$root"
+      # Through the image entrypoint: `exec` skips ENTRYPOINT, so ROS and the
+      # workspace overlay would be unsourced and every `ros2 run` would fail.
+      "${FM_COMPOSE[@]}" exec -T fm /ros_entrypoint.sh "$@"
+      ;;
+  esac
 }
