@@ -49,7 +49,21 @@ OPTIMIZE_ARGS = [
 INDEX_SOURCE = "fm_ros2 registry + fm_description meshes"
 
 _ABSOLUTE_ATTR = re.compile(r'="/')
-_SAFE_NAME = re.compile(r"[^a-z0-9._-]+")
+
+# The website worker behind showcase/models/ serves only names that match this
+# pattern and carry no "..", and silently drops the rest from its allowlist.
+# Every name in a package's files list must pass it (package_files checks).
+WORKER_FILE_RE = re.compile(r"^(?:meshes/)?[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.(?:urdf|json|glb)$")
+
+# Longest stem emitted before the .glb suffix and any -hash suffix, well inside
+# the worker's 128-character cap.
+MAX_STEM = 96
+_UNSAFE = re.compile(r"[^a-z0-9._-]+")
+_DOT_RUN = re.compile(r"\.{2,}")
+
+
+def worker_safe(name: str) -> bool:
+    return bool(WORKER_FILE_RE.match(name)) and ".." not in name
 
 
 def utc_now() -> str:
@@ -68,17 +82,30 @@ def drop_none(record: dict) -> dict:
 # --- mesh naming -------------------------------------------------------------
 
 
+def mesh_stem(uri: str) -> str:
+    """The URI's basename as a worker-safe stem, or "" when nothing survives.
+
+    Lower-cased, unsafe runs become "_", dot runs collapse to one dot, leading
+    "._-" go, and the result is capped so the final name stays inside the
+    worker pattern.
+    """
+    stem = os.path.splitext(os.path.basename(uri))[0].lower()
+    stem = _UNSAFE.sub("_", stem)
+    stem = _DOT_RUN.sub(".", stem)
+    return stem.lstrip("._-")[:MAX_STEM].rstrip(".")
+
+
 def mesh_names(uris) -> dict[str, str]:
     """Map each mesh URI to its GLB file name inside one robot's meshes/ dir.
 
-    The name is the source basename, lower-cased, with a .glb extension. Two
-    different sources sharing a basename each get a short hash suffix so
-    neither shadows the other.
+    The name is the worker-safe stem of the source basename with a .glb
+    extension; a stem with nothing left falls back to mesh-<hash>. Two
+    different sources sharing a stem each get a short hash suffix so neither
+    shadows the other.
     """
     by_stem: dict[str, list[str]] = {}
     for uri in dict.fromkeys(uris):
-        stem = os.path.splitext(os.path.basename(uri))[0].lower()
-        stem = _SAFE_NAME.sub("_", stem) or "mesh"
+        stem = mesh_stem(uri) or f"mesh-{short_hash(uri)}"
         by_stem.setdefault(stem, []).append(uri)
     names: dict[str, str] = {}
     for stem, members in by_stem.items():
@@ -87,6 +114,9 @@ def mesh_names(uris) -> dict[str, str]:
         else:
             for uri in members:
                 names[uri] = f"{stem}-{short_hash(uri)}.glb"
+    for uri, name in names.items():
+        if not worker_safe(name):
+            raise ValueError(f"mesh name fails the worker pattern: {name} ({uri})")
     return names
 
 
@@ -192,25 +222,62 @@ def is_stale(target: str, source: str) -> bool:
     return not os.path.exists(target) or os.path.getmtime(target) < os.path.getmtime(source)
 
 
+def cache_stamp(src: str, optimize_args=None) -> dict:
+    """What a cache entry was built from. Any difference means rebuild."""
+    st = os.stat(src)
+    stamp = {"source": os.path.abspath(src), "bytes": st.st_size, "mtime_ns": st.st_mtime_ns}
+    if optimize_args is not None:
+        stamp["optimize_args"] = list(optimize_args)
+    return stamp
+
+
+def stamp_path(target: str) -> str:
+    return target + ".stamp.json"
+
+
+def is_current(target: str, stamp: dict) -> bool:
+    if not os.path.exists(target) or not os.path.exists(stamp_path(target)):
+        return False
+    try:
+        with open(stamp_path(target), encoding="utf-8") as fh:
+            return json.load(fh) == stamp
+    except ValueError:
+        return False
+
+
+def write_stamp(target: str, stamp: dict) -> None:
+    with open(stamp_path(target), "w", encoding="utf-8") as fh:
+        json.dump(stamp, fh)
+
+
 def convert_mesh(src: str, raw_glb: str, out_glb: str, optimize: bool, force: bool, command=None) -> str:
-    """Convert one source mesh, returning the GLB to ship (raw or optimized)."""
+    """Convert one source mesh, returning the GLB to ship (raw or optimized).
+
+    Each cache entry carries a stamp of its source path, size, mtime, and the
+    optimize arguments, and is rebuilt when the stamp differs: a URI retargeted
+    to another file or a change to OPTIMIZE_ARGS never ships a stale GLB.
+    """
     os.makedirs(os.path.dirname(raw_glb), exist_ok=True)
-    if force or is_stale(raw_glb, src):
+    raw_stamp = cache_stamp(src)
+    if force or not is_current(raw_glb, raw_stamp):
         import trimesh
 
         mesh = trimesh.load(src, force="mesh")
         mesh.merge_vertices()
         mesh.export(raw_glb)
+        write_stamp(raw_glb, raw_stamp)
     if not optimize:
         return raw_glb
-    if force or is_stale(out_glb, raw_glb):
+    out_stamp = cache_stamp(src, OPTIMIZE_ARGS)
+    if force or not is_current(out_glb, out_stamp):
         cmd = list(command or gltf_transform_command()) + ["optimize", raw_glb, out_glb] + OPTIMIZE_ARGS
         proc = subprocess.run(cmd, capture_output=True, text=True)
         if proc.returncode != 0:
             raise RuntimeError(f"gltf-transform failed on {src}:\n{proc.stdout}\n{proc.stderr}")
-    required = set(glb_info(out_glb)["extensions_required"])
-    if not required <= ALLOWED_EXTENSIONS:
-        raise RuntimeError(f"{out_glb} requires a decoder extension: {sorted(required - ALLOWED_EXTENSIONS)}")
+        required = set(glb_info(out_glb)["extensions_required"])
+        if not required <= ALLOWED_EXTENSIONS:
+            raise RuntimeError(f"{out_glb} requires a decoder extension: {sorted(required - ALLOWED_EXTENSIONS)}")
+        write_stamp(out_glb, out_stamp)
     return out_glb
 
 
@@ -237,6 +304,9 @@ def package_files(manifest: dict) -> list[str]:
     files = ["manifest.json"]
     files += [v["urdf"] for v in manifest["variants"].values()]
     files += [f"meshes/{name}" for name in manifest["meshes"]]
+    bad = [f for f in files if not worker_safe(f)]
+    if bad:
+        raise ValueError(f"file names fail the worker pattern: {bad}")
     return files
 
 

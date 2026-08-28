@@ -44,7 +44,11 @@ split at the file system:
 
 The robot and variant table lives at the top of `resolve.py`. The first
 variant of a robot is the website's default; `aliases` lets the website call a
-variant by another name (`axol/bimanual` ships as a copy of `axol/axol`).
+variant by another name (`axol/bimanual` ships as a copy of `axol/axol`,
+marked `alias_of` in the manifest). A robot whose registry spec has no
+`preset_arg` builds the same description for every variant name, so it gets
+one variant and aliases for the rest (`g1_d/g1_29dof_rev_1_0`); `resolve.py`
+refuses a second standalone variant on such a robot.
 
 ## What Package.py Emits
 
@@ -62,9 +66,15 @@ dropped, and only meshes a `<visual>` references are converted. The xacro
 header comment, which names the source file by absolute path, does not
 survive the parse.
 
-Mesh names are the source basename lower-cased with `.glb`. Two different
-sources with the same basename inside one robot each get a short hash suffix
-(`link-1a2b3c4d.glb`). A source shared by several variants converts once.
+Mesh names are the source basename lower-cased with `.glb`, reduced to what
+the website worker serves: `[A-Za-z0-9][A-Za-z0-9._-]*` with no `..`
+(`WORKER_FILE_RE` in `package.py`). Unsafe characters become `_`, dot runs
+collapse, leading `._-` go, long stems are capped, and a stem with nothing
+left becomes `mesh-<hash>`. Two different sources with the same stem inside
+one robot each get a short hash suffix (`link-1a2b3c4d.glb`). A source shared
+by several variants converts once. `package.py` checks every name on the
+`files` list against the pattern and fails rather than emit one the worker
+would drop.
 
 `manifest.json` per robot:
 
@@ -128,8 +138,11 @@ need a wasm decoder on the page; `package.py` reads each GLB header after
 optimizing and fails on any other required extension. Keep it that way.
 
 Conversions cache under `<work>/glb/<robot>/` (`<name>.raw.glb` from trimesh,
-`<name>.glb` optimized) and are skipped while the cached file is newer than
-its source, so a rerun after a description change converts only what moved.
+`<name>.glb` optimized). Each entry has a `.stamp.json` beside it recording
+the source path, size, mtime, and the optimize arguments; the entry is rebuilt
+when the stamp differs, so a rerun after a description change converts only
+what moved, while a URI retargeted to another file or a change to the
+optimize flags rebuilds what it must. `--force` rebuilds everything.
 
 One caveat when inspecting output with trimesh: it ignores the `normalized`
 flag on quantized accessors, so bounds of an optimized GLB read as the raw
@@ -142,7 +155,7 @@ Measured on the 2026-08-28 run, visual meshes only:
 
 | Robot | Variants | Meshes | Source STL | Shipped GLB |
 | ----- | -------- | ------ | ---------- | ----------- |
-| g1_d | 2 | 41 | 29.9 MB | 3.05 MB |
+| g1_d | 2 (one alias) | 41 | 29.9 MB | 3.05 MB |
 | so101 | 1 | 13 | 16.1 MB | 1.63 MB |
 | openarm | 5 | 11 | 13.4 MB | 1.49 MB |
 | axol | 2 (one alias) | 18 | 0.1 MB | 0.03 MB |

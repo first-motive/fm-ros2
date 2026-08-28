@@ -24,10 +24,13 @@ import sys
 import xml.etree.ElementTree as ET
 
 # Robots and variants to package. The first variant of each robot is the
-# website's default. Aliases map a website variant name onto a registry
-# variant; the package ships both names with identical content.
+# website's default. Aliases map another name onto a registry variant; the
+# package ships both names with identical content and marks the alias. A robot
+# whose registry spec has no preset_arg builds one description whatever the
+# variant name, so it gets one variant and aliases for its other names
+# (check_variants enforces this).
 ROBOTS = [
-    {"key": "g1_d", "variants": ["g1_d", "g1_29dof_rev_1_0"]},
+    {"key": "g1_d", "variants": ["g1_d"], "aliases": {"g1_29dof_rev_1_0": "g1_d"}},
     {"key": "so101", "variants": ["so101"]},
     {
         "key": "openarm",
@@ -73,6 +76,19 @@ def resolve_uri(uri: str, share_dir) -> dict:
     return {"path": path, "pkg": pkg, "rel": rel, "bytes": os.path.getsize(path)}
 
 
+def check_variants(entry: dict, preset_arg) -> None:
+    """Refuse to ship one description under two unrelated variant names."""
+    if preset_arg is None and len(entry["variants"]) > 1:
+        raise SystemExit(
+            f"{entry['key']}: the registry spec has no preset_arg, so variants "
+            f"{entry['variants']} build the same description; keep one and list "
+            "the others under aliases"
+        )
+    for alias, target in entry.get("aliases", {}).items():
+        if target not in entry["variants"]:
+            raise SystemExit(f"{entry['key']}: alias {alias} points at unknown variant {target}")
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--work", required=True, help="work directory for the raw URDFs and resolved.json")
@@ -98,6 +114,7 @@ def main(argv: list[str]) -> int:
     for entry in table:
         key = entry["key"]
         spec = registry.get(key)
+        check_variants(entry, spec.preset_arg)
         robot_dir = os.path.join(args.work, key)
         os.makedirs(robot_dir, exist_ok=True)
         urdfs: dict[str, str] = {}
