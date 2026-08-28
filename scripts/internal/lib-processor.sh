@@ -100,9 +100,12 @@ fm_processor_prepare_identity_mounts() {
   local path aws_install aws_runtime
   [ -f "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config" ] || return 0
   for path in "${FM_PROCESSOR_IDENTITY_MOUNTS[@]}"; do
-    [ -d "$path" ] || {
-      echo "ERROR: processor identity path is missing: $path" >&2
-      echo "       Run scripts/install/install-processor-identity.sh first." >&2
+    # The identity service user owns a mode-0700 parent. A normal installer
+    # cannot stat its child, while Docker can mount it. Probe only directory
+    # existence with noninteractive privilege; never widen identity access.
+    test -d "$path" || sudo -n -- /usr/bin/test -d "$path" 2>/dev/null || {
+      echo "ERROR: processor identity path is missing or cannot be verified: $path" >&2
+      echo "       Check the identity installation and noninteractive sudo access." >&2
       return 1
     }
   done
