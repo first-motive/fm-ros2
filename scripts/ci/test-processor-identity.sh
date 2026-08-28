@@ -172,6 +172,18 @@ if printf '%s' "$receipt" | grep -Eiq 'BEGIN (EC|RSA|PRIVATE) KEY|AccessKeyId|Se
 fi
 pass "receipt mode emits safe status without key or temporary credentials"
 
+expiry_unit="$TMP_DIR/systemd/fm-aws-identity-expiry.service"
+[ -f "$expiry_unit" ] || fail "identity install did not write the expiry unit"
+on_failure_line="$(grep -n '^OnFailure=fm-aws-identity-expiry-warning.service$' "$expiry_unit" | cut -d: -f1)"
+service_line="$(grep -n '^\[Service\]$' "$expiry_unit" | cut -d: -f1)"
+[ -n "$on_failure_line" ] && [ -n "$service_line" ] && [ "$on_failure_line" -lt "$service_line" ] || \
+  fail "expiry unit places OnFailure outside [Unit]"
+if awk '/^\[Service\]/{service=1} service && /^OnFailure=/{bad=1} END{exit bad}' "$expiry_unit"; then
+  pass "expiry unit places OnFailure in [Unit]"
+else
+  fail "expiry unit places OnFailure in [Service]"
+fi
+
 bash "$IDENTITY" uninstall >/dev/null
 [ -f "$TMP_DIR/state/private-key.pem" ] && [ -f "$TMP_DIR/etc/certificate.pem" ] || \
   fail "uninstall removed resumable identity material"
@@ -180,6 +192,13 @@ bash "$IDENTITY" uninstall >/dev/null
 pass "uninstall removes wiring and preserves key/certificate material"
 
 grep -Fq ':ro' "$ROOT/compose.processor.aws.yaml" || fail "processor AWS overlay has no read-only identity mounts"
+grep -Fq 'FM_AWS_IDENTITY_AWS_INSTALL_DIR' "$ROOT/compose.processor.aws.yaml" || \
+  fail "processor AWS overlay does not mount the pinned AWS CLI tree"
+grep -Fq 'v2/current/bin' "$ROOT/compose.processor.aws.yaml" || \
+  fail "processor AWS overlay does not put the mounted CLI runtime on PATH"
+if grep -Eq 'FM_AWS_IDENTITY_AWS_PATH.*:ro' "$ROOT/compose.processor.aws.yaml"; then
+  fail "processor AWS overlay mounts the host AWS symlink instead of its runtime tree"
+fi
 if grep -Fq 'fm-aws-credential-process' "$ROOT/compose.processor.yaml"; then
   fail "base processor overlay requires optional AWS identity mounts"
 fi
@@ -196,7 +215,37 @@ fi
 ) || fail "optional AWS compose overlay selection is incorrect"
 grep -Eq 'AWS_CONFIG_FILE\|AWS_PROFILE' "$ROOT/scripts/service/container-exec.sh" || \
   fail "container exec does not document the explicit AWS allowlist"
-pass "optional container identity mounts and AWS environment allowlist are present"
+
+# AWS CLI v2 is a directory runtime: its bin launcher is commonly a symlink to
+# a sibling dist/ binary. The host preflight must require both pieces before the
+# read-only tree is handed to Docker; this fixture proves the check without
+# starting Docker or contacting AWS.
+aws_tree="$TMP_DIR/aws-cli"
+mkdir -p "$TMP_DIR/mount-etc" "$TMP_DIR/mount-state" "$aws_tree/v2/current/bin" "$aws_tree/v2/current/dist"
+touch "$TMP_DIR/mount-etc/aws-config"
+printf '%s\n' '#!/usr/bin/env bash' > "$aws_tree/v2/current/dist/aws"
+chmod +x "$aws_tree/v2/current/dist/aws"
+ln -s ../dist/aws "$aws_tree/v2/current/bin/aws"
+if ! (
+  export FM_AWS_IDENTITY_ETC_DIR="$TMP_DIR/mount-etc"
+  export FM_AWS_IDENTITY_STATE_DIR="$TMP_DIR/mount-state"
+  export FM_AWS_IDENTITY_AWS_INSTALL_DIR="$aws_tree"
+  . "$ROOT/scripts/internal/lib-processor.sh"
+  fm_processor_prepare_identity_mounts 2>/dev/null
+); then
+  fail "processor identity mount preflight rejected a complete AWS CLI v2 tree"
+fi
+rm "$aws_tree/v2/current/dist/aws"
+if (
+  export FM_AWS_IDENTITY_ETC_DIR="$TMP_DIR/mount-etc"
+  export FM_AWS_IDENTITY_STATE_DIR="$TMP_DIR/mount-state"
+  export FM_AWS_IDENTITY_AWS_INSTALL_DIR="$aws_tree"
+  . "$ROOT/scripts/internal/lib-processor.sh"
+  fm_processor_prepare_identity_mounts 2>/dev/null
+); then
+  fail "processor identity mount preflight accepted a broken AWS CLI symlink"
+fi
+pass "optional container identity mounts, in-tree AWS CLI runtime, and AWS environment allowlist are present"
 
 # Production keeps the state directory 0700 and owned by fm-processor. Exercise
 # the real sudo re-entry boundary on Linux so the caller cannot silently recreate

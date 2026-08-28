@@ -21,7 +21,16 @@
 #   FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=<dir> durable human review receipts
 #   FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=<dir> durable corrected outputs
 #   FM_PROCESSOR_ANNOTATION_LEARNING_DIR=<dir> durable learning records
+#   FM_PROCESSOR_OPERATOR_EVIDENCE_DIR=<dir> selected operator evidence receipts
 #   FM_PROCESSOR_AWS_INFERENCE_SCRIPT=<file> AWS annotation adapter (optional)
+#   FM_PROCESSOR_ANNOTATE_GIT_COMMIT=<40-hex> explicit data package source commit (optional;
+#                                      otherwise resolved from src/fm_data at boot)
+#   FM_AWS_INFERENCE_SERVICE_MODE=1    opt in to the persistent Ohio worker service
+#   FM_AWS_INFERENCE_REGION=us-east-2  Ohio region (service mode only)
+#   FM_AWS_PROFILE=<identity-profile> Roles Anywhere profile (service mode only)
+#   FM_AWS_INFERENCE_BUCKET=<bucket>   reviewed Ohio inference bucket (required)
+#   FM_AWS_INFERENCE_READINESS_DIR=<dir> fresh qwen2.5.json/qwen3.5.json receipts
+#   FM_AWS_SERVICE_TIMEOUT_SECONDS=7200 bounded Ohio service receipt wait
 #   FM_PROCESSOR_RELEASE_ROOT=<dir>     candidates, Packs, jobs, and deliveries
 #   FM_PROCESSOR_RELEASE_DATASET_EXPORTER=<exe> pinned real-dataset exporter
 #   FM_PROCESSOR_RELEASE_PYTHON=<exe>   pinned Python for Pack and strict loaders
@@ -49,11 +58,18 @@ ANNOTATION_ATTEMPTS_DIR="${FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR:-~/fm-data-runs/
 ANNOTATION_REVIEWS_DIR="${FM_PROCESSOR_ANNOTATION_REVIEWS_DIR:-~/fm-data-runs/annotation-reviews}"
 ANNOTATION_CORRECTIONS_DIR="${FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR:-~/fm-data-runs/annotation-corrections}"
 ANNOTATION_LEARNING_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_DIR:-~/fm-data-runs/annotation-learning}"
+OPERATOR_EVIDENCE_DIR="${FM_PROCESSOR_OPERATOR_EVIDENCE_DIR:-}"
 ANNOTATION_ADJUDICATIONS_DIR="${FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR:-~/fm-data-runs/annotation-adjudications}"
 ANNOTATION_REVOCATIONS_DIR="${FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR:-~/fm-data-runs/annotation-revocations}"
 ANNOTATION_LEARNING_SNAPSHOTS_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR:-~/fm-data-runs/annotation-learning-snapshots}"
 ANNOTATION_IMPROVEMENT_RUNS_DIR="${FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR:-~/fm-data-runs/annotation-improvement-runs}"
 AWS_INFERENCE_SCRIPT="${FM_PROCESSOR_AWS_INFERENCE_SCRIPT:-}"
+ANNOTATE_GIT_COMMIT="${FM_PROCESSOR_ANNOTATE_GIT_COMMIT:-}"
+# The managed service env uses a workspace-relative adapter path so the same
+# config works natively and from /ws in the Humble container.
+if [ -n "$AWS_INFERENCE_SCRIPT" ] && [[ "$AWS_INFERENCE_SCRIPT" != /* ]]; then
+  AWS_INFERENCE_SCRIPT="$ROOT/$AWS_INFERENCE_SCRIPT"
+fi
 RELEASE_ROOT="${FM_PROCESSOR_RELEASE_ROOT:-~/dataset-releases}"
 RELEASE_DATASET_EXPORTER="${FM_PROCESSOR_RELEASE_DATASET_EXPORTER:-}"
 RELEASE_PYTHON="${FM_PROCESSOR_RELEASE_PYTHON:-}"
@@ -65,6 +81,66 @@ RELEASE_HUGGINGFACE_REPOSITORY="${FM_PROCESSOR_RELEASE_HUGGINGFACE_REPOSITORY:-}
 ENGINE_PYTHON="${FM_PROCESSOR_ENGINE_PYTHON:-}"
 if [ -z "$ENGINE_PYTHON" ] && [ -x "$ROOT/.engine-venv/bin/python" ]; then
   ENGINE_PYTHON="$ROOT/.engine-venv/bin/python"
+fi
+
+# Annotation evidence must identify the actual data package source. Resolve the
+# nested checkout used by this workspace (the same path is mounted at /ws in
+# the Humble container); an explicit value is accepted only when it is a full
+# immutable Git object id. A missing source is tolerated for the offline/local
+# lane, but a configured AWS adapter is refused rather than producing an
+# untraceable cloud bundle.
+_is_full_commit() {
+  [[ "$1" =~ ^[0-9a-f]{40}$ ]] &&
+    [ "$1" != 0000000000000000000000000000000000000000 ]
+}
+_resolve_data_commit() {
+  local data_root="$ROOT/src/fm_data" commit
+  [ -e "$data_root/.git" ] || return 1
+  commit="$(git -C "$data_root" rev-parse --verify HEAD 2>/dev/null)" || return 1
+  _is_full_commit "$commit" || return 1
+  printf '%s\n' "$commit"
+}
+_DISCOVERED_DATA_COMMIT=""
+if [ -e "$ROOT/src/fm_data/.git" ]; then
+  _DISCOVERED_DATA_COMMIT="$(_resolve_data_commit 2>/dev/null || true)"
+fi
+_DATA_SOURCE_DIRTY=0
+if [ -n "$_DISCOVERED_DATA_COMMIT" ] &&
+   ! git -C "$ROOT/src/fm_data" diff --quiet HEAD -- >/dev/null 2>&1; then
+  _DATA_SOURCE_DIRTY=1
+  # Do not stamp HEAD on the offline/local lane either. Tracked edits are not
+  # part of that commit; untracked runtime outputs are intentionally ignored.
+  _DISCOVERED_DATA_COMMIT=""
+fi
+if [ "$_DATA_SOURCE_DIRTY" = 1 ] &&
+   { [ -n "$ANNOTATE_GIT_COMMIT" ] || [ -n "$AWS_INFERENCE_SCRIPT" ] ||
+     [ "${FM_AWS_INFERENCE_SERVICE_MODE:-0}" = 1 ]; }; then
+  echo "ERROR: tracked changes in $ROOT/src/fm_data prevent a trusted annotation source identity" >&2
+  echo "       Commit or stash tracked data package changes before the AWS annotation launch." >&2
+  exit 1
+fi
+if [ -n "$ANNOTATE_GIT_COMMIT" ] && ! _is_full_commit "$ANNOTATE_GIT_COMMIT"; then
+  echo "ERROR: FM_PROCESSOR_ANNOTATE_GIT_COMMIT must be a full 40-character lowercase Git commit" >&2
+  exit 1
+fi
+if [ -n "$ANNOTATE_GIT_COMMIT" ] && [ -n "$_DISCOVERED_DATA_COMMIT" ] &&
+   [ "$ANNOTATE_GIT_COMMIT" != "$_DISCOVERED_DATA_COMMIT" ]; then
+  echo "ERROR: FM_PROCESSOR_ANNOTATE_GIT_COMMIT does not match the local data package checkout" >&2
+  echo "       expected $_DISCOVERED_DATA_COMMIT" >&2
+  exit 1
+fi
+if [ -z "$ANNOTATE_GIT_COMMIT" ]; then
+  if [ -n "$_DISCOVERED_DATA_COMMIT" ]; then
+    ANNOTATE_GIT_COMMIT="$_DISCOVERED_DATA_COMMIT"
+  else
+    if [ -n "$AWS_INFERENCE_SCRIPT" ] || [ "${FM_AWS_INFERENCE_SERVICE_MODE:-0}" = 1 ]; then
+      echo "ERROR: AWS annotation requires a data package source commit at $ROOT/src/fm_data" >&2
+      echo "       Check out the processor's nested data package repository or set a reviewed" >&2
+      echo "       full 40-character FM_PROCESSOR_ANNOTATE_GIT_COMMIT." >&2
+      exit 1
+    fi
+    echo "WARNING: data package source commit unavailable; cloud annotation is disabled" >&2
+  fi
 fi
 
 # At boot the LAN interface may not be up yet, so the foxglove profile's dds-lan.sh
@@ -103,6 +179,9 @@ LAUNCH_ARGS+=(annotation_attempts_dir:="$ANNOTATION_ATTEMPTS_DIR")
 LAUNCH_ARGS+=(annotation_reviews_dir:="$ANNOTATION_REVIEWS_DIR")
 LAUNCH_ARGS+=(annotation_corrections_dir:="$ANNOTATION_CORRECTIONS_DIR")
 LAUNCH_ARGS+=(annotation_learning_dir:="$ANNOTATION_LEARNING_DIR")
+if [ -n "$OPERATOR_EVIDENCE_DIR" ]; then
+  LAUNCH_ARGS+=(operator_evidence_dir:="$OPERATOR_EVIDENCE_DIR")
+fi
 LAUNCH_ARGS+=(annotation_adjudications_dir:="$ANNOTATION_ADJUDICATIONS_DIR")
 LAUNCH_ARGS+=(annotation_revocations_dir:="$ANNOTATION_REVOCATIONS_DIR")
 LAUNCH_ARGS+=(annotation_learning_snapshots_dir:="$ANNOTATION_LEARNING_SNAPSHOTS_DIR")
@@ -139,6 +218,9 @@ LAUNCH_ARGS+=(provision_script:="$ROOT/scripts/install/setup-qwen.sh")
 # App-approved real annotation stages through the annotation package's own
 # staging script in this workspace's source tree.
 LAUNCH_ARGS+=(stage_script:="$ROOT/src/fm_data/fm_data_annotate/scripts/stage_qwen_run.sh")
+if [ -n "$ANNOTATE_GIT_COMMIT" ]; then
+  LAUNCH_ARGS+=(annotate_git_commit:="$ANNOTATE_GIT_COMMIT")
+fi
 if [ -n "$AWS_INFERENCE_SCRIPT" ]; then
   LAUNCH_ARGS+=(aws_inference_script:="$AWS_INFERENCE_SCRIPT")
 fi

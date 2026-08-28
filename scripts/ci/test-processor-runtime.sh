@@ -36,6 +36,12 @@ FM_PROCESSOR_RUNTIME=container check "an explicit pin wins" container
 [ -f compose.processor.yaml ] && [ -f compose.processor.aws.yaml ] && echo "PASS: processor overlays present" || { echo "FAIL: processor overlay missing"; fail=1; }
 grep -q 'container-exec.sh' scripts/install/install-processor-service.sh \
   && echo "PASS: processor unit knows the container runtime" || { echo "FAIL: unit ignores runtime"; fail=1; }
+grep -q 'FM_AWS_INFERENCE_SERVICE_MODE' scripts/install/install-processor-service.sh \
+  && grep -q 'FM_AWS_INFERENCE_READINESS_DIR' scripts/install/install-processor-service.sh \
+  && echo "PASS: processor service exposes the explicit Ohio readiness route" || { echo "FAIL: Ohio readiness route missing"; fail=1; }
+grep -q 'annotate_git_commit' scripts/service/processor-boot.sh \
+  && grep -q 'FM_PROCESSOR_ANNOTATE_GIT_COMMIT' scripts/service/container-exec.sh \
+  && echo "PASS: processor boot carries exact data package source identity" || { echo "FAIL: source identity route missing"; fail=1; }
 
 [ "$fail" = 0 ] && echo "processor runtime: all checks passed"
 exit "$fail"

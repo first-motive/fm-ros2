@@ -28,10 +28,39 @@ cd "$ROOT"
 
 UNIT=/etc/systemd/system/fm-processor.service
 ENVFILE=/etc/fm-processor.env
+AWS_ENVFILE=/etc/fm-processor-aws.env
 BRIDGE_ENV="${FM_BRIDGE_ENV_FILE:-/etc/fm-bridge.env}"
 WRAPPER="$ROOT/scripts/service/processor-boot.sh"
 IDENTITY_INSTALLER="$ROOT/scripts/install/install-processor-identity.sh"
 IDENTITY_PROFILE="${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config"
+IDENTITY_ENV="${FM_AWS_IDENTITY_CONFIG_FILE:-${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/identity.env}"
+
+# Offline CI can exercise the complete install transaction without writing /etc
+# or invoking a real systemd host.  This seam is intentionally opt-in and
+# requires an explicit temporary root; normal installs always use the paths
+# above.  The test still runs the real installer and only stubs sudo/systemctl.
+if [ "${FM_PROCESSOR_SERVICE_TEST_MODE:-0}" = 1 ]; then
+  : "${FM_PROCESSOR_SERVICE_TEST_ROOT:?FM_PROCESSOR_SERVICE_TEST_ROOT is required in test mode}"
+  UNIT="$FM_PROCESSOR_SERVICE_TEST_ROOT/systemd/fm-processor.service"
+  ENVFILE="$FM_PROCESSOR_SERVICE_TEST_ROOT/etc/fm-processor.env"
+  AWS_ENVFILE="$FM_PROCESSOR_SERVICE_TEST_ROOT/etc/fm-processor-aws.env"
+  BRIDGE_ENV="$FM_PROCESSOR_SERVICE_TEST_ROOT/etc/fm-bridge.env"
+  IDENTITY_PROFILE="$FM_PROCESSOR_SERVICE_TEST_ROOT/identity/aws-config"
+  IDENTITY_ENV="$FM_PROCESSOR_SERVICE_TEST_ROOT/identity/identity.env"
+  IDENTITY_INSTALLER="$FM_PROCESSOR_SERVICE_TEST_ROOT/identity/install-identity.sh"
+fi
+
+# The identity installer writes this public selector file (never private key
+# material). Read only the three values needed by the optional inference route;
+# do not source an /etc file during installation.
+_identity_config_value() {
+  local name="$1"
+  [ -r "$IDENTITY_ENV" ] || return 0
+  sed -n "s/^${name}=//p" "$IDENTITY_ENV" | head -1
+}
+IDENTITY_REGION_CONFIG="$(_identity_config_value FM_AWS_IDENTITY_REGION)"
+IDENTITY_PROFILE_CONFIG="$(_identity_config_value FM_AWS_IDENTITY_PROFILE)"
+IDENTITY_BUCKET_CONFIG="$(_identity_config_value FM_AWS_IDENTITY_BUCKET)"
 
 # Run the service as the human who installed it, not root — so ~/recordings and
 # ~/processed resolve to their account. SUDO_USER covers a `sudo ./install.sh`.
@@ -45,7 +74,7 @@ usage() {
 install-processor-service.sh — install/remove the fm-processor boot service (Linux)
 
   (no args)    write the unit, enable it for boot, start it now
-  uninstall    stop + disable + remove the unit and its env file
+  uninstall    stop + disable + remove the unit and its managed env files
   -h, --help   show this help
 
 The service runs scripts/service/processor-boot.sh as the installing user: it sources
@@ -60,7 +89,181 @@ When the processor identity has been installed, its systemd drop-in supplies the
 Ohio-only Roles Anywhere profile and runs the certificate monitor before launch.
 The standalone installer refuses to restart a processor whose identity profile
 exists but does not pass the read-only identity check.
+
+Set FM_AWS_INFERENCE_SERVICE_MODE=1 with the reviewed identity bucket before
+installing to persist the Ohio service selectors in /etc/fm-processor-aws.env.
+The installed, readable identity profile must pass its read-only check first.
+The file is managed atomically and conflicts are refused; worker readiness still
+comes only from the profile-bound receipts in FM_AWS_INFERENCE_READINESS_DIR.
 EOF
+}
+
+AWS_INFERENCE_SCRIPT_DEFAULT="src/fm_data/fm_data_annotate/scripts/run_qwen_aws_service.sh"
+AWS_INFERENCE_REGION_EFFECTIVE=""
+AWS_INFERENCE_PROFILE_EFFECTIVE=""
+AWS_INFERENCE_BUCKET_EFFECTIVE=""
+AWS_INFERENCE_READINESS_EFFECTIVE=""
+AWS_INFERENCE_SCRIPT_EFFECTIVE=""
+AWS_INFERENCE_TIMEOUT_EFFECTIVE=""
+
+_safe_env_value() { # name value
+  local name="$1" value="$2"
+  [[ "$value" =~ ^[A-Za-z0-9._/~:+,@%-]+$ ]] || {
+    echo "ERROR: $name contains characters that are unsafe in an EnvironmentFile" >&2
+    return 1
+  }
+}
+
+_validate_aws_inference_config() {
+  local mode="${FM_AWS_INFERENCE_SERVICE_MODE:-0}"
+  local region profile bucket readiness script timeout
+  case "$mode" in
+    ""|0) return 0 ;;
+    1) ;;
+    *) echo "ERROR: FM_AWS_INFERENCE_SERVICE_MODE must be 1 when enabled" >&2; return 1 ;;
+  esac
+
+  region="${FM_AWS_INFERENCE_REGION:-${FM_AWS_IDENTITY_REGION:-${IDENTITY_REGION_CONFIG:-us-east-2}}}"
+  profile="${FM_AWS_PROFILE:-${FM_AWS_IDENTITY_PROFILE:-$IDENTITY_PROFILE_CONFIG}}"
+  bucket="${FM_AWS_INFERENCE_BUCKET:-${FM_AWS_IDENTITY_BUCKET:-$IDENTITY_BUCKET_CONFIG}}"
+  readiness="${FM_AWS_INFERENCE_READINESS_DIR:-~/fm-data-runs/aws-readiness}"
+  script="${FM_PROCESSOR_AWS_INFERENCE_SCRIPT:-$AWS_INFERENCE_SCRIPT_DEFAULT}"
+  timeout="${FM_AWS_SERVICE_TIMEOUT_SECONDS:-7200}"
+
+  [ -n "$IDENTITY_REGION_CONFIG" ] && [ -n "$IDENTITY_PROFILE_CONFIG" ] &&
+    [ -n "$IDENTITY_BUCKET_CONFIG" ] || {
+    echo "ERROR: installed processor identity selectors are incomplete" >&2
+    return 1
+  }
+  if [ "$region" != "$IDENTITY_REGION_CONFIG" ] ||
+     [ "$profile" != "$IDENTITY_PROFILE_CONFIG" ] ||
+     [ "$bucket" != "$IDENTITY_BUCKET_CONFIG" ]; then
+    echo "ERROR: Ohio service selectors must match the installed processor identity" >&2
+    return 1
+  fi
+
+  AWS_INFERENCE_REGION_EFFECTIVE="$region"
+  AWS_INFERENCE_PROFILE_EFFECTIVE="$profile"
+  AWS_INFERENCE_BUCKET_EFFECTIVE="$bucket"
+  AWS_INFERENCE_READINESS_EFFECTIVE="$readiness"
+  AWS_INFERENCE_SCRIPT_EFFECTIVE="$script"
+  AWS_INFERENCE_TIMEOUT_EFFECTIVE="$timeout"
+
+  [ "$region" = us-east-2 ] || {
+    echo "ERROR: FM_AWS_INFERENCE_REGION must be us-east-2 (Ohio)" >&2
+    return 1
+  }
+  [ -n "$bucket" ] || {
+    echo "ERROR: FM_AWS_INFERENCE_BUCKET is required when the Ohio service is enabled" >&2
+    echo "       Supply the reviewed bucket; the installer never guesses one." >&2
+    return 1
+  }
+  [ -n "$profile" ] || {
+    echo "ERROR: FM_AWS_PROFILE is required when the Ohio service is enabled" >&2
+    echo "       Use the profile from the installed processor identity." >&2
+    return 1
+  }
+  [[ "$profile" =~ ^[A-Za-z0-9._-]+$ ]] || {
+    echo "ERROR: FM_AWS_PROFILE contains unsafe characters" >&2
+    return 1
+  }
+  [[ "$bucket" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]] || {
+    echo "ERROR: FM_AWS_INFERENCE_BUCKET must be a plain bucket name" >&2
+    return 1
+  }
+  # Keep the value canonical and bounded before using a numeric comparison:
+  # leading zeroes are rejected, and the length check prevents an oversized
+  # value from reaching shell arithmetic.
+  if ! [[ "$timeout" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: FM_AWS_SERVICE_TIMEOUT_SECONDS must be an integer from 1 through 7200" >&2
+    return 1
+  fi
+  if [ "${#timeout}" -gt 4 ] || [ "$timeout" -gt 7200 ]; then
+    echo "ERROR: FM_AWS_SERVICE_TIMEOUT_SECONDS must be an integer from 1 through 7200" >&2
+    return 1
+  fi
+  _safe_env_value FM_AWS_INFERENCE_READINESS_DIR "$readiness" || return 1
+  _safe_env_value FM_PROCESSOR_AWS_INFERENCE_SCRIPT "$script" || return 1
+}
+
+_envfile_value() { # file name
+  local file="$1" name="$2"
+  [ -f "$file" ] || return 0
+  sudo awk -F= -v name="$name" '$1 == name { value=substr($0, index($0, "=") + 1) } END { if (value != "") print value }' "$file"
+}
+
+_check_aws_env_conflicts() {
+  local name expected existing
+  for name in \
+    FM_AWS_INFERENCE_SERVICE_MODE FM_AWS_INFERENCE_REGION FM_AWS_PROFILE \
+    FM_AWS_INFERENCE_BUCKET FM_AWS_INFERENCE_READINESS_DIR \
+    FM_AWS_SERVICE_TIMEOUT_SECONDS FM_PROCESSOR_AWS_INFERENCE_SCRIPT; do
+    case "$name" in
+      FM_AWS_INFERENCE_SERVICE_MODE) expected=1 ;;
+      FM_AWS_INFERENCE_REGION) expected="$AWS_INFERENCE_REGION_EFFECTIVE" ;;
+      FM_AWS_PROFILE) expected="$AWS_INFERENCE_PROFILE_EFFECTIVE" ;;
+      FM_AWS_INFERENCE_BUCKET) expected="$AWS_INFERENCE_BUCKET_EFFECTIVE" ;;
+      FM_AWS_INFERENCE_READINESS_DIR) expected="$AWS_INFERENCE_READINESS_EFFECTIVE" ;;
+      FM_AWS_SERVICE_TIMEOUT_SECONDS) expected="$AWS_INFERENCE_TIMEOUT_EFFECTIVE" ;;
+      FM_PROCESSOR_AWS_INFERENCE_SCRIPT) expected="$AWS_INFERENCE_SCRIPT_EFFECTIVE" ;;
+    esac
+    existing="$(_envfile_value "$ENVFILE" "$name")"
+    if [ -n "$existing" ] && [ "$existing" != "$expected" ]; then
+      echo "ERROR: $ENVFILE already sets $name=$existing; refusing conflicting Ohio service config" >&2
+      echo "       Remove or update that setting before enabling the managed route." >&2
+      return 1
+    fi
+  done
+}
+
+_render_aws_service_env() {
+  cat <<EOF
+# Managed by install-processor-service.sh; Ohio inference selectors only.
+# Readiness receipts are supplied by the read-only AWS preflight; configuration alone is not Ready.
+FM_AWS_INFERENCE_SERVICE_MODE=1
+FM_AWS_INFERENCE_REGION=$AWS_INFERENCE_REGION_EFFECTIVE
+FM_AWS_PROFILE=$AWS_INFERENCE_PROFILE_EFFECTIVE
+FM_AWS_INFERENCE_BUCKET=$AWS_INFERENCE_BUCKET_EFFECTIVE
+FM_AWS_INFERENCE_READINESS_DIR=$AWS_INFERENCE_READINESS_EFFECTIVE
+FM_AWS_SERVICE_TIMEOUT_SECONDS=$AWS_INFERENCE_TIMEOUT_EFFECTIVE
+FM_PROCESSOR_AWS_INFERENCE_SCRIPT=$AWS_INFERENCE_SCRIPT_EFFECTIVE
+EOF
+}
+
+_check_managed_aws_env() {
+  [ "${FM_AWS_INFERENCE_SERVICE_MODE:-0}" = 1 ] || return 0
+  local expected existing
+  expected="$(_render_aws_service_env)"
+  if [ -f "$AWS_ENVFILE" ]; then
+    existing="$(sudo cat "$AWS_ENVFILE")"
+    [ "$existing" = "$expected" ] || {
+      echo "ERROR: managed Ohio service config already exists at $AWS_ENVFILE with different values" >&2
+      echo "       Refusing to overwrite it; review or remove that file explicitly." >&2
+      return 1
+    }
+  fi
+  return 0
+}
+
+_preflight_aws_service_env() {
+  [ "${FM_AWS_INFERENCE_SERVICE_MODE:-0}" = 1 ] || return 0
+  _check_aws_env_conflicts || return 1
+  _check_managed_aws_env || return 1
+}
+
+_write_aws_service_env() {
+  [ "${FM_AWS_INFERENCE_SERVICE_MODE:-0}" = 1 ] || return 0
+  _preflight_aws_service_env || return 1
+
+  local expected staging
+  expected="$(_render_aws_service_env)"
+  [ -f "$AWS_ENVFILE" ] && return 0
+  staging="$(mktemp "${TMPDIR:-/tmp}/fm-processor-aws.XXXXXX")"
+  printf '%s\n' "$expected" > "$staging"
+  sudo install -d -m 0755 "$(dirname "$AWS_ENVFILE")"
+  sudo install -m 0644 -o root -g root "$staging" "${AWS_ENVFILE}.staging.$$"
+  sudo mv -f "${AWS_ENVFILE}.staging.$$" "$AWS_ENVFILE"
+  rm -f "$staging"
 }
 
 # Guard: the boot service needs Linux + systemd. Off that, warn and let the caller
@@ -83,17 +286,35 @@ do_install() {
     echo "ERROR: $WRAPPER missing — cannot install the service." >&2
     return 1
   fi
+  _validate_aws_inference_config || return 1
 
   # setup-processor.sh installs the identity before this service.  If a durable
   # profile is already present, verify it before writing/restarting the unit; a
   # partially copied certificate must never result in a service that appears
   # healthy while its credential_process is unusable.
+  if [ "${FM_AWS_INFERENCE_SERVICE_MODE:-0}" = 1 ]; then
+    [ -f "$IDENTITY_PROFILE" ] && [ -r "$IDENTITY_PROFILE" ] || {
+      echo "ERROR: Ohio inference service requires an installed processor identity profile: $IDENTITY_PROFILE" >&2
+      echo "       Complete scripts/install/install-processor-identity.sh before enabling service mode." >&2
+      return 1
+    }
+  fi
   if [ -f "$IDENTITY_PROFILE" ]; then
     [ -f "$IDENTITY_INSTALLER" ] || { echo "ERROR: processor identity installer is missing." >&2; return 1; }
     bash "$IDENTITY_INSTALLER" check || {
       echo "ERROR: processor identity check failed; service was not restarted." >&2
       return 1
     }
+  fi
+  _preflight_aws_service_env || return 1
+
+  # Resolve the runtime and validate every read-only identity mount before the
+  # bridge, unit, or env files are touched. A container service with a missing
+  # AWS CLI tree must fail as an install, not restart into a broken route.
+  local runtime exec_start exec_stop="" requires=""
+  runtime="$(fm_processor_runtime)" || return 1
+  if [ "$runtime" = container ] && [ -f "$IDENTITY_PROFILE" ]; then
+    fm_processor_prepare_identity_mounts || return 1
   fi
 
   # Processor discovery adverts use the same durable endpoint file as the
@@ -104,12 +325,7 @@ do_install() {
 
   # In the container runtime the unit execs the same wrapper through compose;
   # the image, not the host, holds ROS (#127). See scripts/service/container-exec.sh.
-  local runtime exec_start exec_stop="" requires=""
-  runtime="$(fm_processor_runtime)" || return 1
   if [ "$runtime" = container ]; then
-    if [ -f "$IDENTITY_PROFILE" ] && type fm_processor_prepare_identity_mounts >/dev/null 2>&1; then
-      fm_processor_prepare_identity_mounts
-    fi
     exec_start="/bin/bash $ROOT/scripts/service/container-exec.sh scripts/service/processor-boot.sh"
     # Stop the WRAPPER, not the launch. `docker compose exec` does not forward
     # SIGTERM, so a stop has to reach in by name; signalling the launch directly
@@ -141,6 +357,7 @@ Type=simple
 User=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
 EnvironmentFile=-$ENVFILE
+EnvironmentFile=-$AWS_ENVFILE
 EnvironmentFile=-$BRIDGE_ENV
 WorkingDirectory=$ROOT
 ExecStart=$exec_start
@@ -187,8 +404,29 @@ FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR=~/fm-data-runs/annotation-adjudication
 FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR=~/fm-data-runs/annotation-revocations
 FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR=~/fm-data-runs/annotation-learning-snapshots
 FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR=~/fm-data-runs/annotation-improvement-runs
+# Optional selected operator evidence receipts for the desktop status surface:
+#FM_PROCESSOR_OPERATOR_EVIDENCE_DIR=
+# The boot wrapper resolves the nested data package HEAD and passes this exact source
+# identity to the supervisor. Set only for an installed source tree with a
+# separately reviewed commit; a short hash or all-zero sentinel is rejected.
+#FM_PROCESSOR_ANNOTATE_GIT_COMMIT=
+# Ohio persistent inference is opt-in. Uncomment all seven settings below after
+# the Roles Anywhere identity has passed its check. Configuration alone never
+# reports a worker ready: the readiness directory must contain fresh,
+# profile-bound qwen2.5.json and qwen3.5.json receipts from the read-only AWS
+# preflight. The bucket is intentionally blank; the installer never guesses it.
+#FM_PROCESSOR_AWS_INFERENCE_SCRIPT=src/fm_data/fm_data_annotate/scripts/run_qwen_aws_service.sh
+#FM_AWS_INFERENCE_SERVICE_MODE=1
+#FM_AWS_INFERENCE_REGION=us-east-2
+# The checked installed identity profile supplies FM_AWS_PROFILE; leave this
+# unset unless the reviewed identity contract explicitly requires an override.
+#FM_AWS_PROFILE=
+#FM_AWS_INFERENCE_BUCKET=
+#FM_AWS_INFERENCE_READINESS_DIR=~/fm-data-runs/aws-readiness
+#FM_AWS_SERVICE_TIMEOUT_SECONDS=7200
 EOF
   fi
+  _write_aws_service_env || return 1
 
   item "enabling + starting fm-processor.service ..."
   sudo systemctl daemon-reload
@@ -213,7 +451,7 @@ do_uninstall() {
   _require_linux_systemd || return 0
   item "stopping + disabling fm-processor.service (if present) ..."
   sudo systemctl disable --now fm-processor.service 2>/dev/null || true
-  sudo rm -f "$UNIT" "$ENVFILE"
+  sudo rm -f "$UNIT" "$ENVFILE" "$AWS_ENVFILE"
   sudo systemctl daemon-reload 2>/dev/null || true
   item "fm-processor.service removed."
 }

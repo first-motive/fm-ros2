@@ -1,5 +1,10 @@
 services:
   fm:
+    environment:
+      # Keep the CLI inside its mounted v2 tree.  The host's /usr/local/bin/aws
+      # is commonly a symlink; mounting that link as a file makes the bundled
+      # PyInstaller runtime search for siblings in the wrong container path.
+      - PATH=${FM_AWS_IDENTITY_AWS_INSTALL_DIR:-/usr/local/aws-cli}/v2/current/bin:/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       # Roles Anywhere is an optional processor capability. Keep its public
       # config and tower-local key boundary outside the broad HOME mounts and
@@ -8,3 +13,8 @@ services:
       - ${FM_AWS_IDENTITY_STATE_DIR:-/var/lib/fm-processor/identity}:${FM_AWS_IDENTITY_STATE_DIR:-/var/lib/fm-processor/identity}:ro
       - ${FM_AWS_IDENTITY_SBIN_DIR:-/usr/local/sbin}/fm-aws-credential-process:${FM_AWS_IDENTITY_SBIN_DIR:-/usr/local/sbin}/fm-aws-credential-process:ro
       - ${FM_AWS_IDENTITY_BIN_DIR:-/usr/local/bin}/aws_signing_helper:${FM_AWS_IDENTITY_BIN_DIR:-/usr/local/bin}/aws_signing_helper:ro
+      # The pinned AWS CLI is installed on the host, not in the Humble image.  A
+      # v2 install is a directory tree whose own launcher resolves sibling
+      # libraries relative to that tree; mount the complete tree read-only and
+      # put its bin directory first on PATH.
+      - ${FM_AWS_IDENTITY_AWS_INSTALL_DIR:-/usr/local/aws-cli}:${FM_AWS_IDENTITY_AWS_INSTALL_DIR:-/usr/local/aws-cli}:ro
