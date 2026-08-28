@@ -118,6 +118,12 @@ jobs:
       - name: compose project per role
         run: bash scripts/ci/test-compose-project.sh
 
+      # Whether the container joins the host's loopback DDS island depends on the
+      # overlay and the profile, and when it is wrong nothing errors — the bridge
+      # simply routes an empty graph (#148). Asserted, not read.
+      - name: container joins the host's DDS island
+        run: bash scripts/ci/test-compose-transport.sh
+
       # The processor role picks native Humble or the Humble container by host
       # (#127); the picker is stubbed here so a wrong branch fails in CI, not on
       # the workstation.

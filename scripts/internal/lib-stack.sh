@@ -87,6 +87,11 @@ fm_stack_inplace() { command -v ros2 >/dev/null 2>&1; }
 fm_stack_compose() {
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$PWD"
+  # Resolved on every call, not only on the ones that start a container: a verb
+  # that execs into a container someone else created still has to agree with it
+  # about the middleware, and compose refuses to reuse a container whose resolved
+  # environment differs from the file's.
+  fm_compose_transport "$1"
   FM_COMPOSE=(docker compose -p "$(fm_compose_project sim)"
     -f docker/compose.yaml -f "$1")
 }

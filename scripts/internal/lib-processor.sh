@@ -22,6 +22,15 @@
 # shellcheck source=lib-compose.sh disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-compose.sh"
 
+# The transport this host speaks, sourced at load exactly as the stack library
+# does it. fm_compose_transport reads what the profile resolved, and the callers
+# that build a processor container (container-exec.sh, setup-processor.sh,
+# install-foxglove-service.sh) do not source a profile of their own — without this
+# they would start the processor on `none` on a zenoh host, and its nodes would
+# publish where the host's bridge is not listening.
+# shellcheck source=../env/comms.sh disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/env/comms.sh"
+
 # fm_processor_runtime
 # Echo native | container. Fails with a message when neither is possible.
 # FM_PROCESSOR_RUNTIME, when set, is the answer — the container re-exec sets it,
@@ -77,6 +86,9 @@ fm_processor_compose() {
   local root="$1"
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$root"
+  # The processor container is host-networked too, so it joins the host's DDS
+  # island the same way the sim stack's does.
+  fm_compose_transport "$root/docker/compose.linux.yaml"
   FM_COMPOSE=(docker compose -p "$(fm_compose_project processor)" \
     -f "$root/docker/compose.yaml" -f "$root/docker/compose.linux.yaml" \
     -f "$root/compose.processor.yaml")

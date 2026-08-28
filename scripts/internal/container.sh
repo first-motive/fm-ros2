@@ -326,27 +326,18 @@ main() {
   # up on a different middleware than the host's bridge is routing — a stack that
   # starts, publishes, and is heard by nobody.
   #
-  # Only what a container can act on crosses the boundary. The dds-lan profile's
-  # FastDDS XML lives in the host's $HOME and is not mounted, which is the other
-  # reason the container path wants zenoh: under it there is nothing host-specific
-  # to carry.
-  #
-  # ROS_LOCALHOST_ONLY is deliberately NOT forwarded. The zenoh profile sets it on
-  # the host so that DDS stays on the host's loopback and the host's bridge carries
-  # everything else. Inside a container, loopback is the container's own — the same
-  # value there would hide the container's graph from a bridge on the host, which
-  # is the opposite of what it means outside. A container that needs to reach the
-  # fabric runs its own bridge, host-networked, from comms/deploy/compose.zenoh.yaml.
+  # Only what a container can act on crosses the boundary, and which values those
+  # are depends on the overlay — fm_compose_transport owns that decision for every
+  # role that starts a container. The dds-lan profile's FastDDS XML lives in the
+  # host's $HOME and is not mounted, which is the other reason the container path
+  # wants zenoh: under it there is nothing host-specific left to carry.
   # shellcheck source=../env/comms.sh disable=SC1091
   source scripts/env/comms.sh
-  export FM_COMMS_PROFILE
-  export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
-  unset ROS_LOCALHOST_ONLY
-  # Dropped for the same reason, plus a second one: it names a file in the host's
-  # $HOME, which is not mounted. A container inheriting the path would start every
-  # node against a config that is not there.
-  unset CYCLONEDDS_URI
-  item "comms profile: $FM_COMMS_PROFILE (RMW $RMW_IMPLEMENTATION)"
+  fm_compose_transport "$OVERLAY"
+  item "comms profile: $FM_COMMS_PROFILE (RMW ${RMW_IMPLEMENTATION:-the image default})"
+  if [[ -n "${FM_CYCLONEDDS_XML:-}" ]]; then
+    item "  DDS on the host's loopback island ($FM_CYCLONEDDS_XML)"
+  fi
 
   COMPOSE=(docker compose -p "$(fm_compose_project sim)"
     -f docker/compose.yaml -f "$OVERLAY")
