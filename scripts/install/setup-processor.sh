@@ -267,53 +267,17 @@ colcon build --symlink-install \
 #     that turns up missing. Import-driven rather than a hand-kept list: the packages
 #     already declare their dependencies, and a second copy of that list here would
 #     drift from them.
-_install_for_ros_python() {
-  if python3 -m pip --version >/dev/null 2>&1; then
-    python3 -m pip install --quiet "$1"
-  elif [ "$(id -u)" = 0 ]; then
-    apt-get install -y "python3-$1"
-  else
-    sudo apt-get install -y "python3-$1"
-  fi
-}
-
-# Echo the import error the supervisors raise under the ROS interpreter, empty
-# when they import cleanly. Run in a subshell by every caller, so the overlay it
-# sources never leaks into the rest of this script.
-_supervisor_import_error() {
-  # Neither errexit nor nounset here: the overlay's setup.bash reads unset
-  # variables by design, and a failing import is the answer being collected
-  # rather than a reason to abort. Every caller runs this in a subshell.
-  set +eu
-  # shellcheck disable=SC1091
-  . "$ROOT/install/setup.bash" >/dev/null 2>&1
-  # Only the error text is wanted, so stdout goes away and stderr is captured.
-  # shellcheck disable=SC2069  # deliberate: stderr to the caller, stdout dropped
-  python3 -c 'import fm_data_dataset.process_supervisor, fm_data_dataset.release_supervisor' 2>&1 >/dev/null
-  return 0
-}
+# The heal itself lives in scripts/internal/lib-processor.sh, because the container
+# runtime needs the same question asked on the other side of the boundary — there
+# processor-boot.sh runs it at boot, inside (#127).
+# shellcheck source=../internal/lib-processor.sh disable=SC1091
+. "$ROOT/scripts/internal/lib-processor.sh"
 
 item "checking the supervisors' imports under the ROS interpreter ..."
-for _attempt in 1 2 3; do
-  _error="$(_supervisor_import_error)"
-  if [ -z "$_error" ]; then
-    item "the supervisors import cleanly — the boot service can start them"
-    break
-  fi
-  _module="$(printf '%s' "$_error" | sed -n "s/.*No module named '\([^']*\)'.*/\1/p" | head -1)"
-  # Anything that is not a missing module (a syntax error, a broken build) is not
-  # this step's to fix, and a missing WORKSPACE package is a build problem —
-  # installing a same-named thing from an index would paper over it.
-  case "${_module:-none}" in
-    none | fm_data*) break ;;
-  esac
-  item "installing '$_module' for the ROS interpreter (the nodes never use the engine venv) ..."
-  _install_for_ros_python "$_module" || true
-done
-_error="$(_supervisor_import_error)"
-if [ -n "$_error" ]; then
-  echo "ERROR: the process supervisors cannot import under the ROS interpreter:" >&2
-  printf '%s\n' "$_error" | sed 's/^/       /' >&2
+if fm_processor_heal_imports "$ROOT"; then
+  item "the supervisors import cleanly — the boot service can start them"
+else
+  echo "ERROR: the process supervisors cannot import under the ROS interpreter." >&2
   echo "       Starting the service without them leaves fm-processor.service dead" >&2
   echo "       while systemd reports success (#134), so this stops here instead." >&2
   exit 1

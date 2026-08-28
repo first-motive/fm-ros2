@@ -192,3 +192,80 @@ fm_processor_exec() {
       ;;
   esac
 }
+
+# The supervisors' node-facing Python deps, healed by asking the question the
+# launch asks rather than by keeping a list.
+#
+# fm_data declares them (`<exec_depend>python3-jsonschema</exec_depend>`) and
+# rosdep installs them where its database is usable. Inside the published Humble
+# image it is not, and the miss does not surface at install — it surfaces at boot,
+# as process_supervisor dying on `No module named 'jsonschema'` while systemd
+# reports the service started (#134).
+#
+# Import-driven rather than a hand-kept list: the packages already declare their
+# dependencies, and a second copy of that list here would drift from them.
+#
+# Both sides of the container boundary need this, which is why it lives here.
+# On a Humble host the ROS interpreter is the host's, and setup-processor.sh heals
+# it at install. On a host whose processor runs in the container (#127) the ROS
+# interpreter is the container's, so the install-time heal runs against an
+# interpreter the nodes never use — there, processor-boot.sh heals at boot, inside.
+
+# fm_processor_supervisor_import_error <workspace-root>
+# Echo the import error the supervisors raise under the ROS interpreter, empty when
+# they import cleanly. Run in a subshell by every caller, so the overlay it sources
+# never leaks into the rest of the script.
+fm_processor_supervisor_import_error() {  # workspace-root
+  local root="${1:?workspace root}"
+  # Neither errexit nor nounset: the overlay's setup.bash reads unset variables by
+  # design, and a failing import is the answer being collected rather than a reason
+  # to abort.
+  set +eu
+  # shellcheck disable=SC1091
+  . "$root/install/setup.bash" >/dev/null 2>&1
+  # Only the error text is wanted: stderr takes over the caller's stdout, then the
+  # command's own stdout is dropped. Order matters — the redirections are applied
+  # left to right, so this is not "both to /dev/null".
+  # shellcheck disable=SC2069  # deliberate: stderr to the caller, stdout dropped
+  python3 -c 'import fm_data_dataset.process_supervisor, fm_data_dataset.release_supervisor' 2>&1 1>/dev/null
+  return 0
+}
+
+# fm_processor_install_for_ros_python <module>
+# Install one module for the ROS interpreter — never the engine venv, which only
+# the dataset_process subprocess uses.
+fm_processor_install_for_ros_python() {  # module
+  if python3 -m pip --version >/dev/null 2>&1; then
+    python3 -m pip install --quiet "$1"
+  elif [ "$(id -u)" = 0 ]; then
+    apt-get install -y "python3-$1"
+  else
+    sudo apt-get install -y "python3-$1"
+  fi
+}
+
+# fm_processor_heal_imports <workspace-root>
+# Install what the supervisors turn out to be missing. 0 when they import cleanly
+# afterwards, 1 with the error on stderr when they still do not — the caller
+# decides whether that is fatal.
+fm_processor_heal_imports() {  # workspace-root
+  local root="${1:?workspace root}" error module _attempt
+  # Three passes: each install can reveal the next missing module.
+  for _attempt in 1 2 3; do
+    error="$(fm_processor_supervisor_import_error "$root")"
+    [ -z "$error" ] && return 0
+    module="$(printf '%s' "$error" | sed -n "s/.*No module named '\([^']*\)'.*/\1/p" | head -1)"
+    # Anything that is not a missing module (a syntax error, a broken build) is not
+    # this step's to fix, and a missing WORKSPACE package is a build problem —
+    # installing a same-named thing from an index would paper over it.
+    case "${module:-none}" in
+      none | fm_data*) break ;;
+    esac
+    echo "processor: installing '$module' for the ROS interpreter" >&2
+    fm_processor_install_for_ros_python "$module" || true
+  done
+  error="$(fm_processor_supervisor_import_error "$root")"
+  [ -z "$error" ] && return 0
+  printf '%s\n' "$error" | sed 's/^/       /' >&2
+  return 1
+}

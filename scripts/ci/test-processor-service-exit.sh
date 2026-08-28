@@ -76,8 +76,10 @@ else
 fi
 
 # The deps the supervisors import are checked at install time, under the ROS
-# interpreter — the engine venv is not what the nodes run on.
-if grep -q '_supervisor_import_error' scripts/install/setup-processor.sh; then
+# interpreter — the engine venv is not what the nodes run on. The probe itself
+# moved to lib-processor.sh so the container runtime can ask the same question
+# inside the container at boot (#127); test-processor-imports.sh covers it.
+if grep -q 'fm_processor_heal_imports' scripts/install/setup-processor.sh; then
   pass "the installer verifies the supervisors' imports"
 else
   fail "the installer never verifies the supervisors' imports"

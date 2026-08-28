@@ -135,6 +135,12 @@ jobs:
       - name: processor runtime resolution
         run: bash scripts/ci/test-processor-runtime.sh
 
+      # The supervisors' deps must be healed on the interpreter that runs them.
+      # On a container-runtime host the install-time heal ran against the host's
+      # (#127), and the miss surfaced at boot as a dead role (#134).
+      - name: processor supervisors import where they run
+        run: bash scripts/ci/test-processor-imports.sh
+
       # The dataset verbs must reach the runtime that HAS the engine. Routing them
       # on --backend sent them into the sim container, which is built without it
       # (#145).

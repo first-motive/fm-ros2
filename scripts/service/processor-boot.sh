@@ -171,6 +171,25 @@ source "$ROOT/install/setup.bash"
 source "$ROOT/scripts/env/comms.sh"
 set -u
 
+# The supervisors' Python deps, under the interpreter that will actually run them.
+#
+# On a Humble host setup-processor.sh healed these at install. On a host whose
+# processor runs in the container (#127) that heal ran against the HOST's
+# interpreter, which the nodes never use — and inside the container the miss is
+# still there. It surfaces as process_supervisor dying on `No module named
+# 'jsonschema'` seconds after systemd reports the service started (#134), which is
+# how a converged rig came back on a wiped container with the role dead.
+#
+# Idempotent: once the image carries them, this costs two imports and installs
+# nothing. Not fatal on its own — the launch below reports a still-broken import
+# with its own error, and a role that can start degraded beats one that refuses to.
+# shellcheck source=../internal/lib-processor.sh disable=SC1091
+source "$ROOT/scripts/internal/lib-processor.sh"
+if ! fm_processor_heal_imports "$ROOT"; then
+  echo "WARNING: the process supervisors still do not import — the launch below" >&2
+  echo "         will fail, and the error above says what is missing." >&2
+fi
+
 # ros2 launch rejects an empty-valued argument ("malformed launch argument
 # 'config:='"), so optional overrides are appended only when actually set —
 # absent, the launch file's empty defaults hold. Hit live on the first
