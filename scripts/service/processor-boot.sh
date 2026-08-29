@@ -80,6 +80,9 @@ RELEASE_PACK_CONFIG="${FM_PROCESSOR_RELEASE_PACK_CONFIG:-}"
 RELEASE_HUGGINGFACE_CLI="${FM_PROCESSOR_RELEASE_HUGGINGFACE_CLI:-}"
 RELEASE_HUGGINGFACE_REPOSITORY="${FM_PROCESSOR_RELEASE_HUGGINGFACE_REPOSITORY:-}"
 RELEASE_RUNTIME_IMAGE_DIGEST="${FM_PROCESSOR_RELEASE_RUNTIME_IMAGE_DIGEST:-}"
+# Keep the user-authenticated Hub state in the processor's persistent data root.
+# Login remains an explicit operator action; the service only selects the path.
+export HF_HOME="${FM_PROCESSOR_HUGGINGFACE_HOME:-/data/fm-data-runs/huggingface}"
 # The release exporter has a Python 3.12 dependency contract that conflicts
 # with the ROS engine runtime. setup-processor.sh installs it separately and
 # these defaults activate it only when every required artifact is present.
