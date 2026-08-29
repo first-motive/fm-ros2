@@ -48,6 +48,9 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# setup-processor.sh keeps node-facing Python dependencies in this workspace
+# target so a compose recreation cannot discard them with the old container.
+export PYTHONPATH="$ROOT/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
 
 RECORDINGS_DIR="${FM_PROCESSOR_RECORDINGS_DIR:-~/recordings}"
 OUTPUT_DIR="${FM_PROCESSOR_OUTPUT_DIR:-~/processed}"

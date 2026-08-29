@@ -95,6 +95,9 @@ grep -q 'FM_PROCESSOR_RELEASE_ROOT=/data/dataset-releases' scripts/install/insta
 grep -q 'FM_PROCESSOR_UV_PYTHON_ROOT' scripts/internal/lib-processor.sh \
   && grep -q '/home/fm/.local/share/uv/python:ro' compose.processor.yaml \
   && echo "PASS: container can execute the host-built release Python" || { echo "FAIL: release Python mount missing"; fail=1; }
+grep -q '\.ros-runtime' scripts/install/setup-processor.sh \
+  && grep -q '\.ros-runtime' scripts/service/processor-boot.sh \
+  && echo "PASS: ROS Python dependencies survive container recreation" || { echo "FAIL: persistent ROS Python runtime missing"; fail=1; }
 grep -q 'FM_AWS_INFERENCE_SERVICE_MODE' scripts/install/install-processor-service.sh \
   && grep -q 'FM_AWS_INFERENCE_READINESS_DIR' scripts/install/install-processor-service.sh \
   && echo "PASS: processor service exposes the explicit Ohio readiness route" || { echo "FAIL: Ohio readiness route missing"; fail=1; }

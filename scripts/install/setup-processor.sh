@@ -299,7 +299,7 @@ colcon build --symlink-install \
 #     drift from them.
 _install_for_ros_python() {
   if python3 -m pip --version >/dev/null 2>&1; then
-    python3 -m pip install --quiet "$1"
+    python3 -m pip install --quiet --upgrade --target "$ROOT/.ros-runtime" "$1"
   elif [ "$(id -u)" = 0 ]; then
     apt-get install -y "python3-$1"
   else
@@ -317,6 +317,7 @@ _supervisor_import_error() {
   set +eu
   # shellcheck disable=SC1091
   . "$ROOT/install/setup.bash" >/dev/null 2>&1
+  export PYTHONPATH="$ROOT/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
   # Only the error text is wanted, so stdout goes away and stderr is captured.
   # shellcheck disable=SC2069  # deliberate: stderr to the caller, stdout dropped
   python3 -c 'import fm_data_dataset.process_supervisor, fm_data_dataset.release_supervisor' 2>&1 >/dev/null
