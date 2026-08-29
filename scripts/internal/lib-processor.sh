@@ -79,6 +79,12 @@ fm_processor_compose() {
   local root="$1"
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$root"
+  export FM_PROCESSOR_UV_PYTHON_ROOT="${FM_PROCESSOR_UV_PYTHON_ROOT:-$HOME/.local/share/uv/python}"
+  [ -d "$FM_PROCESSOR_UV_PYTHON_ROOT" ] || {
+    echo "ERROR: managed uv Python root is missing: $FM_PROCESSOR_UV_PYTHON_ROOT" >&2
+    echo "       Run the processor setup from the provisioned workstation account." >&2
+    return 1
+  }
   if [ -z "${FM_PROCESSOR_DATA_ROOT:-}" ]; then
     if [ -d /data ] && [ -w /data ]; then
       export FM_PROCESSOR_DATA_ROOT=/data

@@ -19,3 +19,7 @@ services:
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/fm-data-runs:/data/fm-data-runs
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/dataset-releases:/data/dataset-releases
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/lerobot-staged:/data/lerobot-staged
+      # The relocatable release venv keeps its interpreter in uv's managed
+      # Python root. Expose that immutable versioned runtime read-only at the
+      # same container path; credentials and the rest of HOME stay outside.
+      - ${FM_PROCESSOR_UV_PYTHON_ROOT:-${HOME}/.local/share/uv/python}:/home/fm/.local/share/uv/python:ro
