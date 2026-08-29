@@ -190,7 +190,7 @@ item "installing apt packages (colcon, rosdep, pip, venv) ..."
 sudo apt-get update -qq
 sudo apt-get install -y \
   python3-colcon-common-extensions python3-rosdep python3-pip python3-venv \
-  python3-boto3 git curl
+  python3-boto3 git curl ffmpeg
 
 # 2. Data engine — clone the private data-engine repo (the dataset engine + the recorder's
 #    ROS-free session-index core live there) into src/fm_data if absent. Needs first-motive
