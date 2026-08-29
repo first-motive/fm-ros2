@@ -13,8 +13,9 @@ services:
     environment:
       - HOME=${HOME}
     volumes:
-      - ${HOME}/recordings:${HOME}/recordings
-      - ${HOME}/processed:${HOME}/processed
-      - ${HOME}/annotations:${HOME}/annotations
-      - ${HOME}/fm-data-runs:${HOME}/fm-data-runs
-      - ${HOME}/dataset-releases:${HOME}/dataset-releases
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/recordings:/data/recordings
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/processed:/data/processed
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/annotations:/data/annotations
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/fm-data-runs:/data/fm-data-runs
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/dataset-releases:/data/dataset-releases
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/lerobot-staged:/data/lerobot-staged

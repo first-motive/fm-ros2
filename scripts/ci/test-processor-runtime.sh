@@ -85,6 +85,13 @@ FM_PROCESSOR_RUNTIME=container check "an explicit pin wins" container
 [ -f compose.processor.yaml ] && [ -f compose.processor.aws.yaml ] && echo "PASS: processor overlays present" || { echo "FAIL: processor overlay missing"; fail=1; }
 grep -q 'container-exec.sh' scripts/install/install-processor-service.sh \
   && echo "PASS: processor unit knows the container runtime" || { echo "FAIL: unit ignores runtime"; fail=1; }
+grep -q 'prepare_release_runtime' scripts/install/setup-processor.sh \
+  && grep -q 'requirements-release.txt' scripts/install/setup-processor.sh \
+  && grep -q "FM_INSTALL_RLDS=\${FM_INSTALL_RLDS:-1}" scripts/install/setup-processor.sh \
+  && echo "PASS: processor setup installs release and RLDS runtimes" || { echo "FAIL: full data runtime missing"; fail=1; }
+grep -q 'FM_PROCESSOR_RELEASE_ROOT=/data/dataset-releases' scripts/install/install-processor-service.sh \
+  && grep -q '.release-venv/bin/hf' scripts/service/processor-boot.sh \
+  && echo "PASS: processor boot activates shared releases and hf" || { echo "FAIL: release service wiring missing"; fail=1; }
 grep -q 'FM_AWS_INFERENCE_SERVICE_MODE' scripts/install/install-processor-service.sh \
   && grep -q 'FM_AWS_INFERENCE_READINESS_DIR' scripts/install/install-processor-service.sh \
   && echo "PASS: processor service exposes the explicit Ohio readiness route" || { echo "FAIL: Ohio readiness route missing"; fail=1; }

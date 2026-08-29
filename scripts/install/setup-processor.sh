@@ -36,6 +36,32 @@ clone_data_engine() {
   fi
 }
 
+prepare_release_runtime() {
+  local uv_bin="" release_venv="$ROOT/.release-venv"
+  if command -v uv >/dev/null 2>&1; then
+    uv_bin="$(command -v uv)"
+  elif [ -x "$HOME/.local/bin/uv" ]; then
+    uv_bin="$HOME/.local/bin/uv"
+  else
+    echo "ERROR: uv is required to install the isolated Python 3.12 release runtime." >&2
+    echo "       Provision the workstation through fm-setup, then re-run this installer." >&2
+    return 1
+  fi
+
+  item "creating the isolated Python 3.12 release runtime ($release_venv) ..."
+  "$uv_bin" venv --python 3.12 --relocatable --allow-existing "$release_venv"
+  "$uv_bin" pip install --python "$release_venv/bin/python" \
+    -r "$ROOT/src/fm_data/fm_data_dataset/requirements-release.txt"
+  "$uv_bin" pip install --python "$release_venv/bin/python" \
+    --reinstall-package fm-data-dataset --reinstall-package fm-data-annotate \
+    --reinstall-package fm-data-record --reinstall-package fm-data-package \
+    "$ROOT/src/fm_data/fm_data_dataset" "$ROOT/src/fm_data/fm_data_annotate" \
+    "$ROOT/src/fm_data/fm_data_record" "$ROOT/src/fm_data/fm_data_package"
+  "$release_venv/bin/python" -c \
+    'import fm_data_annotate, fm_data_dataset, fm_data_package, fm_data_record, huggingface_hub, lerobot, rerun'
+  "$release_venv/bin/hf" version
+}
+
 install_services() {
   if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
     # The auto-update timer below re-runs this installer unattended, and its
@@ -114,6 +140,7 @@ if [ "$FM_PROCESSOR_RUNTIME" = container ] && ! in_container; then
   if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
     pin_release src/fm_data
   fi
+  prepare_release_runtime
   fm_processor_import_docker "$ROOT"
   fm_processor_compose "$ROOT"
   fm_processor_prepare_mounts
@@ -122,7 +149,7 @@ if [ "$FM_PROCESSOR_RUNTIME" = container ] && ! in_container; then
   "${FM_COMPOSE[@]}" up -d fm
   item "building the processor inside the container ..."
   "${FM_COMPOSE[@]}" exec -e FM_PROCESSOR_RUNTIME=container -e FM_INSTALL_SERVICE=0 \
-    -e "FM_INSTALL_RLDS=${FM_INSTALL_RLDS:-0}" fm /ros_entrypoint.sh \
+    -e "FM_INSTALL_RLDS=${FM_INSTALL_RLDS:-1}" fm /ros_entrypoint.sh \
     bash scripts/install/setup-processor.sh
   install_services
   exit 0
@@ -178,6 +205,9 @@ clone_data_engine
 if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   pin_release src/fm_data
 fi
+if [ "$FM_PROCESSOR_RUNTIME" = native ]; then
+  prepare_release_runtime
+fi
 
 # 3. Engine Python tiers, in a DEDICATED venv ($ROOT/.engine-venv) — never the shared
 #    user site-packages. The engine wants numpy 2.x while other tenants of the same
@@ -222,7 +252,7 @@ item "installing the annotation tooling (fm_data_annotate + media tier) into the
 item "verifying the bundle-bound review-media runtime ..."
 "$ENGINE_VENV/bin/python" -c \
   'from PIL import Image; from fm_data_annotate.media import decode_camera_frames; from fm_data_dataset.core.review_media import serve_review_media'
-if [ "${FM_INSTALL_RLDS:-0}" = 1 ]; then
+if [ "${FM_INSTALL_RLDS:-1}" = 1 ]; then
   item "installing the RLDS emit tier into the venv (TensorFlow + TFDS — large download) ..."
   "$ENGINE_VENV/bin/pip" install -r src/fm_data/fm_data_dataset/requirements-rlds.txt
 else

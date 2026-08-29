@@ -56,8 +56,10 @@ fm_processor_is_jammy() {
 fm_processor_has_docker() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
 
 # Directories the processor overlay bind-mounts (compose.processor.yaml). Created
-# on the host before the first `up`, so docker never creates them root-owned.
-FM_PROCESSOR_MOUNTS=(recordings processed annotations fm-data-runs dataset-releases)
+# below the shared data root before the first `up`, so docker never creates them
+# root-owned. A provisioned workstation owns /data; a standalone developer host
+# falls back to HOME.
+FM_PROCESSOR_MOUNTS=(recordings processed annotations fm-data-runs dataset-releases lerobot-staged)
 
 # Roles Anywhere material is deliberately a separate, read-only mount set.  It
 # must never be folded into the HOME bind mount: the latter would expose SSH and
@@ -77,6 +79,13 @@ fm_processor_compose() {
   local root="$1"
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$root"
+  if [ -z "${FM_PROCESSOR_DATA_ROOT:-}" ]; then
+    if [ -d /data ] && [ -w /data ]; then
+      export FM_PROCESSOR_DATA_ROOT=/data
+    else
+      export FM_PROCESSOR_DATA_ROOT="$HOME"
+    fi
+  fi
   FM_COMPOSE=(docker compose -p "$(fm_compose_project processor)" \
     -f "$root/docker/compose.yaml" -f "$root/docker/compose.linux.yaml" \
     -f "$root/compose.processor.yaml")
@@ -86,10 +95,10 @@ fm_processor_compose() {
 }
 
 # fm_processor_prepare_mounts
-# Create the bind-mounted data directories under $HOME, user-owned.
+# Create the bind-mounted data directories below the resolved shared data root.
 fm_processor_prepare_mounts() {
-  local d
-  for d in "${FM_PROCESSOR_MOUNTS[@]}"; do mkdir -p "$HOME/$d"; done
+  local d root="${FM_PROCESSOR_DATA_ROOT:-$HOME}"
+  for d in "${FM_PROCESSOR_MOUNTS[@]}"; do mkdir -p "$root/$d"; done
 }
 
 # fm_processor_prepare_identity_mounts
