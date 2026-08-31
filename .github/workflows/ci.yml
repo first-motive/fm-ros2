@@ -259,7 +259,10 @@ jobs:
       - name: colcon build
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
-            bash -lc 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'
+            bash -lc 'source /opt/ros/humble/setup.bash &&
+                      source scripts/internal/lib-buildtree.sh &&
+                      fm_buildtree_base_paths /ws &&
+                      colcon build --symlink-install --base-paths "${FM_BASE_PATHS[@]}"'
 
       # Test the First Motive packages only — the vendored externals (openarm_*,
       # unitree_*) carry their own test suites, which are not ours to keep green.
@@ -269,7 +272,9 @@ jobs:
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc 'source /opt/ros/humble/setup.bash && source install/setup.bash &&
-                      fm_pkgs=$(colcon list --names-only | grep "^fm_") &&
+                      source scripts/internal/lib-buildtree.sh &&
+                      fm_buildtree_base_paths /ws &&
+                      fm_pkgs=$(colcon list --base-paths "${FM_BASE_PATHS[@]}" --names-only | grep "^fm_") &&
                       colcon test --packages-select $fm_pkgs &&
                       colcon test-result --verbose'
 
