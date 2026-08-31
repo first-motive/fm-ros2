@@ -286,3 +286,31 @@ fm_processor_env() {  # key
   [ -f "$file" ] || return 0
   sed -n "s/^${key}=//p" "$file" | tail -1
 }
+
+# fm_processor_heal_bag_tier <workspace-root>
+# Install the engine's bag-ingest tier for the ROS interpreter when it is absent.
+#
+# On a Humble host setup-processor.sh puts this in the engine venv. In the
+# container there is no venv — dataset_process runs under the ROS interpreter — and
+# nothing installed it there, so every `fm dataset process` over a real recording
+# stopped at "bag ingest requires the package-owned bag tier" (gate 4.2).
+#
+# The tier resolves on the container's Python 3.10 now that requirements-image.txt
+# splits its numpy pin on a marker (fm-ros2#145); before that it could not have
+# been installed here at all.
+#
+# Idempotent and quiet once satisfied: one import decides.
+fm_processor_heal_bag_tier() {  # workspace-root
+  local root="${1:?workspace root}" tier
+  python3 -c 'import rosbags' >/dev/null 2>&1 && return 0
+  tier="$root/src/fm_data/fm_data_dataset/requirements-bags.txt"
+  if [ ! -f "$tier" ]; then
+    echo "processor: no bag tier at $tier — bag ingest will refuse" >&2
+    return 0
+  fi
+  echo "processor: installing the bag-ingest tier for the ROS interpreter" >&2
+  python3 -m pip install --quiet -r "$tier" || {
+    echo "processor: the bag tier did not install — bag ingest will refuse" >&2
+    return 0
+  }
+}

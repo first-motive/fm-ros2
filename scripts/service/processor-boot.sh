@@ -185,6 +185,9 @@ set -u
 # with its own error, and a role that can start degraded beats one that refuses to.
 # shellcheck source=../internal/lib-processor.sh disable=SC1091
 source "$ROOT/scripts/internal/lib-processor.sh"
+# The engine's bag tier, for the same reason and on the same side: the container
+# has no engine venv, so the ingest deps belong under the ROS interpreter here.
+fm_processor_heal_bag_tier "$ROOT"
 if ! fm_processor_heal_imports "$ROOT"; then
   echo "WARNING: the process supervisors still do not import — the launch below" >&2
   echo "         will fail, and the error above says what is missing." >&2

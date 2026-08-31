@@ -107,6 +107,15 @@ for caller in scripts/install/setup-processor.sh scripts/service/processor-boot.
   fi
 done
 
+echo "== the bag tier is installed on the side that runs the engine =="
+# rosbags present: nothing to do.
+installed=""
+# shellcheck disable=SC2329  # invoked by the library under test
+python3() { if [ "$2" = "import rosbags" ]; then return 0; fi; command python3 "$@"; }
+fm_processor_heal_bag_tier "$WORK" >/dev/null 2>&1
+assert_installed "a container that already has the tier installs nothing" ""
+unset -f python3
+
 echo "== the module name is parsed out of a REAL interpreter error =="
 # The stubs above feed hand-written error text, which would keep passing if
 # CPython changed how it words the failure. Ask the interpreter for the real
