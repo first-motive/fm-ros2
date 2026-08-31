@@ -83,6 +83,8 @@ install_services() {
     ./scripts/install/install-processor-service.sh
     item "installing the local archive service (fm-archive.service) ..."
     ./scripts/install/install-archive-service.sh
+    item "installing the archive uploader service (fm-archive-uploader.service) ..."
+    ./scripts/install/install-archive-uploader-service.sh
     # An appliance keeps itself current: fetch every ~15 min, converge on merged
     # updates (busy runs are never interrupted; see appliance-update.sh).
     item "installing the auto-update timer (fm-update-processor.timer) ..."
@@ -99,6 +101,7 @@ install_services() {
     item "boot service not installed — add it anytime with:"
     item "  ./scripts/install/install-processor-service.sh   (or reinstall with --service)"
     item "  ./scripts/install/install-archive-service.sh"
+    item "  ./scripts/install/install-archive-uploader-service.sh"
     item "  ./scripts/install/install-processor-identity.sh (after setting FM_AWS_IDENTITY_* config)"
   fi
 }

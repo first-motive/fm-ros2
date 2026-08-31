@@ -104,6 +104,12 @@ fm_processor_compose() {
 # Create the bind-mounted data directories below the resolved shared data root.
 fm_processor_prepare_mounts() {
   local d root="${FM_PROCESSOR_DATA_ROOT:-$HOME}"
+  # fm-setup owns the workstation recording root. Refusing an absent path keeps
+  # Docker and the processor setup from creating a plausible empty archive.
+  if [ "$root" = /data ] && [ ! -d /data/recordings ]; then
+    echo "ERROR: /data/recordings is missing; run the fm-setup users/storage step" >&2
+    return 1
+  fi
   for d in "${FM_PROCESSOR_MOUNTS[@]}"; do mkdir -p "$root/$d"; done
 }
 

@@ -13,6 +13,10 @@
       "script": "scripts/run/dataset.sh",
       "help": "process recorded episodes into a manifest, and verify it"
     },
+    "archive": {
+      "script": "scripts/run/archive.sh",
+      "help": "inspect, preflight, reconcile, or install archive services"
+    },
     "teleop": {
       "script": "scripts/run/teleop.sh",
       "help": "jog a robot arm through moveit servo"

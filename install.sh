@@ -209,6 +209,7 @@ do_uninstall() {  # dry no_desktop no_ai purge
     item "would remove the recorder boot service (fm-recorder.service), if installed"
     item "would remove the tactile glove receiver (fm-tactile.service + its udev rule), if installed"
     item "would remove the processor boot service (fm-processor.service), if installed"
+    item "would remove the archive browser and uploader services, if installed"
     item "would remove processor AWS identity wiring (key, CSR, CA, certificate preserved), if installed"
     item "would remove the appliance sudoers drop-in (010-fm-appliance), if installed"
     [[ "$purge" == 1 ]] && item "would purge clean imported repos under src/ and external/ (dirty ones kept)"
@@ -267,6 +268,10 @@ do_uninstall() {  # dry no_desktop no_ai purge
   if [[ "$(uname -s)" == Linux && -x scripts/install/install-archive-service.sh ]]; then
     item "removing the archive browser service (fm-archive.service), if present ..."
     ./scripts/install/install-archive-service.sh uninstall || true
+  fi
+  if [[ "$(uname -s)" == Linux && -x scripts/install/install-archive-uploader-service.sh ]]; then
+    item "removing the archive uploader service (fm-archive-uploader.service), if present ..."
+    ./scripts/install/install-archive-uploader-service.sh uninstall || true
   fi
   if [[ "$(uname -s)" == Linux && -x scripts/install/install-update-timer.sh ]]; then
     item "removing the auto-update timers (fm-update-*), if present ..."
