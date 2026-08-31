@@ -121,14 +121,17 @@ teardown() {
   # directory, which is why the episode never reached the new index. Before the
   # stack goes down, while the container is still there to exec into.
   fm_stack_exec "$OVERLAY" pkill -f 'fm_data_record recorder' >/dev/null 2>&1
+  # The bags belong to the container's root user, so they have to go from that
+  # side — and while the container still exists, which `stack down` ends. A green
+  # run cleans up; a red one keeps its evidence.
+  if [[ "$fails" -eq 0 ]]; then
+    fm_stack_exec "$OVERLAY" rm -rf "/ws/$WORK" >/dev/null 2>&1 || true
+  fi
   ./scripts/run/stack.sh down --backend "$BACKEND" >/dev/null 2>&1
   pkill -f 'fm_data_record recorder' 2>/dev/null
   # Keep the scratch root on a failure — the bag and the manifest are the only
   # evidence of what went wrong, and a red run is exactly when they are wanted.
   if [[ "$fails" -eq 0 ]]; then
-    # The recorder runs as root in the container, so the bags it wrote are not
-    # this user's to remove. Clear them from the same side that created them.
-    fm_stack_exec "$OVERLAY" rm -rf "/ws/$WORK" >/dev/null 2>&1 || true
     rm -rf "$WORK"
   else
     echo "loop: artifacts left at $WORK"
