@@ -13,13 +13,13 @@ services:
     environment:
       - HOME=${HOME}
     volumes:
-      - ${HOME}/recordings:${HOME}/recordings
-      # Workstations keep irreplaceable shared recordings under /data. The
-      # archive uploader reads that authoritative source, not the historical
-      # per-user mirror. fm-setup owns and creates this path before the
-      # processor role is installed.
-      - /data/recordings:/data/recordings
-      - ${HOME}/processed:${HOME}/processed
-      - ${HOME}/annotations:${HOME}/annotations
-      - ${HOME}/fm-data-runs:${HOME}/fm-data-runs
-      - ${HOME}/dataset-releases:${HOME}/dataset-releases
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/recordings:/data/recordings
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/processed:/data/processed
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/annotations:/data/annotations
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/fm-data-runs:/data/fm-data-runs
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/dataset-releases:/data/dataset-releases
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/lerobot-staged:/data/lerobot-staged
+      # The relocatable release venv keeps its interpreter in uv's managed
+      # Python root. Expose that immutable versioned runtime read-only at the
+      # same container path; credentials and the rest of HOME stay outside.
+      - ${FM_PROCESSOR_UV_PYTHON_ROOT:-${HOME}/.local/share/uv/python}:/home/fm/.local/share/uv/python:ro

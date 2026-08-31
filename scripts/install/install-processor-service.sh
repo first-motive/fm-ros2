@@ -372,6 +372,10 @@ EOF
   # Config knobs — write a template only when absent, so a re-install never clobbers a
   # host's tuned values (custom dirs, a pinned LAN IP, ...).
   if [ ! -f "$ENVFILE" ]; then
+    local processor_data_root=/data
+    if [ ! -d "$processor_data_root" ] || [ ! -w "$processor_data_root" ]; then
+      processor_data_root="$SERVICE_HOME"
+    fi
     item "writing $ENVFILE (config knobs — edit, then restart the service to apply) ..."
     sudo tee "$ENVFILE" >/dev/null <<'EOF'
 # fm-processor.service knobs — edit, then: sudo systemctl restart fm-processor
@@ -380,30 +384,38 @@ EOF
 #FM_LAN_IP=192.168.1.42
 #ROS_DOMAIN_ID=0
 # Where the recorder's sessions.jsonl + episode bags live (same host today):
-FM_PROCESSOR_RECORDINGS_DIR=~/recordings
+FM_PROCESSOR_RECORDINGS_DIR=/data/recordings
 # Per-episode processing output root (<id>/manifest.json is the processed marker):
-FM_PROCESSOR_OUTPUT_DIR=~/processed
+FM_PROCESSOR_OUTPUT_DIR=/data/processed
 # Processing profile JSON for dataset_process --config (empty = engine default):
 FM_PROCESSOR_CONFIG=
 # Interpreter for the dataset_process subprocess. Empty auto-uses the workspace's
 # .engine-venv (created by setup-processor.sh) so the engine's numpy pin never
 # fights another tenant of the host's user site-packages:
 #FM_PROCESSOR_ENGINE_PYTHON=
-# Per-episode annotation bundle root (empty = the launch default, ~/annotations):
-#FM_PROCESSOR_ANNOTATIONS_DIR=
+# Per-episode annotation bundle root:
+FM_PROCESSOR_ANNOTATIONS_DIR=/data/annotations
 # Processor-owned receipt-bound LeRobot imports. Keep this equal to
 # FM_ARCHIVE_LEROBOT_STAGE_DIR in /etc/fm-archive.env when a custom root is used.
-FM_PROCESSOR_LEROBOT_IMPORTS_DIR=~/.cache/fm-archive/lerobot-staged
+FM_PROCESSOR_LEROBOT_IMPORTS_DIR=/data/lerobot-staged
 # Durable queued/running/generated/failed/blocked annotation attempt evidence:
-FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=~/fm-data-runs/annotation-attempts
+FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=/data/fm-data-runs/annotation-attempts
 # Durable immutable review, correction, learning, governance, and run lineage:
-FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=~/fm-data-runs/annotation-reviews
-FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=~/fm-data-runs/annotation-corrections
-FM_PROCESSOR_ANNOTATION_LEARNING_DIR=~/fm-data-runs/annotation-learning
-FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR=~/fm-data-runs/annotation-adjudications
-FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR=~/fm-data-runs/annotation-revocations
-FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR=~/fm-data-runs/annotation-learning-snapshots
-FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR=~/fm-data-runs/annotation-improvement-runs
+FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=/data/fm-data-runs/annotation-reviews
+FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=/data/fm-data-runs/annotation-corrections
+FM_PROCESSOR_ANNOTATION_LEARNING_DIR=/data/fm-data-runs/annotation-learning
+FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR=/data/fm-data-runs/annotation-adjudications
+FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR=/data/fm-data-runs/annotation-revocations
+FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR=/data/fm-data-runs/annotation-learning-snapshots
+FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR=/data/fm-data-runs/annotation-improvement-runs
+# Release export, Pack verification, LeRobot conversion, and the hf CLI use the
+# isolated .release-venv installed by setup-processor.sh. The boot wrapper finds
+# those paths automatically. Set only the approved private Hub destination here;
+# authentication remains an operator action.
+FM_PROCESSOR_RELEASE_ROOT=/data/dataset-releases
+# Optional immutable container image digest used by release provenance:
+#FM_PROCESSOR_RELEASE_RUNTIME_IMAGE_DIGEST=sha256:...
+#FM_PROCESSOR_RELEASE_HUGGINGFACE_REPOSITORY=first-motive/private-dataset
 # Optional selected operator evidence receipts for the desktop status surface:
 #FM_PROCESSOR_OPERATOR_EVIDENCE_DIR=
 # The boot wrapper resolves the nested data package HEAD and passes this exact source
@@ -425,6 +437,10 @@ FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR=~/fm-data-runs/annotation-improveme
 #FM_AWS_INFERENCE_READINESS_DIR=~/fm-data-runs/aws-readiness
 #FM_AWS_SERVICE_TIMEOUT_SECONDS=7200
 EOF
+    if [ "$processor_data_root" != /data ]; then
+      sudo sed -i.bak "s#=/data/#=$processor_data_root/#g" "$ENVFILE"
+      sudo rm -f "${ENVFILE}.bak"
+    fi
   fi
   _write_aws_service_env || return 1
 

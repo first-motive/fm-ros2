@@ -15,6 +15,10 @@ source scripts/internal/lib-stack.sh
 # shellcheck source=../internal/lib-processor.sh disable=SC1091
 source scripts/internal/lib-processor.sh
 
+processor_uv_root="$(mktemp -d)"
+trap 'rm -rf "$processor_uv_root"' EXIT
+export FM_PROCESSOR_UV_PYTHON_ROOT="$processor_uv_root"
+
 fails=0
 pass() { echo "PASS: $1"; }
 fail() {

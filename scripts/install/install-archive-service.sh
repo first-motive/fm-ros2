@@ -98,6 +98,10 @@ WantedBy=multi-user.target
 EOF
 
   if [ ! -f "$ENVFILE" ]; then
+    local archive_data_root=/data
+    if [ ! -d "$archive_data_root" ] || [ ! -w "$archive_data_root" ]; then
+      archive_data_root="$SERVICE_HOME"
+    fi
     item "writing disabled archive configuration at $ENVFILE ..."
     sudo tee "$ENVFILE" >/dev/null <<'EOF'
 # Enable only after the read-only processor-archive B2 application key is
@@ -115,7 +119,7 @@ FM_ARCHIVE_STAGE_DIR=
 # The LeRobot catalogue is a processor-owned closed JSON file. Empty keeps the
 # source unpublished; Desktop cannot provide a bucket prefix or catalogue path.
 FM_ARCHIVE_LEROBOT_CATALOGUE_FILE=
-FM_ARCHIVE_LEROBOT_STAGE_DIR=~/.cache/fm-archive/lerobot-staged
+FM_ARCHIVE_LEROBOT_STAGE_DIR=/data/lerobot-staged
 FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false
 FM_ARCHIVE_MAX_OBJECTS=16
 FM_ARCHIVE_MAX_TOTAL_BYTES=2147483648
@@ -123,6 +127,10 @@ FM_ARCHIVE_MAX_EPISODES=32
 FM_ARCHIVE_RETENTION_DAYS=30
 FM_ARCHIVE_MAX_ATTEMPTS=3
 EOF
+    if [ "$archive_data_root" != /data ]; then
+      sudo sed -i.bak "s#=/data/#=$archive_data_root/#g" "$ENVFILE"
+      sudo rm -f "${ENVFILE}.bak"
+    fi
   fi
   # Re-apply the private mode on every install. A prior manual edit or restore
   # must not leave the read-only application key world-readable.

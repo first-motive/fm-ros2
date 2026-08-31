@@ -137,7 +137,8 @@ otherwise claims the adapter as a Braille display before the receiver can open
 it.
 
 **Data processor (Linux)** — the dataset engine, the annotation tooling
-(`annotation_run` / `annotation_verify`), and the supervisor the desktop
+(`annotation_run` / `annotation_verify`), the isolated Python 3.12 release
+runtime (LeRobot v3, Rerun, Dataset Release Pack v2, and `hf`), and the supervisor the desktop
 app's Process surface drives (`/process/*`). Deliberately its own workspace,
 separate from a recorder checkout: the recorder later moves to its own device
 while processing stays on the strong host. On Ubuntu 22.04 it runs natively; on
@@ -150,6 +151,14 @@ mkdir -p ~/processor && cd ~/processor
 curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh \
   | bash -s -- --processor --service
 ```
+
+On a provisioned workstation, processor evidence and derived artifacts use the
+shared `/data` root. The installer creates the bag-processing and RLDS runtime
+plus a separate release runtime because their NumPy contracts differ. It wires
+candidate export, Pack v2 build and verification, LeRobot conversion, Rerun,
+and the `hf` CLI into the processor service. Hugging Face authentication and
+the approved private `owner/name` destination remain operator actions; the
+installer does not request or store a token.
 
 All three need access to the private `first-motive` org: the Linux roles clone
 private repos over git auth, and the app installer fetches its release through

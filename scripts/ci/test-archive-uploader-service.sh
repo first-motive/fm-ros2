@@ -51,7 +51,7 @@ grep -q 'FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15' "$INSTALLER" || fail
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1' "$INSTALLER" || fail "concurrency default drifted"
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=8388608' "$INSTALLER" || fail "bandwidth ceiling drifted"
 grep -q 'FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=/data/recordings' "$INSTALLER" || fail "authoritative recording root drifted"
-grep -q -- '- /data/recordings:/data/recordings' "$ROOT/compose.processor.yaml" || fail "processor container does not mount the authoritative recording root"
+grep -q -- 'recordings:/data/recordings' "$ROOT/compose.processor.yaml" || fail "processor container does not mount the authoritative recording root"
 grep -q 'archive_preflight' "$BOOT" || fail "live provider preflight gate is absent"
 grep -q 'FM_ARCHIVE_STORAGE_CAP_BYTES=' "$INSTALLER" || fail "storage-cap evidence field is absent"
 if grep -R -E -q 'delete_object|delete_objects|DeleteObject|DeleteObjects' "$BOOT" "$INSTALLER"; then
