@@ -153,7 +153,10 @@ FM_ARCHIVE_REQUIRED_STORAGE_CAP_BYTES=
 FM_ARCHIVE_STORAGE_CAP_VERIFIED_AT=
 EOF
   fi
-  existing_recordings="$(sed -n 's/^FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=//p' "$ENVFILE" | tail -1)"
+  # The env file is root-owned and mode 0600 because it carries the uploader's
+  # write credential. Read only the policy field needed for migration through
+  # the same non-interactive privilege boundary used for writes.
+  existing_recordings="$(sudo sed -n 's/^FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=//p' "$ENVFILE" | tail -1)"
   if [ -n "$processor_recordings" ] && [ -n "$existing_recordings" ] && \
      [ "$processor_recordings" != "$existing_recordings" ]; then
     echo "ERROR: archive uploader recordings root differs from the processor root." >&2
@@ -161,7 +164,7 @@ EOF
     echo "       processor: $processor_recordings" >&2
     return 1
   fi
-  if grep -qx 'FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader' "$ENVFILE"; then
+  if sudo grep -qx 'FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader' "$ENVFILE"; then
     sudo sed -i.bak \
       "s#^FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader\$#FM_ARCHIVE_UPLOADER_STATE_DIR=$uploader_state#" \
       "$ENVFILE"
