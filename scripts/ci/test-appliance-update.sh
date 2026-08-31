@@ -26,7 +26,17 @@ case "${1:-}" in
   config) exec /usr/bin/git "$@" ;;
   fetch) exit 0 ;;
   tag)
+    if [ "${2:-}" = "--points-at" ]; then
+      [ -z "${FM_TEST_TAGS_AT_HEAD:-}" ] || printf '%s\n' "$FM_TEST_TAGS_AT_HEAD"
+      exit 0
+    fi
     [ -z "${FM_TEST_TAG_NAME:-}" ] || printf '%s\n' "$FM_TEST_TAG_NAME"
+    exit 0
+    ;;
+  # The pin guard asks for the current branch; default to detached HEAD.
+  symbolic-ref)
+    [ -n "${FM_TEST_BRANCH:-}" ] || exit 1
+    printf '%s\n' "$FM_TEST_BRANCH"
     exit 0
     ;;
   status) exit 0 ;;
@@ -223,6 +233,68 @@ if ! grep -q "fm_ros2 diverges from v0.1.8" <<< "$output"; then
   printf 'divergent tagged history must stay held; got: %s\n' "$output" >&2
   exit 1
 fi
+
+# A checkout pinned off the channel stays put (#144): detached at a pre-release
+# tag with a newer stable release published, the updater must hold it, say so,
+# and hold the machine layer through the same helper.
+jq -n --arg workspace "$TMP_DIR/canonical-workspace" \
+  '{workspace: $workspace}' > "$FM_MACHINE_FILE"
+output="$(
+  FM_TEST_TAG_NAME=$'v0.2.0-zenoh.2\nv0.1.8' \
+    FM_TEST_TAGS_AT_HEAD=v0.2.0-zenoh.2 \
+    FM_TEST_HEAD_COMMIT=old-release \
+    FM_TEST_TAG_COMMIT=new-release \
+    FM_TEST_RELATION=head-before-tag \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" processor
+)"
+if ! grep -q "fm_ros2 pinned at v0.2.0-zenoh.2 — not touching it" <<< "$output"; then
+  printf 'a pre-release pin must hold the checkout; got: %s\n' "$output" >&2
+  exit 1
+fi
+if ! grep -q "fm-setup pinned at v0.2.0-zenoh.2 — not touching it" <<< "$output"; then
+  printf 'the machine layer must respect the same pin; got: %s\n' "$output" >&2
+  exit 1
+fi
+if grep -q "updating fm_ros2" <<< "$output"; then
+  printf 'a pinned checkout was converged anyway; got: %s\n' "$output" >&2
+  exit 1
+fi
+rm "$FM_MACHINE_FILE"
+
+# A checkout parked on a non-release branch is pinned too.
+output="$(
+  FM_TEST_BRANCH=gate/zenoh-migration \
+    FM_TEST_TAG_NAME=v0.1.8 \
+    FM_TEST_HEAD_COMMIT=old-release \
+    FM_TEST_TAG_COMMIT=new-release \
+    FM_TEST_RELATION=head-before-tag \
+    PATH="$TMP_DIR/bin:$PATH" \
+    "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" --check processor
+)"
+if ! grep -q "check fm_ros2: pinned gate/zenoh-migration" <<< "$output"; then
+  printf 'a non-release branch must read as pinned; got: %s\n' "$output" >&2
+  exit 1
+fi
+
+# The managed channel itself must keep converging: detached at an older stable
+# release tag, and an exact-main checkout, both still resolve behind the newest.
+for channel_env in FM_TEST_TAGS_AT_HEAD=v0.1.7 FM_TEST_BRANCH=main; do
+  output="$(
+    env "$channel_env" \
+      FM_TEST_TAG_NAME=$'v0.1.8\nv0.1.7' \
+      FM_TEST_HEAD_COMMIT=old-release \
+      FM_TEST_TAG_COMMIT=new-release \
+      FM_TEST_RELATION=head-before-tag \
+      PATH="$TMP_DIR/bin:$PATH" \
+      "$RESOLUTION_ROOT/scripts/service/appliance-update.sh" --check processor
+  )"
+  if ! grep -q "check fm_ros2: behind v0.1.8" <<< "$output"; then
+    printf '%s must stay on the managed channel; got: %s\n' \
+      "$channel_env" "$output" >&2
+    exit 1
+  fi
+done
 
 # Prove a real depth-one checkout created before the first release can resolve a
 # later descendant tag without moving HEAD. The updater may complete missing
