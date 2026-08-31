@@ -48,6 +48,16 @@ prepare_release_runtime() {
     return 1
   fi
 
+  # The Humble container runs as root and uses this host-built runtime. Older
+  # services could therefore leave root-owned bytecode caches in the bind mount,
+  # which made the next uv reinstall fail with EACCES. Reclaim only this generated
+  # venv before updating it; source and retained data stay outside this boundary.
+  if [ -d "$release_venv" ] &&
+     find "$release_venv" ! -user "$(id -u)" -print -quit 2>/dev/null | grep -q .; then
+    item "reclaiming the generated release runtime from the processor container ..."
+    sudo chown -R "$(id -u):$(id -g)" "$release_venv"
+  fi
+
   item "creating the isolated Python 3.12 release runtime ($release_venv) ..."
   "$uv_bin" venv --python 3.12 --relocatable --allow-existing "$release_venv"
   "$uv_bin" pip install --python "$release_venv/bin/python" \
