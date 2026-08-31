@@ -38,8 +38,16 @@ EOF
 
 env_value() { # file key
   local file="$1" key="$2" line
-  [ -r "$file" ] || return 0
-  line="$(grep -E "^[[:space:]]*${key}=" "$file" 2>/dev/null | tail -1 || true)"
+  if [ -r "$file" ]; then
+    line="$(grep -E "^[[:space:]]*${key}=" "$file" 2>/dev/null | tail -1 || true)"
+  elif command -v sudo >/dev/null 2>&1; then
+    # Service environment files are root-owned mode 0600. Read only the exact
+    # requested field through noninteractive sudo so the person-run status and
+    # preflight commands do not weaken file permissions or print credentials.
+    line="$(sudo -n -- grep -E "^[[:space:]]*${key}=" "$file" 2>/dev/null | tail -1 || true)"
+  else
+    return 0
+  fi
   [ -n "$line" ] || return 0
   printf '%s\n' "${line#*=}"
 }

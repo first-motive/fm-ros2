@@ -48,6 +48,32 @@ grep -q '"failures":0' <<<"$preflight_output" || {
 }
 pass "default-off local preflight passes without credentials"
 
+mkdir -p "$TMP_DIR/bin"
+cat >"$TMP_DIR/bin/sudo" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[ "${1:-}" = -n ] && shift
+[ "${1:-}" = -- ] && shift
+target="${!#}"
+chmod 600 "$target"
+"$@"
+rc=$?
+chmod 000 "$target"
+exit "$rc"
+EOF
+chmod +x "$TMP_DIR/bin/sudo"
+chmod 000 "$TMP_DIR/etc/archive.env" "$TMP_DIR/etc/uploader.env"
+protected_status="$(PATH="$TMP_DIR/bin:$PATH" \
+  FM_ARCHIVE_ENVFILE="$TMP_DIR/etc/archive.env" \
+  FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" \
+  "$VERB" status --json)"
+grep -q '"max_bandwidth_bytes_s":8388608' <<<"$protected_status" || {
+  echo "$protected_status" >&2
+  fail "status did not read policy from protected service environments"
+}
+chmod 600 "$TMP_DIR/etc/archive.env" "$TMP_DIR/etc/uploader.env"
+pass "status reads exact fields from protected service environments"
+
 printf '%s\n' 'FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=not-json' >>"$TMP_DIR/etc/uploader.env"
 if FM_ARCHIVE_ENVFILE="$TMP_DIR/etc/archive.env" \
   FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" \
