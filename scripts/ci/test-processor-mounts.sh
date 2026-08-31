@@ -25,6 +25,8 @@ fail() {
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/uv-python"
+export FM_PROCESSOR_UV_PYTHON_ROOT="$WORK/uv-python"
 
 cat > "$WORK/env" <<ENV
 FM_PROCESSOR_RECORDINGS_DIR=/data/recordings
