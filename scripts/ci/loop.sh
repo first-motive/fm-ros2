@@ -73,6 +73,19 @@ done
 
 cd "$(dirname "$0")/../.." || exit 1
 
+# The two raw `ros2` calls below need the same routing the verbs already do:
+# in place when this shell has ROS, through the sim container otherwise. The loop
+# runs on the workstation's HOST during the hardware gate, and that host has no
+# ROS at all — a bare `ros2` there is not a transport failure, it is a command
+# that does not exist, and it reported itself as `no /joint_states message within
+# 20s` for as long as the line has been red (gate 3.5).
+# shellcheck source=../internal/lib-stack.sh disable=SC1091
+source scripts/internal/lib-stack.sh
+
+# Which compose overlay this host and backend imply — resolved once, after the
+# arguments are parsed, and read by every routed call below.
+OVERLAY="$(fm_stack_overlay "$(fm_stack_normalize "$BACKEND")")"
+
 fails=0
 pass() { echo "PASS: $1"; }
 fail() {
@@ -82,14 +95,27 @@ fail() {
 
 # Hermetic run: a scratch root per invocation, so a rerun never reads the
 # episodes a previous one left behind and calls them today's proof.
-WORK="$(mktemp -d)"
+# Under the workspace, and named RELATIVELY, because the recorder and the engine
+# run on the far side of a bind mount. The host's own /tmp is not mounted into the
+# container, so a `mktemp -d` root is a path only one of the two can see — the
+# recorder wrote nothing and the loop reported `no finalized episode appeared`
+# (gate 3.5). A relative path resolves against the workspace root on the host and
+# against /ws in the container, which are the same directory.
+WORK=".fm-loop-$$"
 RECORDINGS="$WORK/recordings"
 PROCESSED="$WORK/processed"
+mkdir -p "$RECORDINGS" "$PROCESSED"
 
 ACTION_PID=""
 
 teardown() {
   [[ -n "$ACTION_PID" ]] && kill "$ACTION_PID" 2>/dev/null
+  # The recorder first, and on the side it actually runs: a host-side pkill never
+  # reached a recorder inside the container, so it outlived the loop and the next
+  # run found it "already running" — still writing to the previous run's output
+  # directory, which is why the episode never reached the new index. Before the
+  # stack goes down, while the container is still there to exec into.
+  fm_stack_exec "$OVERLAY" pkill -f 'fm_data_record recorder' >/dev/null 2>&1
   ./scripts/run/stack.sh down --backend "$BACKEND" >/dev/null 2>&1
   pkill -f 'fm_data_record recorder' 2>/dev/null
   # Keep the scratch root on a failure — the bag and the manifest are the only
@@ -115,7 +141,10 @@ import ast, sys
 line = next(l for l in sys.stdin if l.lstrip().startswith("["))
 print(",".join(ast.literal_eval(line.strip())))
 '
-  timeout "$JOINT_STATES_TIMEOUT" ros2 topic echo --once --field name /joint_states |
+  # `timeout` runs on the FAR side, where coreutils is: the host may be a Mac or a
+  # bare rig with neither it nor ros2.
+  fm_stack_exec "$OVERLAY" timeout "$JOINT_STATES_TIMEOUT" \
+    ros2 topic echo --once --field name /joint_states |
     python3 -c "$reader"
 }
 
@@ -127,9 +156,12 @@ drive_actions() {
   local names="$1"
   local zeros
   zeros=$(awk -F, '{for (i = 1; i <= NF; i++) printf (i > 1 ? ", 0.0" : "0.0")}' <<<"$names")
-  ros2 topic pub -r 20 /servo_node/delta_joint_cmds control_msgs/msg/JointJog \
-    "{joint_names: [${names//,/, }], velocities: [$zeros]}" >/dev/null 2>&1 &
-  ACTION_PID=$!
+  # Detached through the same router: in place it hands back a PID, through the
+  # container the publisher lives there and `stack down` reaps it in teardown.
+  fm_stack_exec_detached "$OVERLAY" \
+    ros2 topic pub -r 20 /servo_node/delta_joint_cmds control_msgs/msg/JointJog \
+    "{joint_names: [${names//,/, }], velocities: [$zeros]}"
+  ACTION_PID="${FM_STACK_PID:-}"
 }
 
 echo "== stack up ($BACKEND) =="
