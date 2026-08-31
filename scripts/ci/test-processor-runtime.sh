@@ -92,6 +92,9 @@ grep -q 'prepare_release_runtime' scripts/install/setup-processor.sh \
 grep -q 'FM_PROCESSOR_RELEASE_ROOT=/data/dataset-releases' scripts/install/install-processor-service.sh \
   && grep -q '.release-venv/bin/hf' scripts/service/processor-boot.sh \
   && echo "PASS: processor boot activates shared releases and hf" || { echo "FAIL: release service wiring missing"; fail=1; }
+grep -q 'sudo chown -R.*release_venv' scripts/install/setup-processor.sh \
+  && grep -q 'PYTHONDONTWRITEBYTECODE=1' scripts/service/processor-boot.sh \
+  && echo "PASS: repeated install keeps the release runtime host-writable" || { echo "FAIL: release runtime ownership guard missing"; fail=1; }
 grep -q 'FM_PROCESSOR_UV_PYTHON_ROOT' scripts/internal/lib-processor.sh \
   && grep -q '/home/fm/.local/share/uv/python:ro' compose.processor.yaml \
   && echo "PASS: container can execute the host-built release Python" || { echo "FAIL: release Python mount missing"; fail=1; }
