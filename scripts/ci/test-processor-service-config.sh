@@ -10,7 +10,9 @@ INSTALLER="$ROOT/scripts/install/install-processor-service.sh"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-mkdir -p "$TMP_DIR/bin" "$TMP_DIR/etc" "$TMP_DIR/systemd" "$TMP_DIR/identity"
+mkdir -p "$TMP_DIR/bin" "$TMP_DIR/etc" "$TMP_DIR/systemd" "$TMP_DIR/identity" \
+  "$TMP_DIR/uv-python"
+export FM_PROCESSOR_UV_PYTHON_ROOT="$TMP_DIR/uv-python"
 REAL_INSTALL="$(command -v install)"
 
 cat >"$TMP_DIR/bin/sudo" <<'EOF'
@@ -125,8 +127,10 @@ fi
 [ ! -e "$CONTAINER_ROOT/etc/fm-bridge.env" ] || fail "missing AWS tree created bridge env"
 [ "$(systemctl_count)" = "$systemctl_before" ] || \
   fail "missing AWS tree invoked systemd"
-grep -q 'pinned AWS CLI install tree is missing' "$TMP_DIR/missing-tree.err" || \
+grep -q 'pinned AWS CLI install tree is missing' "$TMP_DIR/missing-tree.err" || {
+  cat "$TMP_DIR/missing-tree.err" >&2
   fail "missing AWS tree error did not identify the unavailable runtime"
+}
 pass "container service refuses a missing AWS CLI tree before any writes"
 
 if bash "$INSTALLER" install >"$TMP_DIR/no-identity.out" 2>"$TMP_DIR/no-identity.err"; then

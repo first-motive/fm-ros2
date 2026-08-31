@@ -7,6 +7,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+mkdir -p "$TMP_DIR/uv-python"
+export FM_PROCESSOR_UV_PYTHON_ROOT="$TMP_DIR/uv-python"
 
 mkdir -p "$TMP_DIR/bin" "$TMP_DIR/etc" "$TMP_DIR/state" "$TMP_DIR/systemd" "$TMP_DIR/sbin"
 

@@ -48,6 +48,12 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# setup-processor.sh keeps node-facing Python dependencies in this workspace
+# target so a compose recreation cannot discard them with the old container.
+export PYTHONPATH="$ROOT/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
+# The container runs as root while the host installer owns the release venv.
+# Keep Python from writing root-owned bytecode into that bind-mounted runtime.
+export PYTHONDONTWRITEBYTECODE=1
 
 RECORDINGS_DIR="${FM_PROCESSOR_RECORDINGS_DIR:-~/recordings}"
 OUTPUT_DIR="${FM_PROCESSOR_OUTPUT_DIR:-~/processed}"
@@ -76,6 +82,27 @@ RELEASE_PYTHON="${FM_PROCESSOR_RELEASE_PYTHON:-}"
 RELEASE_PACK_CONFIG="${FM_PROCESSOR_RELEASE_PACK_CONFIG:-}"
 RELEASE_HUGGINGFACE_CLI="${FM_PROCESSOR_RELEASE_HUGGINGFACE_CLI:-}"
 RELEASE_HUGGINGFACE_REPOSITORY="${FM_PROCESSOR_RELEASE_HUGGINGFACE_REPOSITORY:-}"
+RELEASE_RUNTIME_IMAGE_DIGEST="${FM_PROCESSOR_RELEASE_RUNTIME_IMAGE_DIGEST:-}"
+# Keep the user-authenticated Hub state in the processor's persistent data root.
+# Login remains an explicit operator action; the service only selects the path.
+export HF_HOME="${FM_PROCESSOR_HUGGINGFACE_HOME:-/data/fm-data-runs/huggingface}"
+# The release exporter has a Python 3.12 dependency contract that conflicts
+# with the ROS engine runtime. setup-processor.sh installs it separately and
+# these defaults activate it only when every required artifact is present.
+if [ -z "$RELEASE_DATASET_EXPORTER" ] &&
+   [ -x "$ROOT/.release-venv/bin/dataset_release_export" ]; then
+  RELEASE_DATASET_EXPORTER="$ROOT/.release-venv/bin/dataset_release_export"
+fi
+if [ -z "$RELEASE_PYTHON" ] && [ -x "$ROOT/.release-venv/bin/python" ]; then
+  RELEASE_PYTHON="$ROOT/.release-venv/bin/python"
+fi
+if [ -z "$RELEASE_PACK_CONFIG" ] &&
+   [ -f "$ROOT/src/fm_data/fm_data_package/config/pack_v2.json" ]; then
+  RELEASE_PACK_CONFIG="$ROOT/src/fm_data/fm_data_package/config/pack_v2.json"
+fi
+if [ -z "$RELEASE_HUGGINGFACE_CLI" ] && [ -x "$ROOT/.release-venv/bin/hf" ]; then
+  RELEASE_HUGGINGFACE_CLI="$ROOT/.release-venv/bin/hf"
+fi
 # The engine's dedicated venv isolates its numpy pin from other tenants of the
 # host (setup-processor.sh creates it); default to it whenever it exists.
 ENGINE_PYTHON="${FM_PROCESSOR_ENGINE_PYTHON:-}"
@@ -141,6 +168,10 @@ if [ -z "$ANNOTATE_GIT_COMMIT" ]; then
     fi
     echo "WARNING: data package source commit unavailable; cloud annotation is disabled" >&2
   fi
+fi
+ASSEMBLY_GIT_COMMIT="$(git -C "$ROOT" rev-parse --verify HEAD 2>/dev/null || true)"
+if ! _is_full_commit "$ASSEMBLY_GIT_COMMIT"; then
+  ASSEMBLY_GIT_COMMIT=""
 fi
 
 # At boot the LAN interface may not be up yet, so the foxglove profile's dds-lan.sh
@@ -211,6 +242,15 @@ LAUNCH_ARGS+=(annotation_revocations_dir:="$ANNOTATION_REVOCATIONS_DIR")
 LAUNCH_ARGS+=(annotation_learning_snapshots_dir:="$ANNOTATION_LEARNING_SNAPSHOTS_DIR")
 LAUNCH_ARGS+=(annotation_improvement_runs_dir:="$ANNOTATION_IMPROVEMENT_RUNS_DIR")
 LAUNCH_ARGS+=(release_root:="$RELEASE_ROOT")
+if [ -n "$_DISCOVERED_DATA_COMMIT" ]; then
+  LAUNCH_ARGS+=(release_fm_data_source_commit:="$_DISCOVERED_DATA_COMMIT")
+fi
+if [ -n "$ASSEMBLY_GIT_COMMIT" ]; then
+  LAUNCH_ARGS+=(release_fm_ros2_runtime_commit:="$ASSEMBLY_GIT_COMMIT")
+fi
+if [ -n "$RELEASE_RUNTIME_IMAGE_DIGEST" ]; then
+  LAUNCH_ARGS+=(release_runtime_image_digest:="$RELEASE_RUNTIME_IMAGE_DIGEST")
+fi
 if [ -n "$CONFIG" ]; then
   LAUNCH_ARGS+=(config:="$CONFIG")
 fi

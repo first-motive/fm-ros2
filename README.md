@@ -137,7 +137,8 @@ otherwise claims the adapter as a Braille display before the receiver can open
 it.
 
 **Data processor (Linux)** — the dataset engine, the annotation tooling
-(`annotation_run` / `annotation_verify`), and the supervisor the desktop
+(`annotation_run` / `annotation_verify`), the isolated Python 3.12 release
+runtime (LeRobot v3, Rerun, Dataset Release Pack v2, and `hf`), and the supervisor the desktop
 app's Process surface drives (`/process/*`). Deliberately its own workspace,
 separate from a recorder checkout: the recorder later moves to its own device
 while processing stays on the strong host. On Ubuntu 22.04 it runs natively; on
@@ -150,6 +151,14 @@ mkdir -p ~/processor && cd ~/processor
 curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.sh \
   | bash -s -- --processor --service
 ```
+
+On a provisioned workstation, processor evidence and derived artifacts use the
+shared `/data` root. The installer creates the bag-processing and RLDS runtime
+plus a separate release runtime because their NumPy contracts differ. It wires
+candidate export, Pack v2 build and verification, LeRobot conversion, Rerun,
+and the `hf` CLI into the processor service. Hugging Face authentication and
+the approved private `owner/name` destination remain operator actions; the
+installer does not request or store a token.
 
 All three need access to the private `first-motive` org: the Linux roles clone
 private repos over git auth, and the app installer fetches its release through
@@ -219,13 +228,37 @@ read-only B2 application key. Local staging is a second, default-off setting in
 that file. Restart `fm-archive.service` after enabling or changing the file.
 The service passes only archive topics over the existing local DDS
 and Foxglove boundary; Desktop never receives a credential, object key, or
-local path. The `/archive/stage` topic accepts a bounded episode request. The
-latched `/archive/status` topic reports queued, staging, refusal, failure, or
-completion in its `stage` block; there is no separate completion topic. Check
-the installed path with:
+local path. The browser keeps its catalogue on `/archive/index` and
+`/archive/status`; the bounded `/archive/stage` request remains available for
+read-side restore. The uploader publishes storage state separately on
+`/archive/storage/index` and `/archive/storage/status`. Check the installed path
+with:
 
 ```bash
 bash scripts/service/archive-check.sh
+```
+
+The uploader is a separate, default-off `fm-archive-uploader.service`. It reads
+only `/etc/fm-archive-uploader.env`, whose `BACKBLAZE_B2_FMREC_*` key is
+write-scoped to the approved recording prefixes and must not have remote-delete
+permission. The reader's `BACKBLAZE_B2_PROCARCH_*` key remains in
+`/etc/fm-archive.env`; the two files are never inherited by one another. The
+uploader allows one concurrent upload and requires 30 days of local
+retention, and gives deletion eligibility a 15-minute window. Local deletion is
+disabled in the first release. Its closed command topics are
+`/archive/upload/retry`, `/archive/retention/verify`, and
+`/archive/retention/delete` (the last is a confirmation request only, never a
+remote delete). On a container-runtime processor, both services require the
+already-running `fm-processor` container and cannot recreate or stop it.
+
+Use the person-run archive workflow for status, checks, recovery, or an
+idempotent install:
+
+```bash
+fm archive status
+fm archive preflight --json
+fm archive reconcile --dry-run
+fm archive install --dry-run
 ```
 
 The optional LeRobot source uses the same processor-owned service. Set

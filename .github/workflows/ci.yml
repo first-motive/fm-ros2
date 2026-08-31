@@ -87,6 +87,12 @@ jobs:
       - name: local archive service contract
         run: bash scripts/ci/test-archive-service.sh
 
+      - name: archive uploader service contract
+        run: bash scripts/ci/test-archive-uploader-service.sh
+
+      - name: archive workflow contract
+        run: bash scripts/ci/test-archive-workflow.sh
+
       # Repeat appliance converges must not depend on raw GitHub availability.
       - name: recorder RealSense udev rule install
         run: bash scripts/ci/test-recorder-udev-rules.sh

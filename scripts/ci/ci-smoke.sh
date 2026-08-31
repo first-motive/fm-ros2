@@ -52,7 +52,9 @@ fail() {
 
 # CycloneDDS can interleave notices ("A message was lost!!!", QoS fallback warnings)
 # onto stdout, which corrupt a captured YAML document or numeric value. Drop them.
-strip_dds_noise() { grep -vE 'message was lost|but not all, publishers'; }
+# Some RMW message printers indent sequence fields with tabs, which YAML rejects;
+# normalize those tabs before the captured document reaches the assertions.
+strip_dds_noise() { grep -vE 'message was lost|but not all, publishers' | expand -t 2; }
 
 # Kill a backgrounded launch and the control/state nodes it spawned, then wait
 # (bounded) until the control node has actually exited — a fixed sleep races the next
