@@ -85,6 +85,23 @@ FM_PROCESSOR_RUNTIME=container check "an explicit pin wins" container
 [ -f compose.processor.yaml ] && [ -f compose.processor.aws.yaml ] && echo "PASS: processor overlays present" || { echo "FAIL: processor overlay missing"; fail=1; }
 grep -q 'container-exec.sh' scripts/install/install-processor-service.sh \
   && echo "PASS: processor unit knows the container runtime" || { echo "FAIL: unit ignores runtime"; fail=1; }
+grep -q 'prepare_release_runtime' scripts/install/setup-processor.sh \
+  && grep -q 'requirements-release.txt' scripts/install/setup-processor.sh \
+  && grep -q "FM_INSTALL_RLDS=\${FM_INSTALL_RLDS:-1}" scripts/install/setup-processor.sh \
+  && echo "PASS: processor setup installs release and RLDS runtimes" || { echo "FAIL: full data runtime missing"; fail=1; }
+grep -q 'FM_PROCESSOR_RELEASE_ROOT=/data/dataset-releases' scripts/install/install-processor-service.sh \
+  && grep -q '.release-venv/bin/hf' scripts/service/processor-boot.sh \
+  && echo "PASS: processor boot activates shared releases and hf" || { echo "FAIL: release service wiring missing"; fail=1; }
+grep -q 'FM_PROCESSOR_UV_PYTHON_ROOT' scripts/internal/lib-processor.sh \
+  && grep -q '/home/fm/.local/share/uv/python:ro' compose.processor.yaml \
+  && echo "PASS: container can execute the host-built release Python" || { echo "FAIL: release Python mount missing"; fail=1; }
+grep -q '\.ros-runtime' scripts/install/setup-processor.sh \
+  && grep -q '\.ros-runtime' scripts/service/processor-boot.sh \
+  && echo "PASS: ROS Python dependencies survive container recreation" || { echo "FAIL: persistent ROS Python runtime missing"; fail=1; }
+grep -q 'git curl ffmpeg' scripts/install/setup-processor.sh \
+  && echo "PASS: processor setup installs release media tools" || { echo "FAIL: ffmpeg install missing"; fail=1; }
+grep -q 'FM_PROCESSOR_HUGGINGFACE_HOME:-/data/fm-data-runs/huggingface' scripts/service/processor-boot.sh \
+  && echo "PASS: Hugging Face auth state uses persistent processor storage" || { echo "FAIL: persistent Hugging Face auth path missing"; fail=1; }
 grep -q 'FM_AWS_INFERENCE_SERVICE_MODE' scripts/install/install-processor-service.sh \
   && grep -q 'FM_AWS_INFERENCE_READINESS_DIR' scripts/install/install-processor-service.sh \
   && echo "PASS: processor service exposes the explicit Ohio readiness route" || { echo "FAIL: Ohio readiness route missing"; fail=1; }
