@@ -65,15 +65,15 @@ CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$HOME/.cache/fm-archive}"
 STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$HOME/.cache/fm-archive/staged}"
 LEROBOT_CATALOGUE_FILE="${FM_ARCHIVE_LEROBOT_CATALOGUE_FILE:-}"
 LEROBOT_STAGE_DIR="${FM_ARCHIVE_LEROBOT_STAGE_DIR:-$HOME/.cache/fm-archive/lerobot-staged}"
-INDEX_TOPIC="${FM_ARCHIVE_INDEX_TOPIC:-/archive/index}"
-STATUS_TOPIC="${FM_ARCHIVE_STATUS_TOPIC:-/archive/status}"
 
 echo "archive-boot: starting the local archive browser"
+# These are bridge contract topics, shared with Desktop. Keep them fixed so a
+# stale env-file override cannot make a healthy reader invisible to the app.
 exec ros2 run fm_data_archive archive_browser --ros-args \
   -p cache_dir:="$CACHE_DIR" \
-  -p index_topic:="$INDEX_TOPIC" \
+  -p index_topic:=/archive/index \
   -p detail_topic:=/archive/detail \
-  -p status_topic:="$STATUS_TOPIC" \
+  -p status_topic:=/archive/status \
   -p select_topic:=/archive/select \
   -p sync_topic:=/archive/sync \
   -p stage_topic:=/archive/stage \

@@ -41,8 +41,23 @@ grep -q 'BACKBLAZE_B2_PROCARCH_KEY_ID=' scripts/install/install-archive-service.
 grep -q 'BACKBLAZE_B2_PROCARCH_APPLICATION_KEY=' scripts/install/install-archive-service.sh
 grep -q 'FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1' scripts/install/install-archive-service.sh
 
-# The archive reader keeps its existing catalogue and stage contract. The
-# uploader publishes the separate storage-state contract under canonical topics.
+# The archive reader keeps its existing catalogue and stage contract. Its six
+# bridge topics are fixed because Desktop subscribes to these exact names.
+for topic in /archive/index /archive/detail /archive/status /archive/select \
+  /archive/sync /archive/stage; do
+  grep -q -- "$topic" scripts/service/archive-boot.sh || {
+    echo "reader topic missing: $topic" >&2
+    exit 1
+  }
+done
+if grep -qE 'FM_ARCHIVE_(INDEX|STATUS)_TOPIC|INDEX_TOPIC|STATUS_TOPIC' \
+  scripts/service/archive-boot.sh; then
+  echo "archive reader allows a topic override outside the Desktop contract" >&2
+  exit 1
+fi
+
+# The uploader publishes the separate storage-state contract under the same
+# canonical topic names that Desktop uses.
 grep -q '/archive/index /archive/status /archive/stage' \
   scripts/service/archive-check.sh
 
@@ -55,7 +70,6 @@ grep -q 'FM_ARCHIVE_STAGE_ENABLED=false' scripts/install/install-archive-service
 grep -q 'FM_ARCHIVE_LEROBOT_CATALOGUE_FILE=' scripts/install/install-archive-service.sh
 grep -q 'FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false' scripts/install/install-archive-service.sh
 grep -q -- '-p stage_topic:=/archive/stage' scripts/service/archive-boot.sh
-grep -q -- 'FM_ARCHIVE_STATUS_TOPIC:-/archive/status' scripts/service/archive-boot.sh
 grep -q -- '-p lerobot_catalogue_file:' scripts/service/archive-boot.sh
 grep -q -- '-p lerobot_stage_dir:' scripts/service/archive-boot.sh
 grep -q -- '-p lerobot_stage_enabled:' scripts/service/archive-boot.sh

@@ -34,6 +34,10 @@ for topic in /archive/storage/index /archive/storage/status /archive/upload/retr
   /archive/retention/verify /archive/retention/delete; do
   grep -q -- "$topic" "$BOOT" || fail "uploader topic missing: $topic"
 done
+if grep -qE 'FM_ARCHIVE_UPLOADER_(INDEX|STATUS|RETRY|VERIFY|DELETE)_TOPIC|INDEX_TOPIC|STATUS_TOPIC|RETRY_TOPIC|VERIFY_TOPIC|DELETE_TOPIC' \
+  "$BOOT" "$INSTALLER"; then
+  fail "uploader allows a topic override outside the Desktop contract"
+fi
 for param in recordings_dir state_dir upload_enabled deletion_enabled dry_run min_retention_days \
   eligibility_window_minutes max_concurrent_uploads max_bandwidth_bytes_s; do
   grep -q -- "-p $param:" "$BOOT" || fail "uploader parameter missing: $param"
@@ -112,6 +116,25 @@ pass "installer dry-run is read-only"
 
 output="$(FM_ARCHIVE_UPLOADER_ENABLED=false bash "$BOOT")"
 grep -q disabled <<<"$output" || fail "default-off boot did not exit cleanly"
+
+# Dry-run is a local discovery/reporting mode. It must get past the provider
+# credential gate even on a fresh tower; the later ROS/package check may still
+# refuse this host because no assembled workspace exists in the offline test.
+dry_output="$(env -u BACKBLAZE_B2_FMREC_KEY_ID \
+  -u BACKBLAZE_B2_FMREC_APPLICATION_KEY \
+  FM_ARCHIVE_UPLOADER_ENABLED=true \
+  FM_ARCHIVE_UPLOADER_DRY_RUN=true \
+  FM_ARCHIVE_UPLOADER_DELETE_ENABLED=false \
+  FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS=30 \
+  FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15 \
+  FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1 \
+  FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=8388608 \
+  bash "$BOOT" 2>&1 || true)"
+if grep -q 'write-scoped B2 credentials are absent' <<<"$dry_output"; then
+  fail "dry-run still requires provider credentials"
+fi
+pass "dry-run bypasses provider credentials before the assembled ROS workspace check"
+
 for invalid in \
   'FM_ARCHIVE_UPLOADER_ENABLED=invalid' \
   'FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS=29' \

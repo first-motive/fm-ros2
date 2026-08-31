@@ -53,10 +53,12 @@ case "${FM_ARCHIVE_UPLOADER_DRY_RUN:-false}" in
   *) echo "archive-uploader-boot: FM_ARCHIVE_UPLOADER_DRY_RUN must be true or false" >&2; exit 2 ;;
 esac
 
-if [ -z "${BACKBLAZE_B2_FMREC_KEY_ID:-}" ] ||
-   [ -z "${BACKBLAZE_B2_FMREC_APPLICATION_KEY:-}" ]; then
-  echo "archive-uploader-boot: enabled but the write-scoped B2 credentials are absent" >&2
-  exit 1
+if [ "${FM_ARCHIVE_UPLOADER_DRY_RUN:-false}" != true ]; then
+  if [ -z "${BACKBLAZE_B2_FMREC_KEY_ID:-}" ] ||
+     [ -z "${BACKBLAZE_B2_FMREC_APPLICATION_KEY:-}" ]; then
+    echo "archive-uploader-boot: enabled but the write-scoped B2 credentials are absent" >&2
+    exit 1
+  fi
 fi
 
 set +u
@@ -75,17 +77,16 @@ fi
 
 RECORDINGS_DIR="${FM_ARCHIVE_UPLOADER_RECORDINGS_DIR:-/data/recordings}"
 STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-$HOME/fm-data-runs/archive-uploader}"
-INDEX_TOPIC="${FM_ARCHIVE_UPLOADER_INDEX_TOPIC:-/archive/storage/index}"
-STATUS_TOPIC="${FM_ARCHIVE_UPLOADER_STATUS_TOPIC:-/archive/storage/status}"
-RETRY_TOPIC="${FM_ARCHIVE_UPLOADER_RETRY_TOPIC:-/archive/upload/retry}"
-VERIFY_TOPIC="${FM_ARCHIVE_UPLOADER_VERIFY_TOPIC:-/archive/retention/verify}"
-DELETE_TOPIC="${FM_ARCHIVE_UPLOADER_DELETE_TOPIC:-/archive/retention/delete}"
 
 echo "archive-uploader-boot: starting the uploader"
-# This live provider check is a hard start gate. It verifies bucket Object
-# Lock/default retention through B2 and fresh console evidence for the account
-# storage cap before the node can queue one byte.
-ros2 run fm_data_archive archive_preflight || exit $?
+# These are bridge contract topics, shared with Desktop. They are deliberately
+# fixed here; an env-file typo must not leave a healthy uploader invisible to the
+# app or route a command to an unrelated graph topic.
+# A live provider check is a hard start gate. It verifies bucket Object Lock,
+# default retention, and fresh account-cap evidence before one byte is queued.
+if [ "${FM_ARCHIVE_UPLOADER_DRY_RUN:-false}" != true ]; then
+  ros2 run fm_data_archive archive_preflight || exit $?
+fi
 exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p recordings_dir:="$RECORDINGS_DIR" \
   -p state_dir:="$STATE_DIR" \
@@ -96,8 +97,8 @@ exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p eligibility_window_minutes:="${FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES:-15}" \
   -p max_concurrent_uploads:="${FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS:-1}" \
   -p max_bandwidth_bytes_s:="${FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S:-8388608}" \
-  -p storage_index_topic:="$INDEX_TOPIC" \
-  -p status_topic:="$STATUS_TOPIC" \
-  -p retry_topic:="$RETRY_TOPIC" \
-  -p verify_topic:="$VERIFY_TOPIC" \
-  -p delete_topic:="$DELETE_TOPIC"
+  -p storage_index_topic:=/archive/storage/index \
+  -p status_topic:=/archive/storage/status \
+  -p retry_topic:=/archive/upload/retry \
+  -p verify_topic:=/archive/retention/verify \
+  -p delete_topic:=/archive/retention/delete

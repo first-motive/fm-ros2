@@ -116,13 +116,6 @@ BACKBLAZE_B2_FMREC_APPLICATION_KEY=
 FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=/data/recordings
 FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader
 
-# Closed ROS boundary. Desktop supplies only episode ids and request ids.
-FM_ARCHIVE_UPLOADER_INDEX_TOPIC=/archive/storage/index
-FM_ARCHIVE_UPLOADER_STATUS_TOPIC=/archive/storage/status
-FM_ARCHIVE_UPLOADER_RETRY_TOPIC=/archive/upload/retry
-FM_ARCHIVE_UPLOADER_VERIFY_TOPIC=/archive/retention/verify
-FM_ARCHIVE_UPLOADER_DELETE_TOPIC=/archive/retention/delete
-
 # Safe first-release policy. Do not lower the retention or eligibility floors.
 FM_ARCHIVE_UPLOADER_DRY_RUN=false
 FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS=30
