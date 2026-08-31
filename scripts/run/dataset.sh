@@ -51,10 +51,15 @@ dataset_exec() {
 # Deliberately not fatal, and deliberately host-side: the queryable's client is a
 # uv project in comms/, not a ROS package, and a processor with the episodes
 # already local must still process them when no recorder is reachable.
+# Set by the loop, which processes a throwaway scratch root rather than this
+# host's recordings. There is nothing to pull into it — the episodes it wants are
+# the ones it just recorded — and trying leaves half-written files owned by the
+# container's root user in a directory the host user then cannot clean.
 pull_episodes() {  # recordings-dir
   # Expanded HERE, unlike every other path in this verb: the pull runs on this
   # host, so a literal `~/recordings` would create a directory named `~`.
   local recordings="${1/#\~/$HOME}"
+  [[ -n "${FM_DATASET_NO_PULL:-}" ]] && return 0
   fm_processor_installed || return 0
   [[ -d comms/episodes ]] || return 0
   # uv is installed per-user, and a systemd unit or a non-interactive `ssh host cmd`

@@ -73,6 +73,11 @@ done
 
 cd "$(dirname "$0")/../.." || exit 1
 
+# The loop's episodes are the ones it records; there is nothing to fetch into a
+# scratch root, and a pull there writes files owned by the container's root user
+# into a directory this script later has to remove.
+export FM_DATASET_NO_PULL=1
+
 # The two raw `ros2` calls below need the same routing the verbs already do:
 # in place when this shell has ROS, through the sim container otherwise. The loop
 # runs on the workstation's HOST during the hardware gate, and that host has no
@@ -121,6 +126,9 @@ teardown() {
   # Keep the scratch root on a failure — the bag and the manifest are the only
   # evidence of what went wrong, and a red run is exactly when they are wanted.
   if [[ "$fails" -eq 0 ]]; then
+    # The recorder runs as root in the container, so the bags it wrote are not
+    # this user's to remove. Clear them from the same side that created them.
+    fm_stack_exec "$OVERLAY" rm -rf "/ws/$WORK" >/dev/null 2>&1 || true
     rm -rf "$WORK"
   else
     echo "loop: artifacts left at $WORK"
