@@ -55,10 +55,11 @@ The Mac consumes over ROS 2 DDS — no librealsense on the Mac. Both machines: s
 `ROS_DOMAIN_ID`, default FastDDS.
 
 Multiple NICs (Docker bridges on the Mac, Tailscale on Linux) break DDS delivery — discovery
-works but no data arrives, because FastDDS announces unreachable addresses. Fix: pin FastDDS to
-the LAN interface on **both** machines. `scripts/env/comms.sh` does this — it selects the comms
-profile (foxglove by default, which is `dds-lan.sh`: auto-detect the LAN IP, write a FastDDS
-whitelist profile, export the env). **Source it in every ROS terminal on both machines**
+works but no data arrives, because DDS announces unreachable addresses. Fix: confine DDS to
+each machine and let the zenoh bridge carry the traffic between them. `scripts/env/comms.sh`
+does this — it reads the machine's identity card and sources the zenoh profile (DDS pinned to
+loopback, Cyclone, the bridge handling everything cross-host; the old FastDDS LAN profile was
+removed when the transport gate passed). **Source it in every ROS terminal on both machines**
 (Linux: before `ros2 launch`; Mac: inside `pixi shell`):
 
 ```bash

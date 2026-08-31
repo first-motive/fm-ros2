@@ -32,7 +32,7 @@ repositories:
     # Pinned to a release tag, the way docker/ is — the transport must not move
     # under a running fleet, and a router and a bridge on different versions do
     # not interoperate.
-    version: v0.2.0-zenoh.8
+    version: v0.2.0-zenoh.10
   src/fm_robot:
     type: git
     url: https://github.com/first-motive/fm-robot.git
