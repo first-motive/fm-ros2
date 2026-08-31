@@ -129,6 +129,11 @@ jobs:
       - name: container joins the host's DDS island
         run: bash scripts/ci/test-compose-transport.sh
 
+      # A replaced container leaves the host bridge routing for participants that
+      # are gone, and every sample crosses twice. Silent — the rate just doubles.
+      - name: a replaced container does not double the fabric
+        run: bash scripts/ci/test-bridge-restart.sh
+
       # The processor role picks native Humble or the Humble container by host
       # (#127); the picker is stubbed here so a wrong branch fails in CI, not on
       # the workstation.

@@ -104,7 +104,14 @@ if [ "${FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING:-0}" = 1 ]; then
     exit 1
   fi
 else
-  "${FM_COMPOSE[@]}" up -d fm
+  # Same reason as the stack path: a replaced container leaves the host bridge
+  # routing for participants that no longer exist, doubling every stream.
+  _up_log="$(mktemp)"
+  "${FM_COMPOSE[@]}" up -d fm 2>&1 | tee "$_up_log"
+  if fm_compose_created_container "$_up_log"; then
+    fm_compose_restart_bridge
+  fi
+  rm -f "$_up_log"
 fi
 
 pass=()

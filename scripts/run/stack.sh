@@ -66,7 +66,16 @@ stack_up() {
     [[ -d docker ]] || vcs import <fm-ros2.repos
     fm_stack_compose "$overlay"
     echo ">> container up (idempotent)"
-    "${FM_COMPOSE[@]}" up -d
+    # Captured, not just printed: a container compose REPLACED leaves the host's
+    # zenoh bridge holding routes for the participants that went with the old one,
+    # and every sample then crosses the fabric twice.
+    local up_log
+    up_log="$(mktemp)"
+    "${FM_COMPOSE[@]}" up -d 2>&1 | tee "$up_log"
+    if fm_compose_created_container "$up_log"; then
+      fm_compose_restart_bridge
+    fi
+    rm -f "$up_log"
   fi
 
   # A publisher, never the topic name: a LAN subscriber (the Jetson recorder

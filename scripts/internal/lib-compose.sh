@@ -77,3 +77,45 @@ fm_compose_transport() {
   # is fixed by docker/compose.yaml.
   export FM_CYCLONEDDS_URI=file:///etc/fm-comms/cyclonedds.xml
 }
+
+# A replaced container is a new set of DDS participants, and the host's zenoh
+# bridge does not always retire the routes it held for the old ones — it keeps both
+# and publishes every sample twice. Nothing errors; the rate simply doubles, which
+# reads like a downsample cap that stopped working. Measured on fm-ws-01
+# (2026-08-31): /joint_states 90 Hz against a 50 Hz cap, /tf 36 Hz against a 17 Hz
+# source, both exactly halved by restarting the bridge.
+#
+# This lives here rather than in one verb because every path that creates a
+# container has the problem — `fm stack up`, the launcher, and the processor's
+# service entry all do their own `up -d`.
+#
+# The real fix belongs upstream, in the bridge's own discovery: a route whose DDS
+# writer is gone should be retired without anyone restarting anything.
+
+# fm_compose_created_container <compose-log-file>
+# 0 when compose reported creating or recreating a container in that run.
+fm_compose_created_container() {  # compose-log-file
+  local log="${1:?compose log}"
+  [ -f "$log" ] || return 1
+  grep -qE '(Created|Recreated)[[:space:]]*$' "$log"
+}
+
+# fm_compose_restart_bridge
+# Restart this host's zenoh bridge so it rediscovers the container's graph from
+# scratch. Best-effort: a laptop with no bridge unit, or one where the operator
+# holds sudo, still gets its stack — it just keeps whatever routes it had.
+#
+# Only under the profile that put the container in the host's DDS island in the
+# first place. FM_CYCLONEDDS_XML is set exactly then (see fm_compose_transport), so
+# it is the condition rather than a second copy of the reasoning.
+fm_compose_restart_bridge() {
+  [ -n "${FM_CYCLONEDDS_XML:-}" ] || return 0
+  command -v systemctl >/dev/null 2>&1 || return 0
+  systemctl is-active --quiet fm-zenoh-bridge 2>/dev/null || return 0
+  if sudo -n systemctl restart fm-zenoh-bridge 2>/dev/null; then
+    echo ">> restarted fm-zenoh-bridge — the container was replaced under it"
+  else
+    echo ">> NOTE: the container was replaced; restart the bridge to drop its stale routes:" >&2
+    echo ">>       sudo systemctl restart fm-zenoh-bridge" >&2
+  fi
+}
