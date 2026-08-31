@@ -20,7 +20,7 @@ repositories:
     # The tag that carries the container's half of the transport: under the zenoh
     # profile the compose base puts a host-networked container in the host's own
     # loopback DDS island, where its bridge is listening (#148).
-    version: v0.2.0-zenoh.2
+    version: v0.1.4
   # Zenoh transport configs, systemd units, and deploy scripts. Imported into
   # comms/ beside docker/ rather than src/: it carries no ROS packages and ships
   # a COLCON_IGNORE, so colcon never descends into it. Only the zenoh comms
@@ -32,7 +32,7 @@ repositories:
     # Pinned to a release tag, the way docker/ is — the transport must not move
     # under a running fleet, and a router and a bridge on different versions do
     # not interoperate.
-    version: v0.2.0-zenoh.10
+    version: v0.2.0
   src/fm_robot:
     type: git
     url: https://github.com/first-motive/fm-robot.git
