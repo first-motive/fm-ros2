@@ -181,15 +181,43 @@ command -v latest_release_tag >/dev/null 2>&1 || \
       | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ && !found { print; found=1 }'
   }
 
+# A checkout an operator deliberately moved off the release channel is pinned,
+# and the updater has no business converging it. Two shapes count: HEAD detached
+# at a tag that is not a stable release tag (a pre-release like v0.2.0-zenoh.2,
+# pinned for a gate run — #144), or a branch other than main. Detached at a
+# stable v* tag is the channel itself — that is where this updater parks every
+# checkout it converges — and an exact-main installation rides the ahead guard,
+# so both stay managed. Prints the pinning ref and succeeds, or fails.
+_pinned_ref() {  # dir
+  local dir="$1" branch tags
+  if branch="$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null)"; then
+    [ "$branch" = main ] && return 1
+    printf '%s\n' "$branch"
+    return 0
+  fi
+  tags="$(git -C "$dir" tag --points-at HEAD 2>/dev/null)" || return 1
+  [ -n "$tags" ] || return 1
+  grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' <<< "$tags" && return 1
+  head -n1 <<< "$tags"
+}
+
 # Fetch one repo's tags; report its release-channel state:
 #   current        HEAD is the newest v* tag
 #   behind <tag>   a newer v* tag exists — check it out
 #   ahead <tag>    HEAD contains the newest tag — wait for a release
 #   diverged <tag> HEAD and the newest tag do not share a forward update path
 #   untagged       no v* tag yet — the release channel has no target here
+#   pinned <ref>   HEAD sits where an operator put it — never moved
 #   held           dirty or unfetchable — never moved
 _repo_state() {  # dir
   local dir="$1"
+  # Before any fetch: a pinned checkout is not converged, so its state needs no
+  # network and must not depend on it.
+  local pin
+  if pin="$(_pinned_ref "$dir")"; then
+    echo "pinned $pin"
+    return
+  fi
   # Tag tips only, shallow when the repo is shallow (--depth 1 appliance
   # clones stay lean). --force: a re-cut tag moves.
   local shallow
@@ -325,6 +353,9 @@ main() {
       diverged\ *)
         item "WARNING: $(basename "$dir") diverges from ${state#diverged } — left alone (review the release lineage)"
         ;;
+      pinned\ *)
+        item "$(basename "$dir") pinned at ${state#pinned } — not touching it"
+        ;;
       held)
         item "WARNING: $(basename "$dir") is dirty or unfetchable — left alone"
         ;;
@@ -367,6 +398,9 @@ main() {
         ;;
       diverged\ *)
         item "WARNING: fm-setup diverges from ${state#diverged } — left alone (review the release lineage)"
+        ;;
+      pinned\ *)
+        item "fm-setup pinned at ${state#pinned } — not touching it"
         ;;
       held)
         item "WARNING: fm-setup is dirty or unfetchable — left alone"
