@@ -342,7 +342,7 @@ if ! in_container && ! grep -Fq "$ROOT/scripts/env/comms.sh" "$HOME/.bashrc" 2>/
   sed -i '\#scripts/run/comms.sh#d' "$HOME/.bashrc" 2>/dev/null || true
   {
     echo ""
-    echo "# fm_ros2 processor: the comms profile (default foxglove = DDS on the LAN)"
+    echo "# fm_ros2 processor: the configured comms profile (default zenoh)"
     echo "source \"$ROOT/scripts/env/comms.sh\""
   } >> "$HOME/.bashrc"
 fi

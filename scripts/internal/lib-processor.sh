@@ -257,6 +257,7 @@ fm_processor_supervisor_import_error() {  # workspace-root
   set +eu
   # shellcheck disable=SC1091
   . "$root/install/setup.bash" >/dev/null 2>&1
+  export PYTHONPATH="$root/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
   # Only the error text is wanted: stderr takes over the caller's stdout, then the
   # command's own stdout is dropped. Order matters — the redirections are applied
   # left to right, so this is not "both to /dev/null".
@@ -265,16 +266,19 @@ fm_processor_supervisor_import_error() {  # workspace-root
   return 0
 }
 
-# fm_processor_install_for_ros_python <module>
+# fm_processor_install_for_ros_python <workspace-root> <module>
 # Install one module for the ROS interpreter — never the engine venv, which only
-# the dataset_process subprocess uses.
-fm_processor_install_for_ros_python() {  # module
+# the dataset_process subprocess uses. Keep it in a bind-mounted workspace target
+# so a compose recreation cannot discard it with the old container.
+fm_processor_install_for_ros_python() {  # workspace-root module
+  local root="${1:?workspace root}" module="${2:?module}"
   if python3 -m pip --version >/dev/null 2>&1; then
-    python3 -m pip install --quiet "$1"
+    mkdir -p "$root/.ros-runtime"
+    python3 -m pip install --quiet --upgrade --target "$root/.ros-runtime" "$module"
   elif [ "$(id -u)" = 0 ]; then
-    apt-get install -y "python3-$1"
+    apt-get install -y "python3-$module"
   else
-    sudo apt-get install -y "python3-$1"
+    sudo apt-get install -y "python3-$module"
   fi
 }
 
@@ -296,7 +300,7 @@ fm_processor_heal_imports() {  # workspace-root
       none | fm_data*) break ;;
     esac
     echo "processor: installing '$module' for the ROS interpreter" >&2
-    fm_processor_install_for_ros_python "$module" || true
+    fm_processor_install_for_ros_python "$root" "$module" || true
   done
   error="$(fm_processor_supervisor_import_error "$root")"
   [ -z "$error" ] && return 0

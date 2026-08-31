@@ -46,7 +46,7 @@ mkdir -p "$WORK/install"
 echo "== a clean import needs no install =="
 installed=""
 # shellcheck disable=SC2329  # invoked by the library under test
-fm_processor_install_for_ros_python() { installed="$installed $1"; }
+fm_processor_install_for_ros_python() { installed="$installed $1|$2"; }
 # shellcheck disable=SC2329  # invoked by the library under test
 fm_processor_supervisor_import_error() { echo ""; }
 if fm_processor_heal_imports "$WORK"; then
@@ -73,7 +73,7 @@ if fm_processor_heal_imports "$WORK"; then
 else
   fail "the heal did not recover after installing the missing module"
 fi
-assert_installed "it installed exactly what was missing" " jsonschema"
+assert_installed "it installed exactly what was missing in the persistent workspace" " $WORK|jsonschema"
 
 echo "== a missing WORKSPACE package is a build problem, not a pip one =="
 installed=""
