@@ -77,8 +77,10 @@ fm_processor_is_jammy() {
 fm_processor_has_docker() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
 
 # Directories the processor overlay bind-mounts (compose.processor.yaml). Created
-# on the host before the first `up`, so docker never creates them root-owned.
-FM_PROCESSOR_MOUNTS=(recordings processed annotations fm-data-runs dataset-releases)
+# below the shared data root before the first `up`, so docker never creates them
+# root-owned. A provisioned workstation owns /data; a standalone developer host
+# falls back to HOME.
+FM_PROCESSOR_MOUNTS=(recordings processed annotations fm-data-runs dataset-releases lerobot-staged)
 
 # Roles Anywhere material is deliberately a separate, read-only mount set.  It
 # must never be folded into the HOME bind mount: the latter would expose SSH and
@@ -95,15 +97,30 @@ FM_PROCESSOR_IDENTITY_MOUNTS=(
 # shared base, the Linux overlay, and the processor overlay that mounts $HOME.
 # shellcheck disable=SC2034  # FM_COMPOSE is read by the caller
 fm_processor_compose() {
-  local root="$1"
+  local root="$1" transport_overlay
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$root"
+  export FM_PROCESSOR_UV_PYTHON_ROOT="${FM_PROCESSOR_UV_PYTHON_ROOT:-$HOME/.local/share/uv/python}"
+  [ -d "$FM_PROCESSOR_UV_PYTHON_ROOT" ] || {
+    echo "ERROR: managed uv Python root is missing: $FM_PROCESSOR_UV_PYTHON_ROOT" >&2
+    echo "       Run the processor setup from the provisioned workstation account." >&2
+    return 1
+  }
+  if [ -z "${FM_PROCESSOR_DATA_ROOT:-}" ]; then
+    if [ -d /data ] && [ -w /data ]; then
+      export FM_PROCESSOR_DATA_ROOT=/data
+    else
+      export FM_PROCESSOR_DATA_ROOT="$HOME"
+    fi
+  fi
   # The processor container is host-networked too, so it joins the host's DDS
   # island the same way the sim stack's does.
   fm_compose_transport "$root/docker/compose.linux.yaml"
   FM_COMPOSE=(docker compose -p "$(fm_compose_project processor)" \
     -f "$root/docker/compose.yaml" -f "$root/docker/compose.linux.yaml" \
     -f "$root/compose.processor.yaml")
+  transport_overlay="$(fm_compose_transport_overlay "$root")" || return 1
+  [ -n "$transport_overlay" ] && FM_COMPOSE+=(-f "$transport_overlay")
   if [ -f "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config" ]; then
     FM_COMPOSE+=(-f "$root/compose.processor.aws.yaml")
   fi
@@ -116,16 +133,35 @@ fm_processor_compose() {
 }
 
 # fm_processor_prepare_mounts
-# Create the bind-mounted data directories under $HOME, user-owned.
+# Create the bind-mounted data directories below the resolved shared data root.
 fm_processor_prepare_mounts() {  # [workspace-root]
-  local d key dir
-  for d in "${FM_PROCESSOR_MOUNTS[@]}"; do mkdir -p "$HOME/$d"; done
+  local d key dir target root="${FM_PROCESSOR_DATA_ROOT:-$HOME}"
+  # fm-setup owns the workstation recording root. Refusing an absent path keeps
+  # Docker and the processor setup from creating a plausible empty archive.
+  if [ "$root" = /data ] && [ ! -d /data/recordings ]; then
+    echo "ERROR: /data/recordings is missing; run the fm-setup users/storage step" >&2
+    return 1
+  fi
+  for d in "${FM_PROCESSOR_MOUNTS[@]}"; do
+    target="$root/$d"
+    mkdir -p "$target" 2>/dev/null && [ -d "$target" ] && [ -w "$target" ] || {
+      echo "ERROR: processor data directory cannot be prepared: $target" >&2
+      return 1
+    }
+  done
   # And the configured ones, for the same reason: a directory docker creates at
   # mount time is owned by root, and the role then cannot write to it.
   while IFS= read -r key; do
     [ -n "$key" ] || continue
     dir="$(fm_processor_env "$key")"
-    case "$dir" in /*) mkdir -p "$dir" 2>/dev/null || true ;; esac
+    case "$dir" in
+      /*)
+        mkdir -p "$dir" 2>/dev/null && [ -d "$dir" ] && [ -w "$dir" ] || {
+          echo "ERROR: configured processor directory cannot be prepared: $dir" >&2
+          return 1
+        }
+        ;;
+    esac
   done < <(fm_processor_mount_keys "${1:-$PWD}")
 }
 
@@ -236,6 +272,7 @@ fm_processor_supervisor_import_error() {  # workspace-root
   set +eu
   # shellcheck disable=SC1091
   . "$root/install/setup.bash" >/dev/null 2>&1
+  export PYTHONPATH="$root/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
   # Only the error text is wanted: stderr takes over the caller's stdout, then the
   # command's own stdout is dropped. Order matters — the redirections are applied
   # left to right, so this is not "both to /dev/null".
@@ -244,16 +281,19 @@ fm_processor_supervisor_import_error() {  # workspace-root
   return 0
 }
 
-# fm_processor_install_for_ros_python <module>
+# fm_processor_install_for_ros_python <workspace-root> <module>
 # Install one module for the ROS interpreter — never the engine venv, which only
-# the dataset_process subprocess uses.
-fm_processor_install_for_ros_python() {  # module
+# the dataset_process subprocess uses. Keep it in a bind-mounted workspace target
+# so a compose recreation cannot discard it with the old container.
+fm_processor_install_for_ros_python() {  # workspace-root module
+  local root="${1:?workspace root}" module="${2:?module}"
   if python3 -m pip --version >/dev/null 2>&1; then
-    python3 -m pip install --quiet "$1"
+    mkdir -p "$root/.ros-runtime"
+    python3 -m pip install --quiet --upgrade --target "$root/.ros-runtime" "$module"
   elif [ "$(id -u)" = 0 ]; then
-    apt-get install -y "python3-$1"
+    apt-get install -y "python3-$module"
   else
-    sudo apt-get install -y "python3-$1"
+    sudo apt-get install -y "python3-$module"
   fi
 }
 
@@ -275,7 +315,7 @@ fm_processor_heal_imports() {  # workspace-root
       none | fm_data*) break ;;
     esac
     echo "processor: installing '$module' for the ROS interpreter" >&2
-    fm_processor_install_for_ros_python "$module" || true
+    fm_processor_install_for_ros_python "$root" "$module" || true
   done
   error="$(fm_processor_supervisor_import_error "$root")"
   [ -z "$error" ] && return 0

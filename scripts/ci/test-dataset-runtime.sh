@@ -26,6 +26,10 @@ fail() {
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/uv-python"
+# The merged processor compose contract requires the provisioned host's managed
+# Python tree. This test stubs that prerequisite because it verifies routing only.
+export FM_PROCESSOR_UV_PYTHON_ROOT="$WORK/uv-python"
 
 echo "== the role marker decides =="
 FM_PROCESSOR_ENV_FILE="$WORK/absent.env"

@@ -72,6 +72,15 @@ case "${FM_BASE_PATHS[*]}" in
   *) fail "the base paths are a hardcoded list, not a discovery" ;;
 esac
 
+echo "== the assembled CI build uses the same discovery =="
+if grep -q 'fm_buildtree_base_paths /ws' .github/workflows/ci.yml \
+  && grep -q 'colcon build --symlink-install --base-paths' .github/workflows/ci.yml \
+  && grep -q 'colcon list --base-paths' .github/workflows/ci.yml; then
+  pass "CI build and test can see packages hidden by a repo metapackage"
+else
+  fail "CI bypasses the shared nested-package discovery"
+fi
+
 echo
 if [[ "$fails" -gt 0 ]]; then
   echo "$fails check(s) failed"

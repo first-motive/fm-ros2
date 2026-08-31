@@ -5,12 +5,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-grep -q 'FM_PROCESSOR_LEROBOT_IMPORTS_DIR=~/.cache/fm-archive/lerobot-staged' \
+grep -q 'FM_PROCESSOR_LEROBOT_IMPORTS_DIR=/data/lerobot-staged' \
   scripts/install/install-processor-service.sh
 grep -q 'FM_PROCESSOR_LEROBOT_IMPORTS_DIR' scripts/service/processor-boot.sh
 grep -q 'lerobot_imports_dir:=' scripts/service/processor-boot.sh
-grep -q 'FM_ARCHIVE_LEROBOT_STAGE_DIR=~/.cache/fm-archive/lerobot-staged' \
+grep -q 'FM_ARCHIVE_LEROBOT_STAGE_DIR=/data/lerobot-staged' \
   scripts/install/install-archive-service.sh
+grep -q 'lerobot-staged:/data/lerobot-staged' compose.processor.yaml
 
 # The launch file is imported under src/ before this CI check. An explicit
 # override lets a developer run the same source contract against a sibling

@@ -7,10 +7,10 @@
 # Brings the compose service up (idempotent), then execs the wrapper through the
 # image entrypoint so ROS and the overlay are sourced. The unit's environment
 # (its EnvironmentFile knobs) is passed through for FM_* and ROS_* values plus
-# the non-secret AWS profile/region selectors needed by credential_process. Do
-# not forward arbitrary AWS_* values: the archive service may still use static
-# B2 credentials, but those must not cross into the processor container's
-# Roles Anywhere process environment.
+# the non-secret AWS profile/region selectors needed by credential_process. The
+# two exact Backblaze credential pairs are the only static secrets allowed
+# through: each belongs to a separate service env file and is mapped to boto3
+# names inside that service's boot wrapper. Do not widen this allowlist.
 #
 # `docker compose exec` does not forward SIGTERM to the process it started, so
 # the unit pairs this with an ExecStop that stops the wrapper's launch by name.
@@ -90,6 +90,15 @@ if [ "$mode" = stop ]; then
 fi
 
 wrapper="${1:?boot wrapper path, relative to the workspace root}"
+# Archive siblings are read/write-adjacent to the processor but do not own its
+# lifecycle. Force their existing-only mode at the final boundary as well as in
+# their systemd units, so a stale or hand-edited env file cannot turn a bridge
+# restart into `compose up -d` and recreate the processor container.
+case "$wrapper" in
+  scripts/service/archive-boot.sh|scripts/service/archive-uploader-boot.sh)
+    export FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1
+    ;;
+esac
 # The normal processor service owns the container lifecycle and brings its role
 # container up when needed.  A standalone bridge must never do that: `up -d`
 # may recreate a prepared processor container when compose inputs changed, which
@@ -120,7 +129,29 @@ while IFS= read -r name; do
     FM_*|ROS_*|AWS_CONFIG_FILE|AWS_PROFILE|AWS_DEFAULT_PROFILE|AWS_REGION|AWS_DEFAULT_REGION|AWS_CA_BUNDLE)
       pass+=(-e "$name")
       ;;
+    BACKBLAZE_B2_PROCARCH_KEY_ID|BACKBLAZE_B2_PROCARCH_APPLICATION_KEY|\
+    BACKBLAZE_B2_FMREC_KEY_ID|BACKBLAZE_B2_FMREC_APPLICATION_KEY)
+      # Static B2 credentials are service-scoped. Never leak them into the
+      # processor supervisor or an unrelated role wrapper just because a human
+      # shell happened to export both pairs.
+      case "$wrapper" in
+        scripts/service/archive-boot.sh)
+          case "$name" in
+            BACKBLAZE_B2_PROCARCH_KEY_ID|BACKBLAZE_B2_PROCARCH_APPLICATION_KEY)
+              pass+=(-e "$name")
+              ;;
+          esac
+          ;;
+        scripts/service/archive-uploader-boot.sh)
+          case "$name" in
+            BACKBLAZE_B2_FMREC_KEY_ID|BACKBLAZE_B2_FMREC_APPLICATION_KEY)
+              pass+=(-e "$name")
+              ;;
+          esac
+          ;;
+      esac
+      ;;
   esac
-done < <(env | grep -E '^(FM_|ROS_|AWS_)' | cut -d= -f1)
+done < <(env | grep -E '^(FM_|ROS_|AWS_|BACKBLAZE_)' | cut -d= -f1)
 
 exec "${FM_COMPOSE[@]}" exec ${pass[@]+"${pass[@]}"} fm /ros_entrypoint.sh bash "/ws/$wrapper"

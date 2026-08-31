@@ -39,8 +39,9 @@ assert_var() {
 
 # The profile file comms-zenoh.sh writes on the host. Faked here so the test needs
 # no sourced profile and leaves no trace in the runner's $HOME.
-HOST_XML="$(mktemp)"
-trap 'rm -f "$HOST_XML"' EXIT
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+HOST_XML="$WORK/cyclonedds.xml"
 echo "<CycloneDDS/>" > "$HOST_XML"
 
 # The two inputs are what a sourced comms profile leaves in the environment.
@@ -58,6 +59,13 @@ assert_var "DDS is confined to the shared loopback" ROS_LOCALHOST_ONLY 1
 assert_var "the host's profile is mounted in" FM_CYCLONEDDS_XML "$HOST_XML"
 assert_var "the container reads it at the mount path" \
   FM_CYCLONEDDS_URI file:///etc/fm-comms/cyclonedds.xml
+transport_overlay="$(fm_compose_transport_overlay "$WORK")"
+if grep -q "${HOST_XML}:/etc/fm-comms/cyclonedds.xml:ro" "$transport_overlay" \
+  && grep -q 'CYCLONEDDS_URI: "file:///etc/fm-comms/cyclonedds.xml"' "$transport_overlay"; then
+  pass "compose receives the loopback profile and its container URI"
+else
+  fail "the resolved transport never enters the compose service"
+fi
 
 echo "== zenoh, macOS (the container has its own loopback) =="
 reset zenoh "file://$HOST_XML"
@@ -70,6 +78,11 @@ reset dds-lan ""
 fm_compose_transport docker/compose.linux.yaml
 assert_var "DDS is left free to leave the container" ROS_LOCALHOST_ONLY ""
 assert_var "no profile is mounted" FM_CYCLONEDDS_XML ""
+if [ -n "$(fm_compose_transport_overlay "$WORK")" ] || [ -f "$WORK/.fm-compose-transport.yaml" ]; then
+  fail "dds-lan retained the zenoh transport overlay"
+else
+  pass "a profile without a loopback island gets no transport overlay"
+fi
 
 echo "== none: this shell's middleware is left exactly as it was found =="
 reset none ""
@@ -102,6 +115,14 @@ if [[ -n "$warning" ]]; then
 else
   fail "a missing loopback profile produced no warning"
 fi
+
+for caller in scripts/internal/lib-stack.sh scripts/internal/lib-processor.sh scripts/internal/container.sh; do
+  if grep -q 'fm_compose_transport_overlay' "$caller"; then
+    pass "$(basename "$caller") adds the transport overlay"
+  else
+    fail "$(basename "$caller") drops the resolved transport before compose"
+  fi
+done
 
 echo
 if [[ "$fails" -gt 0 ]]; then

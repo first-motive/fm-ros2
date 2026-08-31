@@ -15,12 +15,21 @@ source scripts/internal/lib-stack.sh
 # shellcheck source=../internal/lib-processor.sh disable=SC1091
 source scripts/internal/lib-processor.sh
 
+processor_uv_root="$(mktemp -d)"
+trap 'rm -rf "$processor_uv_root"' EXIT
+export FM_PROCESSOR_UV_PYTHON_ROOT="$processor_uv_root"
+
 fails=0
 pass() { echo "PASS: $1"; }
 fail() {
   echo "FAIL: $1"
   fails=$((fails + 1))
 }
+
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/uv-python"
+export FM_PROCESSOR_UV_PYTHON_ROOT="$WORK/uv-python"
 
 # assert_project <description> <expected> <invocation...>
 assert_project() {

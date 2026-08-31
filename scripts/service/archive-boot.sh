@@ -48,17 +48,35 @@ if ! ros2 pkg prefix fm_data_archive >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
-  echo "archive-boot: enabled but the read-only B2 credentials are absent" >&2
+if [ -z "${BACKBLAZE_B2_PROCARCH_KEY_ID:-}" ] ||
+   [ -z "${BACKBLAZE_B2_PROCARCH_APPLICATION_KEY:-}" ]; then
+  echo "archive-boot: enabled but the read-only processor-archive B2 credentials are absent" >&2
   exit 1
 fi
 
-CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$HOME/.cache/fm-archive}"
-STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$HOME/.cache/fm-archive/staged}"
+# The object-store adapter consumes the standard boto3 names. Keep the
+# canonical 1Password names in the service environment and export these only
+# in the node's process environment; they are never printed or passed as ROS
+# arguments. The uploader has its own service and credential pair.
+export AWS_ACCESS_KEY_ID="$BACKBLAZE_B2_PROCARCH_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$BACKBLAZE_B2_PROCARCH_APPLICATION_KEY"
+
+ARCHIVE_DATA_ROOT=/data
+if [ ! -d "$ARCHIVE_DATA_ROOT" ] || [ ! -w "$ARCHIVE_DATA_ROOT" ]; then
+  ARCHIVE_DATA_ROOT="$HOME"
+fi
+CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-cache}"
+STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-cache/staged}"
 LEROBOT_CATALOGUE_FILE="${FM_ARCHIVE_LEROBOT_CATALOGUE_FILE:-}"
-LEROBOT_STAGE_DIR="${FM_ARCHIVE_LEROBOT_STAGE_DIR:-$HOME/.cache/fm-archive/lerobot-staged}"
+LEROBOT_STAGE_DIR="${FM_ARCHIVE_LEROBOT_STAGE_DIR:-$ARCHIVE_DATA_ROOT/lerobot-staged}"
+LEROBOT_CATALOGUE_ARGS=()
+if [ -n "$LEROBOT_CATALOGUE_FILE" ]; then
+  LEROBOT_CATALOGUE_ARGS=(-p "lerobot_catalogue_file:=$LEROBOT_CATALOGUE_FILE")
+fi
 
 echo "archive-boot: starting the local archive browser"
+# These are bridge contract topics, shared with Desktop. Keep them fixed so a
+# stale env-file override cannot make a healthy reader invisible to the app.
 exec ros2 run fm_data_archive archive_browser --ros-args \
   -p cache_dir:="$CACHE_DIR" \
   -p index_topic:=/archive/index \
@@ -69,7 +87,7 @@ exec ros2 run fm_data_archive archive_browser --ros-args \
   -p stage_topic:=/archive/stage \
   -p stage_dir:="$STAGE_DIR" \
   -p stage_enabled:="${FM_ARCHIVE_STAGE_ENABLED:-false}" \
-  -p lerobot_catalogue_file:="$LEROBOT_CATALOGUE_FILE" \
+  ${LEROBOT_CATALOGUE_ARGS[@]+"${LEROBOT_CATALOGUE_ARGS[@]}"} \
   -p lerobot_stage_dir:="$LEROBOT_STAGE_DIR" \
   -p lerobot_stage_enabled:="${FM_ARCHIVE_LEROBOT_STAGE_ENABLED:-false}" \
   -p stage_max_objects:="${FM_ARCHIVE_MAX_OBJECTS:-16}" \

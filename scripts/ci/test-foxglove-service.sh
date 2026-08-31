@@ -34,7 +34,10 @@ WORKSPACE="$TMP_DIR/workspace"
 BIN="$TMP_DIR/bin"
 mkdir -p "$WORKSPACE/scripts/ci" "$WORKSPACE/scripts/env" \
   "$WORKSPACE/scripts/internal" "$WORKSPACE/scripts/install" \
-  "$WORKSPACE/scripts/service" "$WORKSPACE/docker" "$BIN"
+  "$WORKSPACE/scripts/service" "$WORKSPACE/docker" "$BIN" \
+  "$TMP_DIR/uv-python"
+
+export FM_PROCESSOR_UV_PYTHON_ROOT="$TMP_DIR/uv-python"
 
 cp "$ROOT/lib.sh" "$WORKSPACE/"
 cp "$ROOT/scripts/env/bridge.sh" "$WORKSPACE/scripts/env/"

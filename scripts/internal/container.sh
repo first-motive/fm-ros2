@@ -271,6 +271,7 @@ ensure_ws_live() {
 }
 
 main() {
+  local transport_overlay
   # OVERLAY / OPEN_FOXGLOVE / OPEN_WEBGUI / COMPOSE / SERVICE / HOST / FM_WS stay global
   # (no `local`) so the forked open_views_when_ready watcher sees them.
   OVERLAY=""
@@ -359,6 +360,8 @@ main() {
 
   COMPOSE=(docker compose -p "$(fm_compose_project sim)"
     -f docker/compose.yaml -f "$OVERLAY")
+  transport_overlay="$(fm_compose_transport_overlay "$PWD")" || return 1
+  [[ -n "$transport_overlay" ]] && COMPOSE+=(-f "$transport_overlay")
   SERVICE=fm
 
   # The panel auto-open is viewer-driven: only the `panel` viewer opens the fm_viewer

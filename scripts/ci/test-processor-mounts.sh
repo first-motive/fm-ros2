@@ -25,6 +25,25 @@ fail() {
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/uv-python"
+export FM_PROCESSOR_UV_PYTHON_ROOT="$WORK/uv-python"
+
+echo "== mount preparation fails closed =="
+printf 'not a directory\n' > "$WORK/not-a-directory"
+if (FM_PROCESSOR_DATA_ROOT="$WORK/not-a-directory" fm_processor_prepare_mounts "$WORK" >/dev/null 2>&1); then
+  fail "an invalid shared data root was accepted"
+else
+  pass "an invalid shared data root stops before compose can create placeholders"
+fi
+cat > "$WORK/invalid-env" <<ENV
+FM_PROCESSOR_RECORDINGS_DIR=$WORK/not-a-directory/recordings
+ENV
+if (FM_PROCESSOR_DATA_ROOT="$WORK/data" FM_PROCESSOR_ENV_FILE="$WORK/invalid-env" \
+  fm_processor_prepare_mounts "$WORK" >/dev/null 2>&1); then
+  fail "an invalid configured mount was accepted"
+else
+  pass "an invalid configured mount stops before compose can create it as root"
+fi
 
 cat > "$WORK/env" <<ENV
 FM_PROCESSOR_RECORDINGS_DIR=/data/recordings
