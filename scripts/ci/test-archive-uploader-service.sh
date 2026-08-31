@@ -68,6 +68,15 @@ EOF
 cat >"$TMP_DIR/bin/sudo" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+# Test the real privilege boundary without requiring root: a protected fixture
+# is unreadable to the installer, while commands routed through this sudo stub
+# receive the minimum owner-read bit they need.
+case "${1:-}" in
+  sed|grep)
+    target="${!#}"
+    [ -e "$target" ] && chmod u+r "$target"
+    ;;
+esac
 exec "$@"
 EOF
 cat >"$TMP_DIR/bin/systemctl" <<EOF
@@ -105,6 +114,13 @@ bash "$INSTALLER" install >/dev/null
 cmp -s "$TEST_UNIT" "$TMP_DIR/unit.snapshot" || fail "repeat install changed unit"
 cmp -s "$TEST_ENV" "$TMP_DIR/env.snapshot" || fail "repeat install changed env"
 pass "first and repeat installs converge without clobbering env"
+
+chmod 000 "$TEST_ENV"
+bash "$INSTALLER" install >/dev/null
+cmp -s "$TEST_ENV" "$TMP_DIR/env.snapshot" || fail "protected repeat install changed env"
+env_mode="$(stat -c '%a' "$TEST_ENV" 2>/dev/null || stat -f '%Lp' "$TEST_ENV")"
+[ "$env_mode" = 600 ] || fail "protected repeat install did not restore mode 600"
+pass "repeat install reads protected policy fields through sudo"
 
 # The container runtime uses the same role-owned processor project but an
 # existing-only entry. The generated unit carries the guard explicitly.
