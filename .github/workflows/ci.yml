@@ -152,6 +152,12 @@ jobs:
       - name: dataset verbs run where the engine is
         run: bash scripts/ci/test-dataset-runtime.sh
 
+      # A rig with a data volume points its knobs outside $HOME, and those
+      # directories have to cross into the container or the engine is handed a
+      # path it cannot see (#145).
+      - name: the processor mounts what it is configured with
+        run: bash scripts/ci/test-processor-mounts.sh
+
       # A non-Humble Linux processor uses its prepared Humble container for the
       # standalone Foxglove bridge. Exercise the existing-only route and scoped
       # stop helper with stubs; never launch systemd, Docker, or ROS in CI.
