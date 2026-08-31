@@ -1,6 +1,9 @@
 # 0004 — Zenoh-Only Transport Merges Behind a Hardware Gate
 
-**Status**: Proposed
+**Status**: Accepted (2026-08-31 — the hardware gate passed on the full fleet:
+Rune as router host, fm-ws-01, fm-rec-01, and the cockpit Mac; record in
+fm-comms#17. The FastDDS LAN profile is deleted; `FM_TRANSPORT=dds-lan` is
+answered with a removal notice and remains unsupported.)
 **Context**: ADR [0002](0002-no-rmw-zenoh-on-humble.md),
 [fm-comms](https://github.com/first-motive/fm-comms)
 
