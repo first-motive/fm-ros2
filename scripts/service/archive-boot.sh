@@ -65,6 +65,10 @@ CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$HOME/.cache/fm-archive}"
 STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$HOME/.cache/fm-archive/staged}"
 LEROBOT_CATALOGUE_FILE="${FM_ARCHIVE_LEROBOT_CATALOGUE_FILE:-}"
 LEROBOT_STAGE_DIR="${FM_ARCHIVE_LEROBOT_STAGE_DIR:-$HOME/.cache/fm-archive/lerobot-staged}"
+LEROBOT_CATALOGUE_ARGS=()
+if [ -n "$LEROBOT_CATALOGUE_FILE" ]; then
+  LEROBOT_CATALOGUE_ARGS=(-p "lerobot_catalogue_file:=$LEROBOT_CATALOGUE_FILE")
+fi
 
 echo "archive-boot: starting the local archive browser"
 # These are bridge contract topics, shared with Desktop. Keep them fixed so a
@@ -79,7 +83,7 @@ exec ros2 run fm_data_archive archive_browser --ros-args \
   -p stage_topic:=/archive/stage \
   -p stage_dir:="$STAGE_DIR" \
   -p stage_enabled:="${FM_ARCHIVE_STAGE_ENABLED:-false}" \
-  -p lerobot_catalogue_file:="$LEROBOT_CATALOGUE_FILE" \
+  ${LEROBOT_CATALOGUE_ARGS[@]+"${LEROBOT_CATALOGUE_ARGS[@]}"} \
   -p lerobot_stage_dir:="$LEROBOT_STAGE_DIR" \
   -p lerobot_stage_enabled:="${FM_ARCHIVE_LEROBOT_STAGE_ENABLED:-false}" \
   -p stage_max_objects:="${FM_ARCHIVE_MAX_OBJECTS:-16}" \

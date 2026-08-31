@@ -70,7 +70,9 @@ grep -q 'FM_ARCHIVE_STAGE_ENABLED=false' scripts/install/install-archive-service
 grep -q 'FM_ARCHIVE_LEROBOT_CATALOGUE_FILE=' scripts/install/install-archive-service.sh
 grep -q 'FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false' scripts/install/install-archive-service.sh
 grep -q -- '-p stage_topic:=/archive/stage' scripts/service/archive-boot.sh
-grep -q -- '-p lerobot_catalogue_file:' scripts/service/archive-boot.sh
+# shellcheck disable=SC2016  # Assert the literal shell variable guard.
+grep -q 'if \[ -n "$LEROBOT_CATALOGUE_FILE" \]' scripts/service/archive-boot.sh
+grep -q -- '-p "lerobot_catalogue_file:' scripts/service/archive-boot.sh
 grep -q -- '-p lerobot_stage_dir:' scripts/service/archive-boot.sh
 grep -q -- '-p lerobot_stage_enabled:' scripts/service/archive-boot.sh
 
