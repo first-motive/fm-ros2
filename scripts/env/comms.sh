@@ -37,8 +37,23 @@
 #     FM_TRANSPORT=dds-lan source scripts/env/comms.sh
 
 # Self-locating: ~/.bashrc sources this from an arbitrary cwd, so the workspace
-# root (and with it .fm_ros2.json) is resolved from this file's own path.
-_fm_comms_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# root (and with it .fm_ros2.json) is resolved from this file's own path. zsh —
+# the macOS default shell — has no BASH_SOURCE; without its %x prompt escape the
+# root would silently resolve to the cwd's parent and read the wrong
+# .fm_ros2.json. The zsh expansion hides inside eval so bash never parses it —
+# and inside eval only %x still names the sourced file (%N names the eval).
+_fm_comms_self="${BASH_SOURCE[0]:-}"
+if [ -z "$_fm_comms_self" ] && [ -n "${ZSH_VERSION:-}" ]; then
+  eval '_fm_comms_self="${(%):-%x}"'
+fi
+if [ ! -f "$_fm_comms_self" ]; then
+  echo "comms: cannot locate myself — source this from bash or zsh; direct execution unsupported." >&2
+  unset _fm_comms_self
+  # shellcheck disable=SC2317  # reached when this file is executed, not sourced
+  return 1 2>/dev/null || exit 1
+fi
+_fm_comms_root="$(cd "$(dirname "$_fm_comms_self")/../.." && pwd)"
+unset _fm_comms_self
 
 # What every host gets when nothing says otherwise.
 _fm_comms_default=zenoh
