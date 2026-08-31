@@ -97,7 +97,7 @@ FM_PROCESSOR_IDENTITY_MOUNTS=(
 # shared base, the Linux overlay, and the processor overlay that mounts $HOME.
 # shellcheck disable=SC2034  # FM_COMPOSE is read by the caller
 fm_processor_compose() {
-  local root="$1"
+  local root="$1" transport_overlay
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$root"
   export FM_PROCESSOR_UV_PYTHON_ROOT="${FM_PROCESSOR_UV_PYTHON_ROOT:-$HOME/.local/share/uv/python}"
@@ -119,6 +119,8 @@ fm_processor_compose() {
   FM_COMPOSE=(docker compose -p "$(fm_compose_project processor)" \
     -f "$root/docker/compose.yaml" -f "$root/docker/compose.linux.yaml" \
     -f "$root/compose.processor.yaml")
+  transport_overlay="$(fm_compose_transport_overlay "$root")" || return 1
+  [ -n "$transport_overlay" ] && FM_COMPOSE+=(-f "$transport_overlay")
   if [ -f "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config" ]; then
     FM_COMPOSE+=(-f "$root/compose.processor.aws.yaml")
   fi
@@ -133,20 +135,33 @@ fm_processor_compose() {
 # fm_processor_prepare_mounts
 # Create the bind-mounted data directories below the resolved shared data root.
 fm_processor_prepare_mounts() {  # [workspace-root]
-  local d key dir root="${FM_PROCESSOR_DATA_ROOT:-$HOME}"
+  local d key dir target root="${FM_PROCESSOR_DATA_ROOT:-$HOME}"
   # fm-setup owns the workstation recording root. Refusing an absent path keeps
   # Docker and the processor setup from creating a plausible empty archive.
   if [ "$root" = /data ] && [ ! -d /data/recordings ]; then
     echo "ERROR: /data/recordings is missing; run the fm-setup users/storage step" >&2
     return 1
   fi
-  for d in "${FM_PROCESSOR_MOUNTS[@]}"; do mkdir -p "$root/$d"; done
+  for d in "${FM_PROCESSOR_MOUNTS[@]}"; do
+    target="$root/$d"
+    mkdir -p "$target" 2>/dev/null && [ -d "$target" ] && [ -w "$target" ] || {
+      echo "ERROR: processor data directory cannot be prepared: $target" >&2
+      return 1
+    }
+  done
   # And the configured ones, for the same reason: a directory docker creates at
   # mount time is owned by root, and the role then cannot write to it.
   while IFS= read -r key; do
     [ -n "$key" ] || continue
     dir="$(fm_processor_env "$key")"
-    case "$dir" in /*) mkdir -p "$dir" 2>/dev/null || true ;; esac
+    case "$dir" in
+      /*)
+        mkdir -p "$dir" 2>/dev/null && [ -d "$dir" ] && [ -w "$dir" ] || {
+          echo "ERROR: configured processor directory cannot be prepared: $dir" >&2
+          return 1
+        }
+        ;;
+    esac
   done < <(fm_processor_mount_keys "${1:-$PWD}")
 }
 

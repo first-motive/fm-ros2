@@ -85,6 +85,7 @@ fm_stack_inplace() { command -v ros2 >/dev/null 2>&1; }
 # Fill the FM_COMPOSE array with the compose invocation for that overlay. An
 # array, not a string, because the paths must survive word splitting.
 fm_stack_compose() {
+  local transport_overlay
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$PWD"
   # Resolved on every call, not only on the ones that start a container: a verb
@@ -94,6 +95,8 @@ fm_stack_compose() {
   fm_compose_transport "$1"
   FM_COMPOSE=(docker compose -p "$(fm_compose_project sim)"
     -f docker/compose.yaml -f "$1")
+  transport_overlay="$(fm_compose_transport_overlay "$PWD")" || return 1
+  [ -n "$transport_overlay" ] && FM_COMPOSE+=(-f "$transport_overlay")
 }
 
 # fm_stack_exec <overlay> <command...>

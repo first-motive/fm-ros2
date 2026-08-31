@@ -50,7 +50,8 @@ grep -q 'FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS=30' "$INSTALLER" || fail "retent
 grep -q 'FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15' "$INSTALLER" || fail "eligibility floor drifted"
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1' "$INSTALLER" || fail "concurrency default drifted"
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=8388608' "$INSTALLER" || fail "bandwidth ceiling drifted"
-grep -q 'FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=/data/recordings' "$INSTALLER" || fail "authoritative recording root drifted"
+grep -q 'fm_processor_env FM_PROCESSOR_RECORDINGS_DIR' "$INSTALLER" || fail "uploader ignores the processor recording root"
+grep -q 'ARCHIVE_DATA_ROOT/fm-data-runs/archive-uploader' "$BOOT" || fail "uploader state is not on persistent data storage"
 grep -q -- 'recordings:/data/recordings' "$ROOT/compose.processor.yaml" || fail "processor container does not mount the authoritative recording root"
 grep -q 'archive_preflight' "$BOOT" || fail "live provider preflight gate is absent"
 grep -q 'FM_ARCHIVE_STORAGE_CAP_BYTES=' "$INSTALLER" || fail "storage-cap evidence field is absent"
@@ -60,6 +61,10 @@ fi
 pass "uploader contract names, topics, policy, and no-delete boundary"
 
 mkdir -p "$TMP_DIR/bin" "$TMP_DIR/etc" "$TMP_DIR/systemd"
+cat > "$TMP_DIR/etc/fm-processor.env" <<EOF
+FM_PROCESSOR_RECORDINGS_DIR=$TMP_DIR/data/recordings
+FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=$TMP_DIR/data/fm-data-runs/annotation-attempts
+EOF
 cat >"$TMP_DIR/bin/sudo" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -78,6 +83,7 @@ EOF
 chmod +x "$TMP_DIR/bin/sudo" "$TMP_DIR/bin/systemctl" "$TMP_DIR/bin/uname"
 export PATH="$TMP_DIR/bin:$PATH"
 export FM_PROCESSOR_RUNTIME=native
+export FM_TRANSPORT=none
 export FM_ARCHIVE_UPLOADER_SERVICE_TEST_MODE=1
 export FM_ARCHIVE_UPLOADER_SERVICE_TEST_ROOT="$TMP_DIR"
 TEST_UNIT="$TMP_DIR/systemd/fm-archive-uploader.service"
@@ -87,6 +93,10 @@ TEST_ENV="$TMP_DIR/etc/fm-archive-uploader.env"
 bash "$INSTALLER" install >/dev/null
 [ -f "$TEST_UNIT" ] || fail "first install did not write unit"
 [ -f "$TEST_ENV" ] || fail "first install did not write env"
+grep -q "FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=$TMP_DIR/data/recordings" "$TEST_ENV" || \
+  fail "uploader did not inherit the processor recording root"
+grep -q "FM_ARCHIVE_UPLOADER_STATE_DIR=$TMP_DIR/data/fm-data-runs/archive-uploader" "$TEST_ENV" || \
+  fail "uploader state does not share the processor persistent root"
 env_mode="$(stat -c '%a' "$TEST_ENV" 2>/dev/null || stat -f '%Lp' "$TEST_ENV")"
 [ "$env_mode" = 600 ] || fail "uploader env is not mode 600"
 cp "$TEST_UNIT" "$TMP_DIR/unit.snapshot"

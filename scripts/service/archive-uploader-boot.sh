@@ -75,8 +75,12 @@ if ! ros2 pkg prefix fm_data_archive >/dev/null 2>&1; then
   exit 1
 fi
 
-RECORDINGS_DIR="${FM_ARCHIVE_UPLOADER_RECORDINGS_DIR:-/data/recordings}"
-STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-$HOME/fm-data-runs/archive-uploader}"
+ARCHIVE_DATA_ROOT=/data
+if [ ! -d "$ARCHIVE_DATA_ROOT" ] || [ ! -w "$ARCHIVE_DATA_ROOT" ]; then
+  ARCHIVE_DATA_ROOT="$HOME"
+fi
+RECORDINGS_DIR="${FM_ARCHIVE_UPLOADER_RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordings}"
+STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-uploader}"
 
 echo "archive-uploader-boot: starting the uploader"
 # These are bridge contract topics, shared with Desktop. They are deliberately
