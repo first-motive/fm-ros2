@@ -232,7 +232,34 @@ compose_up() {
     rm -f "$log"
     exit "$rc"
   fi
+  # A replaced container is a new set of DDS participants, and the host's zenoh
+  # bridge does not always retire the routes it held for the old ones — it keeps
+  # both and publishes every sample twice. Nothing errors; the rate simply doubles,
+  # which reads like a downsample cap that stopped working (measured on fm-ws-01,
+  # 2026-08-31: /joint_states 90 Hz against a 50 Hz cap, /tf 36 Hz against a 17 Hz
+  # source, both exactly halved by this restart).
+  #
+  # Keyed on compose actually saying it created or recreated the container, so a
+  # warm re-run that reuses one leaves the fabric alone.
+  if grep -qiE '(Recreated|Created)$|(Recreated|Created) *$' "$log" \
+     && [ -n "${FM_CYCLONEDDS_XML:-}" ]; then
+    fm_restart_host_bridge
+  fi
   rm -f "$log"
+}
+
+# Restart this host's zenoh bridge, so it rediscovers the container's graph from
+# scratch. Best-effort by design: a laptop with no bridge unit, or one where the
+# operator holds sudo, still gets its stack — it just keeps whatever routes it had.
+fm_restart_host_bridge() {
+  command -v systemctl >/dev/null 2>&1 || return 0
+  systemctl is-active --quiet fm-zenoh-bridge 2>/dev/null || return 0
+  if sudo -n systemctl restart fm-zenoh-bridge 2>/dev/null; then
+    item "restarted fm-zenoh-bridge — the container was replaced under it"
+  else
+    item "NOTE: the container was replaced; restart the bridge to drop its stale routes:"
+    item "        sudo systemctl restart fm-zenoh-bridge"
+  fi
 }
 
 # Guarantee /ws is a LIVE bind mount before anything execs into it. `up -d` reports a

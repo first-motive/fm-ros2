@@ -57,12 +57,20 @@ pull_episodes() {  # recordings-dir
   local recordings="${1/#\~/$HOME}"
   fm_processor_installed || return 0
   [[ -d comms/episodes ]] || return 0
-  if ! command -v uv >/dev/null 2>&1; then
+  # uv is installed per-user, and a systemd unit or a non-interactive `ssh host cmd`
+  # does not get ~/.local/bin on PATH — the pull skipped itself on a rig that had
+  # uv all along (gate 4.2). Look where the installer puts it before giving up.
+  local uv=""
+  if command -v uv >/dev/null 2>&1; then
+    uv=uv
+  elif [[ -x "$HOME/.local/bin/uv" ]]; then
+    uv="$HOME/.local/bin/uv"
+  else
     echo ">> skipping the episode pull: uv is not installed" >&2
     return 0
   fi
   echo ">> pulling episodes this host is missing"
-  uv run --project comms/episodes episodes-fetch --recordings-dir "$recordings" \
+  "$uv" run --project comms/episodes episodes-fetch --recordings-dir "$recordings" \
     || echo ">> episode pull did not complete — processing what is already local" >&2
 }
 
