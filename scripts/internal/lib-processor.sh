@@ -107,6 +107,12 @@ fm_processor_compose() {
   if [ -f "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config" ]; then
     FM_COMPOSE+=(-f "$root/compose.processor.aws.yaml")
   fi
+  # Whatever directories this role is actually configured with, on top of the
+  # $HOME set the base overlay carries. Empty on a rig using the defaults.
+  local mounts
+  mounts="$(fm_processor_mounts_overlay "$root" || true)"
+  [ -n "$mounts" ] && FM_COMPOSE+=(-f "$mounts")
+  return 0
 }
 
 # fm_processor_prepare_mounts

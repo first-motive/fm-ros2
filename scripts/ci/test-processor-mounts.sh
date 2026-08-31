@@ -85,6 +85,20 @@ else
   fail "the overlay changes between runs — every up would recreate the container"
 fi
 
+echo "== the compose invocation actually carries it =="
+# The generator working is not the same as it being wired in. A wiring edit was
+# lost once and every check above still passed, so the invocation is asserted too.
+cat > "$WORK/env" <<ENV
+FM_PROCESSOR_RECORDINGS_DIR=/data/recordings
+ENV
+mkdir -p "$WORK/docker"
+fm_processor_compose "$WORK"
+if [[ "${FM_COMPOSE[*]}" == *".fm-processor-mounts.yaml"* ]]; then
+  pass "fm_processor_compose stacks the generated overlay in"
+else
+  fail "the overlay is generated and never passed to compose: ${FM_COMPOSE[*]}"
+fi
+
 echo "== a rig on the defaults gets nothing extra =="
 printf 'FM_PROCESSOR_RECORDINGS_DIR=%s/recordings\n' "$HOME" > "$WORK/env"
 fm_processor_mounts_overlay "$WORK" >/dev/null
@@ -92,6 +106,12 @@ if [[ -f "$rendered" ]]; then
   fail "an overlay was rendered for a rig that uses the \$HOME defaults"
 else
   pass "a default rig adds no overlay at all"
+fi
+fm_processor_compose "$WORK"
+if [[ "${FM_COMPOSE[*]}" == *".fm-processor-mounts.yaml"* ]]; then
+  fail "compose still points at an overlay that is no longer rendered"
+else
+  pass "a default rig's compose invocation carries no overlay"
 fi
 
 echo
