@@ -74,6 +74,30 @@ grep -q '"max_bandwidth_bytes_s":8388608' <<<"$protected_status" || {
 chmod 600 "$TMP_DIR/etc/archive.env" "$TMP_DIR/etc/uploader.env"
 pass "status reads exact fields from protected service environments"
 
+cat >"$TMP_DIR/bin/systemctl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  is-active) printf 'inactive\n'; exit 3 ;;
+  is-enabled) printf 'enabled\n' ;;
+  *) exit 1 ;;
+esac
+EOF
+chmod +x "$TMP_DIR/bin/systemctl"
+inactive_status="$(PATH="$TMP_DIR/bin:$PATH" \
+  FM_ARCHIVE_ENVFILE="$TMP_DIR/etc/archive.env" \
+  FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" \
+  "$VERB" status --json)"
+grep -q '"active":"inactive"' <<<"$inactive_status" || {
+  echo "$inactive_status" >&2
+  fail "status discarded systemctl's inactive state"
+}
+if grep -q 'inactive.*unknown' <<<"$inactive_status"; then
+  echo "$inactive_status" >&2
+  fail "status appended unknown to systemctl's inactive state"
+fi
+pass "status preserves inactive systemd states as one JSON value"
+
 printf '%s\n' 'FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=not-json' >>"$TMP_DIR/etc/uploader.env"
 if FM_ARCHIVE_ENVFILE="$TMP_DIR/etc/archive.env" \
   FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" \

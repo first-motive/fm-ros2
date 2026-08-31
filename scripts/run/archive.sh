@@ -53,12 +53,13 @@ env_value() { # file key
 }
 
 service_state() { # unit active|enabled|loaded
-  local unit="$1" query="$2"
+  local unit="$1" query="$2" state
   if ! command -v systemctl >/dev/null 2>&1; then
     printf 'unavailable\n'
     return 0
   fi
-  systemctl "$query" "$unit" 2>/dev/null || printf 'unknown\n'
+  state="$(systemctl "$query" "$unit" 2>/dev/null)" || true
+  printf '%s\n' "${state:-unknown}"
 }
 
 file_mode() { # path; prints a numeric mode or missing
