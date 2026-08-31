@@ -98,12 +98,12 @@ grep -q 'sudo chown -R.*release_venv' scripts/install/setup-processor.sh \
 grep -q 'FM_PROCESSOR_UV_PYTHON_ROOT' scripts/internal/lib-processor.sh \
   && grep -q '/home/fm/.local/share/uv/python:ro' compose.processor.yaml \
   && echo "PASS: container can execute the host-built release Python" || { echo "FAIL: release Python mount missing"; fail=1; }
-grep -q '\.ros-runtime' scripts/install/setup-processor.sh \
+grep -q '\.ros-runtime' scripts/internal/lib-processor.sh \
   && grep -q '\.ros-runtime' scripts/service/processor-boot.sh \
   && echo "PASS: ROS Python dependencies survive container recreation" || { echo "FAIL: persistent ROS Python runtime missing"; fail=1; }
 grep -q 'git curl ffmpeg' scripts/install/setup-processor.sh \
   && echo "PASS: processor setup installs release media tools" || { echo "FAIL: ffmpeg install missing"; fail=1; }
-grep -q 'FM_PROCESSOR_HUGGINGFACE_HOME:-/data/fm-data-runs/huggingface' scripts/service/processor-boot.sh \
+grep -q 'FM_PROCESSOR_HUGGINGFACE_HOME:-$PROCESSOR_DATA_ROOT/fm-data-runs/huggingface' scripts/service/processor-boot.sh \
   && echo "PASS: Hugging Face auth state uses persistent processor storage" || { echo "FAIL: persistent Hugging Face auth path missing"; fail=1; }
 grep -q 'FM_AWS_INFERENCE_SERVICE_MODE' scripts/install/install-processor-service.sh \
   && grep -q 'FM_AWS_INFERENCE_READINESS_DIR' scripts/install/install-processor-service.sh \

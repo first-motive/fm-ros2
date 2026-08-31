@@ -84,8 +84,13 @@ RELEASE_HUGGINGFACE_CLI="${FM_PROCESSOR_RELEASE_HUGGINGFACE_CLI:-}"
 RELEASE_HUGGINGFACE_REPOSITORY="${FM_PROCESSOR_RELEASE_HUGGINGFACE_REPOSITORY:-}"
 RELEASE_RUNTIME_IMAGE_DIGEST="${FM_PROCESSOR_RELEASE_RUNTIME_IMAGE_DIGEST:-}"
 # Keep the user-authenticated Hub state in the processor's persistent data root.
+# The container always has /data; a native host without it uses the service home.
 # Login remains an explicit operator action; the service only selects the path.
-export HF_HOME="${FM_PROCESSOR_HUGGINGFACE_HOME:-/data/fm-data-runs/huggingface}"
+PROCESSOR_DATA_ROOT=/data
+if [ ! -d "$PROCESSOR_DATA_ROOT" ] || [ ! -w "$PROCESSOR_DATA_ROOT" ]; then
+  PROCESSOR_DATA_ROOT="$HOME"
+fi
+export HF_HOME="${FM_PROCESSOR_HUGGINGFACE_HOME:-$PROCESSOR_DATA_ROOT/fm-data-runs/huggingface}"
 # The release exporter has a Python 3.12 dependency contract that conflicts
 # with the ROS engine runtime. setup-processor.sh installs it separately and
 # these defaults activate it only when every required artifact is present.
@@ -195,10 +200,34 @@ set +u
 source /opt/ros/humble/setup.bash
 # shellcheck disable=SC1091
 source "$ROOT/install/setup.bash"
-# The comms profile — foxglove (dds-lan.sh) unless FM_COMMS or .fm_ros2.json says otherwise.
+# The comms profile — zenoh unless this machine's identity card, or FM_TRANSPORT,
+# says otherwise. A service reads the same card the rig's bridge renders from, so
+# the unit and the bridge cannot end up on different middleware.
 # shellcheck disable=SC1091
 source "$ROOT/scripts/env/comms.sh"
 set -u
+
+# The supervisors' Python deps, under the interpreter that will actually run them.
+#
+# On a Humble host setup-processor.sh healed these at install. On a host whose
+# processor runs in the container (#127) that heal ran against the HOST's
+# interpreter, which the nodes never use — and inside the container the miss is
+# still there. It surfaces as process_supervisor dying on `No module named
+# 'jsonschema'` seconds after systemd reports the service started (#134), which is
+# how a converged rig came back on a wiped container with the role dead.
+#
+# Idempotent: once the image carries them, this costs two imports and installs
+# nothing. Not fatal on its own — the launch below reports a still-broken import
+# with its own error, and a role that can start degraded beats one that refuses to.
+# shellcheck source=../internal/lib-processor.sh disable=SC1091
+source "$ROOT/scripts/internal/lib-processor.sh"
+# The engine's bag tier, for the same reason and on the same side: the container
+# has no engine venv, so the ingest deps belong under the ROS interpreter here.
+fm_processor_heal_bag_tier "$ROOT"
+if ! fm_processor_heal_imports "$ROOT"; then
+  echo "WARNING: the process supervisors still do not import — the launch below" >&2
+  echo "         will fail, and the error above says what is missing." >&2
+fi
 
 # ros2 launch rejects an empty-valued argument ("malformed launch argument
 # 'config:='"), so optional overrides are appended only when actually set —

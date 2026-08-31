@@ -27,22 +27,15 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
 
-# The fm_data checkout ships a metapackage package.xml at its REPO ROOT. colcon stops
-# descending the moment it finds a package.xml, so `src/fm_data` registers as the single
-# package `fm_data` and the six nested packages inside it (fm_data_record,
-# fm_data_sensors, …) are never built. Nothing errors — they are simply absent, and a
-# launch that needs one dies later with a bare "package 'fm_data_sensors' not found".
-#
-# Name those directories as extra base paths so they are discovered too. This mirrors
-# the data engine's own README and scripts/install/setup-recorder.sh, which pass the
-# same dirs explicitly. Discovered rather than hardcoded so a new fm_data_* package is
-# picked up without touching this script.
-base_paths=("$root")
-for candidate in "$root"/src/fm_data/*/; do
-  [ -f "${candidate}package.xml" ] && base_paths+=("${candidate%/}")
-done
+# Which base paths colcon needs to see the whole workspace — a repo that ships a
+# metapackage at its root hides the packages nested inside it, so those are named
+# explicitly. Shared with the container path's `fm build` verb, so the two cannot
+# drift into building different workspaces.
+# shellcheck source=lib-buildtree.sh disable=SC1091
+. "$here/lib-buildtree.sh"
+fm_buildtree_base_paths "$root"
 
-args=(--symlink-install --base-paths "${base_paths[@]}" --cmake-args
+args=(--symlink-install --base-paths "${FM_BASE_PATHS[@]}" --cmake-args
       -DPython_EXECUTABLE="$CONDA_PREFIX/bin/python"
       -DPython3_EXECUTABLE="$CONDA_PREFIX/bin/python")
 

@@ -1,6 +1,10 @@
 {
   "version": 1,
   "commands": {
+    "build": {
+      "script": "scripts/run/build.sh",
+      "help": "build every package in the workspace (src, external, nested repos)"
+    },
     "stack": {
       "script": "scripts/run/stack.sh",
       "help": "bring the robot stack up, inspect it, tear it down (sim by default)"

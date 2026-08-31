@@ -46,7 +46,7 @@ git clone https://github.com/first-motive/fm-ros2 fm_ros2 && cd fm_ros2
 ./install.sh                              # clone the package repos, vendor externals
 ./scripts/install/import-externals.sh     # vendor the pinned robot sources
 docker compose -f docker/compose.yaml -f docker/compose.macos.yaml \
-  run --rm fm colcon build --symlink-install
+  run --rm fm ./scripts/run/build.sh
 ```
 
 On Linux, swap `compose.macos.yaml` for `compose.linux.yaml`.

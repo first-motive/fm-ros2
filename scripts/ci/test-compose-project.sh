@@ -26,6 +26,11 @@ fail() {
   fails=$((fails + 1))
 }
 
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/uv-python"
+export FM_PROCESSOR_UV_PYTHON_ROOT="$WORK/uv-python"
+
 # assert_project <description> <expected> <invocation...>
 assert_project() {
   local description="$1" expected="$2"

@@ -78,10 +78,14 @@ gitignored `private-overlay.repos`, present only in a member's checkout.
 Container path (CI/parity, default on Linux):
 
 ```bash
-colcon build --symlink-install
+./scripts/run/build.sh                         # or `fm build` — src/, external/, nested repos
 colcon test --packages-select $(colcon list --names-only | grep '^fm_')
 colcon test-result --verbose
 ```
+
+`fm build` rather than a bare `colcon build`: a package repo ships a metapackage
+at its root, colcon stops descending there, and the packages nested inside it are
+silently never built.
 
 Native path (pixi + RoboStack, default on macOS/Windows):
 

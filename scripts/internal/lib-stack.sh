@@ -3,11 +3,17 @@
 # scripts/run/stack.sh, scripts/run/episode.sh, scripts/run/dataset.sh and
 # scripts/run/sim.sh — never executed.
 #
-# Three facts the verbs would otherwise each re-derive:
+# Four facts the verbs would otherwise each re-derive:
 #
-#   1. which sim backend names are real, and which compose overlay each implies
-#   2. whether this shell can run `ros2` itself, or has to route through compose
-#   3. how to run one ROS command either way
+#   1. which transport this host speaks
+#   2. which sim backend names are real, and which compose overlay each implies
+#   3. whether this shell can run `ros2` itself, or has to route through compose
+#   4. how to run one ROS command either way
+#
+# (1) is sourced here rather than in each verb because a verb that skipped it ran
+# on whatever middleware the shell happened to carry. `fm episode record` on
+# FastDDS while the rig's bridge routes a Cyclone graph does not fail — it records
+# an empty bag, which is the worst way for a transport mismatch to show up.
 #
 # (2) is what lets `fm stack up` behave the same on a laptop and inside CI. On a
 # laptop there is no ROS on the host, so every command is routed through the
@@ -18,6 +24,13 @@
 # directory name, which the processor's checkout also carries (#135).
 # shellcheck source=lib-compose.sh disable=SC1091
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-compose.sh"
+
+# The transport every verb below runs on: RMW_IMPLEMENTATION, ROS_DOMAIN_ID, and
+# whatever else the resolved profile exports. Sourced once, here, so `stack up`,
+# `episode record`, and `dataset process` cannot disagree about the middleware
+# they are speaking. FM_TRANSPORT=dds-lan still overrides it for one run.
+# shellcheck source=../env/comms.sh disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/env/comms.sh"
 
 # Every backend sim.launch.py accepts. `real` is not a simulator — it is the
 # hardware path, kept in the same list because it picks an overlay the same way.
@@ -72,10 +85,18 @@ fm_stack_inplace() { command -v ros2 >/dev/null 2>&1; }
 # Fill the FM_COMPOSE array with the compose invocation for that overlay. An
 # array, not a string, because the paths must survive word splitting.
 fm_stack_compose() {
+  local transport_overlay
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$PWD"
+  # Resolved on every call, not only on the ones that start a container: a verb
+  # that execs into a container someone else created still has to agree with it
+  # about the middleware, and compose refuses to reuse a container whose resolved
+  # environment differs from the file's.
+  fm_compose_transport "$1"
   FM_COMPOSE=(docker compose -p "$(fm_compose_project sim)"
     -f docker/compose.yaml -f "$1")
+  transport_overlay="$(fm_compose_transport_overlay "$PWD")" || return 1
+  [ -n "$transport_overlay" ] && FM_COMPOSE+=(-f "$transport_overlay")
 }
 
 # fm_stack_exec <overlay> <command...>

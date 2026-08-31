@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Shared build-tree guard for the fm_ros2 run paths. Sourced by
-# scripts/internal/container.sh and scripts/internal/native.sh — never executed.
+# Shared build-tree guard and base-path discovery for the fm_ros2 run paths.
+# Sourced by scripts/internal/container.sh, scripts/internal/native.sh,
+# scripts/internal/native-build.sh and scripts/run/build.sh — never executed.
 #
 # colcon bakes the absolute workspace prefix into the generated install/ setup
 # scripts (install/setup.sh hardcodes COLCON_CURRENT_PREFIX). The container
@@ -72,4 +73,29 @@ fm_buildtree_is_foreign() {
 # Drop the regenerable colcon outputs. Gitignored; rebuilt by the next build.
 fm_buildtree_clear() {
   rm -rf build install log
+}
+
+# fm_buildtree_base_paths <workspace-root>
+# Fill FM_BASE_PATHS with every base path colcon must be given to see this whole
+# workspace. An array, not a string, because a path can contain spaces.
+#
+# The root alone is not enough. colcon stops descending the moment it finds a
+# package.xml, and every package repo ships a metapackage manifest at its root —
+# so `src/fm_data` registers as the single package `fm_data` and the packages
+# nested inside it are never built. Nothing errors: they are simply absent, and the
+# failure surfaces much later as `Package 'fm_data_dataset' not found` when a verb
+# tries to run one (fm-ros2#147).
+#
+# Discovered rather than listed, so a new nested package — or a new overlay repo —
+# is picked up without editing this.
+fm_buildtree_base_paths() {  # workspace-root
+  local root="${1:?workspace root}" repo candidate
+  FM_BASE_PATHS=("$root")
+  for repo in "$root"/src/*/; do
+    # Only a repo that carries a metapackage at its root hides its children.
+    [ -f "${repo}package.xml" ] || continue
+    for candidate in "$repo"*/; do
+      [ -f "${candidate}package.xml" ] && FM_BASE_PATHS+=("${candidate%/}")
+    done
+  done
 }

@@ -226,13 +226,14 @@ item "provisioning the Livox MID-360S stack (best-effort) ..."
   fi
 ) || item "WARNING: Livox stack provisioning failed — the LiDAR stays off (FM_RECORDER_LIDAR=auto); fix and re-run anytime"
 
-# 5. Comms profile — the default (foxglove) pins FastDDS to the LAN interface so a Mac
-#    actually receives the stream (extra NICs otherwise break delivery). Auto-source it
-#    in every shell. A rig on another profile sets FM_COMMS or the .fm_ros2.json key.
+# 5. Comms profile — the default (zenoh) pins DDS to loopback and carries the stream
+#    to a Mac over the rig's zenoh bridge, which is what removes the multi-NIC delivery
+#    problem rather than working around it. Auto-source it in every shell. The profile
+#    comes from this machine's identity card; FM_TRANSPORT=dds-lan overrides one run.
 item "wiring the comms profile into ~/.bashrc ..."
 if ! grep -Fq 'scripts/env/comms.sh' "$HOME/.bashrc" 2>/dev/null; then
   # Drop the pre-comms.sh line a rig provisioned earlier still carries — comms.sh
-  # sources dds-lan.sh itself for the foxglove profile, so keeping both would pin
+  # sources dds-lan.sh itself for the dds-lan profile, so keeping both would pin
   # DDS before the profile gets to choose.
   sed -i '\#scripts/run/dds-lan.sh#d' "$HOME/.bashrc" 2>/dev/null || true
   # Drop the line written before the profiles moved to scripts/env/. A rig

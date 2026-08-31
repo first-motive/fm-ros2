@@ -66,7 +66,19 @@ stack_up() {
     [[ -d docker ]] || vcs import <fm-ros2.repos
     fm_stack_compose "$overlay"
     echo ">> container up (idempotent)"
-    "${FM_COMPOSE[@]}" up -d
+    # Captured, not just printed: a container compose REPLACED leaves the host's
+    # zenoh bridge holding routes for the participants that went with the old one,
+    # and every sample then crosses the fabric twice.
+    local up_log
+    up_log="$(mktemp)"
+    "${FM_COMPOSE[@]}" up -d 2>&1 | tee "$up_log"
+    if fm_compose_created_container "$up_log"; then
+      # A fresh container is also a fresh image: install what it lacks before
+      # anything tries to record into it.
+      fm_compose_heal_stack_deps "${FM_COMPOSE[@]}"
+      fm_compose_restart_bridge
+    fi
+    rm -f "$up_log"
   fi
 
   # A publisher, never the topic name: a LAN subscriber (the Jetson recorder
@@ -138,7 +150,11 @@ stack_status() {
     return 1
   fi
   echo "stack: up — surface complete (${SURFACE_TOPICS[*]})"
-  fm_stack_exec "$overlay" ros2 control list_controllers 2>/dev/null || true
+  # Bounded: this line is decoration, and `ros2 control list_controllers` waits
+  # on the controller_manager service forever when it is busy or a second
+  # graph participant confuses discovery — it held the sim loop for 34 minutes
+  # on fm-ws-01 (2026-08-27).
+  fm_stack_exec "$overlay" timeout 15 ros2 control list_controllers 2>/dev/null || true
 }
 
 main() {

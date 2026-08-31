@@ -56,3 +56,5 @@ venv/
 
 # Processor role: the dataset engine's dedicated venv (setup-processor.sh)
 .engine-venv/
+.fm-loop-*/
+.fm-processor-mounts.yaml

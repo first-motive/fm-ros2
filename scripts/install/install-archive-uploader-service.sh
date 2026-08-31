@@ -15,6 +15,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 UNIT=/etc/systemd/system/fm-archive-uploader.service
 ENVFILE=/etc/fm-archive-uploader.env
+PROCESSOR_ENVFILE=/etc/fm-processor.env
 # Offline CI exercises the real transaction against an explicit temporary
 # root. Keep this seam opt-in; normal callers cannot redirect a sudo install
 # through an arbitrary inherited path.
@@ -22,6 +23,7 @@ if [ "${FM_ARCHIVE_UPLOADER_SERVICE_TEST_MODE:-0}" = 1 ]; then
   : "${FM_ARCHIVE_UPLOADER_SERVICE_TEST_ROOT:?FM_ARCHIVE_UPLOADER_SERVICE_TEST_ROOT is required in test mode}"
   UNIT="$FM_ARCHIVE_UPLOADER_SERVICE_TEST_ROOT/systemd/fm-archive-uploader.service"
   ENVFILE="$FM_ARCHIVE_UPLOADER_SERVICE_TEST_ROOT/etc/fm-archive-uploader.env"
+  PROCESSOR_ENVFILE="$FM_ARCHIVE_UPLOADER_SERVICE_TEST_ROOT/etc/fm-processor.env"
 fi
 WRAPPER="$ROOT/scripts/service/archive-uploader-boot.sh"
 SERVICE_USER="${SUDO_USER:-$USER}"
@@ -57,6 +59,8 @@ do_install() {
   [ -f "$WRAPPER" ] || { echo "ERROR: $WRAPPER is missing." >&2; return 1; }
 
   local runtime exec_start exec_stop="" requires=""
+  local uploader_data_root processor_recordings processor_attempts
+  local uploader_recordings uploader_state existing_recordings
   runtime="$(fm_processor_runtime)" || return 1
   if [ "$runtime" = container ]; then
     exec_start="/bin/bash $ROOT/scripts/service/container-exec.sh scripts/service/archive-uploader-boot.sh"
@@ -64,6 +68,21 @@ do_install() {
     requires="Requires=docker.service"
   else
     exec_start="/bin/bash $WRAPPER"
+  fi
+  uploader_data_root=/data
+  if [ "$runtime" = native ] && \
+     { [ ! -d "$uploader_data_root" ] || [ ! -w "$uploader_data_root" ]; }; then
+    uploader_data_root="$SERVICE_HOME"
+  fi
+  processor_recordings="$(FM_PROCESSOR_ENV_FILE="$PROCESSOR_ENVFILE" \
+    fm_processor_env FM_PROCESSOR_RECORDINGS_DIR)"
+  processor_attempts="$(FM_PROCESSOR_ENV_FILE="$PROCESSOR_ENVFILE" \
+    fm_processor_env FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR)"
+  uploader_recordings="${processor_recordings:-$uploader_data_root/recordings}"
+  if [ -n "$processor_attempts" ]; then
+    uploader_state="${processor_attempts%/*}/archive-uploader"
+  else
+    uploader_state="$uploader_data_root/fm-data-runs/archive-uploader"
   fi
 
   if [ "$dry_run" = true ]; then
@@ -104,8 +123,8 @@ EOF
 
   if [ ! -f "$ENVFILE" ]; then
     item "writing disabled archive uploader configuration at $ENVFILE ..."
-    sudo tee "$ENVFILE" >/dev/null <<'EOF'
-# Enable only after the write-scoped `rig-uploader` B2 application key is
+    sudo tee "$ENVFILE" >/dev/null <<EOF
+# Enable only after the write-scoped rig-uploader B2 application key is
 # provisioned. The key must cover the approved recording prefixes but MUST NOT
 # have delete permission. This file is independent from /etc/fm-archive.env.
 FM_ARCHIVE_UPLOADER_ENABLED=false
@@ -113,8 +132,8 @@ BACKBLAZE_B2_FMREC_KEY_ID=
 BACKBLAZE_B2_FMREC_APPLICATION_KEY=
 
 # Workspace-owned paths. Keep these under the existing processor bind mounts.
-FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=/data/recordings
-FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader
+FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=$uploader_recordings
+FM_ARCHIVE_UPLOADER_STATE_DIR=$uploader_state
 
 # Safe first-release policy. Do not lower the retention or eligibility floors.
 FM_ARCHIVE_UPLOADER_DRY_RUN=false
@@ -133,6 +152,20 @@ FM_ARCHIVE_STORAGE_CAP_BYTES=
 FM_ARCHIVE_REQUIRED_STORAGE_CAP_BYTES=
 FM_ARCHIVE_STORAGE_CAP_VERIFIED_AT=
 EOF
+  fi
+  existing_recordings="$(sed -n 's/^FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=//p' "$ENVFILE" | tail -1)"
+  if [ -n "$processor_recordings" ] && [ -n "$existing_recordings" ] && \
+     [ "$processor_recordings" != "$existing_recordings" ]; then
+    echo "ERROR: archive uploader recordings root differs from the processor root." >&2
+    echo "       uploader:  $existing_recordings" >&2
+    echo "       processor: $processor_recordings" >&2
+    return 1
+  fi
+  if grep -qx 'FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader' "$ENVFILE"; then
+    sudo sed -i.bak \
+      "s#^FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader\$#FM_ARCHIVE_UPLOADER_STATE_DIR=$uploader_state#" \
+      "$ENVFILE"
+    sudo rm -f "${ENVFILE}.bak"
   fi
   # Re-apply private mode on every install. The file contains a write authority.
   sudo chmod 600 "$ENVFILE"

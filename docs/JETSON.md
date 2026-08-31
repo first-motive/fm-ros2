@@ -155,8 +155,22 @@ journalctl -u fm-update-recorder -n 20
 
 ## 8. The Two-Box Split
 
-With the recorder now on its own device, point the processor host's
-recordings-sync at it (key-auth ssh, then one env edit):
+With the recorder on its own device, its episodes reach the processor through the
+episode queryable — the transport the fleet already runs on. `fm dataset process`
+pulls what this host is missing before it processes anything, so a two-box split
+needs no configuration at all:
+
+```bash
+fm dataset process        # pulls the missing episodes, then processes them
+```
+
+It works across networks, which rig-to-rig ssh does not: the tailnet policy closes
+machine-to-machine ssh, and the rigs trust the operator's laptop rather than each
+other (fm-ros2#146). Pull one episode by hand with
+`uv run --project comms/episodes episodes-fetch --limit 1`.
+
+`fm-sync.timer` remains for a pair of hosts that do have a key between them —
+point it at the recorder with one env edit:
 
 ```bash
 # on the processor box, as the user fm-sync runs as:
@@ -164,8 +178,8 @@ ssh-copy-id <user>@fm-jetson.local
 sudo sed -i 's|^#\?FM_SYNC_SOURCE=.*|FM_SYNC_SOURCE=<user>@fm-jetson.local:~/recordings|' /etc/fm-sync.env
 ```
 
-The next `fm-sync` tick pulls finalized episodes into the processor's
-`~/recordings`, where the app's Process surface reads them. Finally retire the
+Either way episodes land in the processor's `~/recordings`, where the app's
+Process surface reads them. Finally retire the
 old box's recorder role (its processor role stays):
 
 ```bash

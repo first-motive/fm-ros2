@@ -42,6 +42,19 @@ source scripts/internal/lib-buildtree.sh
 # shellcheck source=scripts/internal/lib-compose.sh
 source scripts/internal/lib-compose.sh
 
+# The repo's own shared library, for the org gate and the auth-gated team-setup
+# fetch (team_member / fetch_run_team_setup). install.sh owns the same two through
+# this file, and the run path needs them to import an overlay a launch is missing.
+# Its narration helpers are redefined below, which is deliberate: the container
+# path draws its own step banners.
+#
+# Sourced from the clone, never fetched: this path always has a checkout, so the
+# gate it runs is the one git handed the user and reviewed here. Only install.sh's
+# curl-pipe path fetches this file, and it fetches itself over the same ref, so
+# that trust chain is unchanged by the two functions living here.
+# shellcheck source=../../lib.sh disable=SC1091
+source lib.sh
+
 # Step narration lives in the shared fm-tools wheel (fm_tools.tui.banner) so
 # run.sh and the TUIs share one source of brand colour. `step` draws a numbered
 # header block as a rich rule; `item` prints a plain status line beneath it. The
@@ -219,6 +232,11 @@ compose_up() {
     rm -f "$log"
     exit "$rc"
   fi
+  # Keyed on compose actually saying it created or recreated the container, so a
+  # warm re-run that reuses one leaves the fabric alone.
+  if fm_compose_created_container "$log"; then
+    fm_compose_restart_bridge
+  fi
   rm -f "$log"
 }
 
@@ -253,6 +271,7 @@ ensure_ws_live() {
 }
 
 main() {
+  local transport_overlay
   # OVERLAY / OPEN_FOXGLOVE / OPEN_WEBGUI / COMPOSE / SERVICE / HOST / FM_WS stay global
   # (no `local`) so the forked open_views_when_ready watcher sees them.
   OVERLAY=""
@@ -319,8 +338,30 @@ main() {
   # container, so the same file is $FM_WS/.fm_tui.json on the host and
   # /ws/.fm_tui.json inside — the one path that survives a container teardown.
   export FM_TUI_CONFIG=/ws/.fm_tui.json
+
+  # The transport the container speaks, resolved on the HOST from this machine's
+  # identity card and handed down. Resolving it inside the container instead
+  # would read a card the container does not have, and the container would come
+  # up on a different middleware than the host's bridge is routing — a stack that
+  # starts, publishes, and is heard by nobody.
+  #
+  # Only what a container can act on crosses the boundary, and which values those
+  # are depends on the overlay — fm_compose_transport owns that decision for every
+  # role that starts a container. The dds-lan profile's FastDDS XML lives in the
+  # host's $HOME and is not mounted, which is the other reason the container path
+  # wants zenoh: under it there is nothing host-specific left to carry.
+  # shellcheck source=../env/comms.sh disable=SC1091
+  source scripts/env/comms.sh
+  fm_compose_transport "$OVERLAY"
+  item "comms profile: $FM_COMMS_PROFILE (RMW ${RMW_IMPLEMENTATION:-the image default})"
+  if [[ -n "${FM_CYCLONEDDS_XML:-}" ]]; then
+    item "  DDS on the host's loopback island ($FM_CYCLONEDDS_XML)"
+  fi
+
   COMPOSE=(docker compose -p "$(fm_compose_project sim)"
     -f docker/compose.yaml -f "$OVERLAY")
+  transport_overlay="$(fm_compose_transport_overlay "$PWD")" || return 1
+  [[ -n "$transport_overlay" ]] && COMPOSE+=(-f "$transport_overlay")
   SERVICE=fm
 
   # The panel auto-open is viewer-driven: only the `panel` viewer opens the fm_viewer
@@ -380,15 +421,56 @@ main() {
   ensure_ws_live
   item "Container up"
 
-  # The published fm-app image can lag its Dockerfile — mediapipe was added after the
-  # last publish, and the mesh-converter deps (trimesh/pycollada) only just landed in the
-  # base — so a fresh pull may be missing what vision teleop needs. Until the image chain
-  # is republished, install whatever the running image lacks so a fresh install still
-  # (a) builds fm_description's OpenArm visual meshes and (b) runs hand tracking, and fetch
-  # the MediaPipe .task models (gitignored, ~30 MB) if absent. All idempotent: pip is a
-  # near-instant no-op once satisfied, download_model.sh skips when the models exist, so this
-  # self-neutralises once the baked image carries them. Runs BEFORE the build because
-  # trimesh/pycollada are build-time deps of fm_description.
+  # The loop's record and process stages run packages that live in the private
+  # overlay (fm_data), and the public manifest names no private repo. A member's
+  # rig gets them at install time — but a rig provisioned by the appliance flash,
+  # or a checkout that predates the overlay, reaches its first launch without them
+  # and fails deep inside the loop with `Package 'fm_data_dataset' not found`
+  # (fm-ros2#147). Import them here, behind the same org gate install.sh uses.
+  #
+  # Never fatal: the stack itself does not need the overlay, and a non-member's
+  # workspace is a legitimate thing to launch.
+  #
+  # The import runs a script fetched from the private org through gh — the same
+  # thing install.sh does, now reachable from a launch. Two bounds on that: the
+  # org gate has to pass first, and it only fires when src/fm_data is absent, so a
+  # provisioned workspace never reaches it twice. FM_NO_OVERLAY_IMPORT=1 declines
+  # it outright, for a host that should fetch nothing at launch.
+  step "Workspace Packages"
+  if [[ -d src/fm_data ]]; then
+    item "data packages present"
+  elif [[ -n "${FM_NO_OVERLAY_IMPORT:-}" ]]; then
+    item "data packages absent — import declined (FM_NO_OVERLAY_IMPORT)"
+  elif team_member; then
+    item "data packages absent — importing the private overlay (org access detected)"
+    # --no-desktop --no-ai: the overlay import is the only half wanted here; the
+    # app and the AI harness are an install-time concern, not a launch-time one.
+    if fetch_run_team_setup --no-desktop --no-ai; then
+      warn_kebab_checkouts "$PWD"
+    else
+      item "overlay import did not complete — the loop's record and process stages will not run"
+    fi
+  else
+    item "data packages absent and no org access — the stack runs, the record and process stages do not"
+  fi
+
+  # The published image can lag its Dockerfile, on the apt side first. fm-app's
+  # Dockerfile installs the MoveIt and MuJoCo runtime the sim stack needs, but a host
+  # that pulled the published tag before those lines landed has an image without
+  # them — and the failure is a build error in fm_control plus a mujoco backend that
+  # cannot exist (fm-ros2#147), an hour into a fresh provision. Install whatever is
+  # missing, apt cache and all.
+  #
+  # rosbag2-storage-mcap is the one the loop dies on: without it the recorder
+  # comes up, subscribes, accepts the start marker and then fails to open a bag
+  # ("Could not load/open plugin with storage id 'mcap'"), so no episode is ever
+  # finalized and the loop reports the index as empty (gate 3.5).
+  # Idempotent and self-neutralising: once the republished image carries them, the
+  # check costs one `dpkg-query` and installs nothing.
+  step "Stack Dependencies"
+  fm_compose_heal_stack_deps "${COMPOSE[@]}"
+  item "stack apt dependencies present"
+
   step "Vision Dependencies"
   "${COMPOSE[@]}" exec -T "$SERVICE" bash -c '
     need=""
@@ -418,7 +500,11 @@ main() {
   # working_dir). Incremental, so a warm tree returns fast. -T disables TTY
   # allocation: the build is non-interactive, and `docker compose exec` otherwise
   # demands a terminal on stdin and aborts when there is none (e.g. a piped run).
-  "${COMPOSE[@]}" exec -T "$SERVICE" /ros_entrypoint.sh colcon build --symlink-install
+  #
+  # Through the verb, not a bare `colcon build`: the packages nested inside a repo
+  # that ships a metapackage at its root need naming as extra base paths, and a
+  # bare build silently omits them (fm-ros2#147).
+  "${COMPOSE[@]}" exec -T "$SERVICE" /ros_entrypoint.sh ./scripts/run/build.sh
 
   step "Launcher"
   # The web GUI now carries everything: camera, controls, AND the 3D arm (self-rendered

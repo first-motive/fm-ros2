@@ -22,6 +22,27 @@
 # shellcheck source=lib-compose.sh disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-compose.sh"
 
+# The transport this host speaks, sourced at load exactly as the stack library
+# does it. fm_compose_transport reads what the profile resolved, and the callers
+# that build a processor container (container-exec.sh, setup-processor.sh,
+# install-foxglove-service.sh) do not source a profile of their own — without this
+# they would start the processor on `none` on a zenoh host, and its nodes would
+# publish where the host's bridge is not listening.
+#
+# Guarded, because this library is also sourced from synthetic workspaces in the
+# service tests, which carry the libraries and none of the profiles. A real
+# checkout always has the file — it is tracked — so an absence is a fixture, and
+# saying so beats aborting every caller.
+_fm_processor_comms="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/env/comms.sh"
+if [ -f "$_fm_processor_comms" ]; then
+  # shellcheck source=../env/comms.sh disable=SC1091
+  . "$_fm_processor_comms"
+else
+  echo "processor: no scripts/env/comms.sh beside this library — the container will" >&2
+  echo "           inherit whatever middleware its image defaults to." >&2
+fi
+unset _fm_processor_comms
+
 # fm_processor_runtime
 # Echo native | container. Fails with a message when neither is possible.
 # FM_PROCESSOR_RUNTIME, when set, is the answer — the container re-exec sets it,
@@ -76,7 +97,7 @@ FM_PROCESSOR_IDENTITY_MOUNTS=(
 # shared base, the Linux overlay, and the processor overlay that mounts $HOME.
 # shellcheck disable=SC2034  # FM_COMPOSE is read by the caller
 fm_processor_compose() {
-  local root="$1"
+  local root="$1" transport_overlay
   export FM_IMAGE="${FM_IMAGE:-ghcr.io/first-motive/fm-app:humble}"
   export FM_WS="$root"
   export FM_PROCESSOR_UV_PYTHON_ROOT="${FM_PROCESSOR_UV_PYTHON_ROOT:-$HOME/.local/share/uv/python}"
@@ -92,25 +113,56 @@ fm_processor_compose() {
       export FM_PROCESSOR_DATA_ROOT="$HOME"
     fi
   fi
+  # The processor container is host-networked too, so it joins the host's DDS
+  # island the same way the sim stack's does.
+  fm_compose_transport "$root/docker/compose.linux.yaml"
   FM_COMPOSE=(docker compose -p "$(fm_compose_project processor)" \
     -f "$root/docker/compose.yaml" -f "$root/docker/compose.linux.yaml" \
     -f "$root/compose.processor.yaml")
+  transport_overlay="$(fm_compose_transport_overlay "$root")" || return 1
+  [ -n "$transport_overlay" ] && FM_COMPOSE+=(-f "$transport_overlay")
   if [ -f "${FM_AWS_IDENTITY_ETC_DIR:-/etc/fm-aws-identity}/aws-config" ]; then
     FM_COMPOSE+=(-f "$root/compose.processor.aws.yaml")
   fi
+  # Whatever directories this role is actually configured with, on top of the
+  # $HOME set the base overlay carries. Empty on a rig using the defaults.
+  local mounts
+  mounts="$(fm_processor_mounts_overlay "$root" || true)"
+  [ -n "$mounts" ] && FM_COMPOSE+=(-f "$mounts")
+  return 0
 }
 
 # fm_processor_prepare_mounts
 # Create the bind-mounted data directories below the resolved shared data root.
-fm_processor_prepare_mounts() {
-  local d root="${FM_PROCESSOR_DATA_ROOT:-$HOME}"
+fm_processor_prepare_mounts() {  # [workspace-root]
+  local d key dir target root="${FM_PROCESSOR_DATA_ROOT:-$HOME}"
   # fm-setup owns the workstation recording root. Refusing an absent path keeps
   # Docker and the processor setup from creating a plausible empty archive.
   if [ "$root" = /data ] && [ ! -d /data/recordings ]; then
     echo "ERROR: /data/recordings is missing; run the fm-setup users/storage step" >&2
     return 1
   fi
-  for d in "${FM_PROCESSOR_MOUNTS[@]}"; do mkdir -p "$root/$d"; done
+  for d in "${FM_PROCESSOR_MOUNTS[@]}"; do
+    target="$root/$d"
+    mkdir -p "$target" 2>/dev/null && [ -d "$target" ] && [ -w "$target" ] || {
+      echo "ERROR: processor data directory cannot be prepared: $target" >&2
+      return 1
+    }
+  done
+  # And the configured ones, for the same reason: a directory docker creates at
+  # mount time is owned by root, and the role then cannot write to it.
+  while IFS= read -r key; do
+    [ -n "$key" ] || continue
+    dir="$(fm_processor_env "$key")"
+    case "$dir" in
+      /*)
+        mkdir -p "$dir" 2>/dev/null && [ -d "$dir" ] && [ -w "$dir" ] || {
+          echo "ERROR: configured processor directory cannot be prepared: $dir" >&2
+          return 1
+        }
+        ;;
+    esac
+  done < <(fm_processor_mount_keys "${1:-$PWD}")
 }
 
 # fm_processor_prepare_identity_mounts
@@ -155,4 +207,235 @@ fm_processor_import_docker() {
   version="$(awk '/^  docker:/{f=1} f && /version:/{print $2; exit}' "$root/fm-ros2.repos")"
   [ -n "$url" ] && [ -n "$version" ] || { echo "ERROR: no docker entry in fm-ros2.repos" >&2; return 1; }
   git clone --quiet --depth 1 --branch "$version" "$url" "$root/docker"
+}
+
+# fm_processor_installed
+# 0 when this host carries the processor role. The role's EnvironmentFile is the
+# marker: install-processor-service.sh writes it, and nothing else does.
+#
+# Used to decide where a dataset verb runs. `fm dataset process` used to resolve
+# the SIM stack's compose project, so on a workstation it ran the engine inside a
+# container built without it and reported `Package 'fm_data_dataset' not found`
+# while the processor container sat beside it with the engine built (fm-ros2#145).
+fm_processor_installed() {
+  [ -f "${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}" ]
+}
+
+# fm_processor_exec <workspace-root> <command...>
+# Run one command in the processor's runtime — natively on a Humble host, or
+# through the role's own container anywhere else. The same split the systemd units
+# take (scripts/service/container-exec.sh), so a verb and a unit cannot end up
+# running the engine in two different places.
+fm_processor_exec() {
+  local root="${1:?workspace root}"
+  shift
+  case "$(fm_processor_runtime)" in
+    native)
+      "$@"
+      ;;
+    *)
+      fm_processor_compose "$root"
+      # Through the image entrypoint: `exec` skips ENTRYPOINT, so ROS and the
+      # workspace overlay would be unsourced and every `ros2 run` would fail.
+      "${FM_COMPOSE[@]}" exec -T fm /ros_entrypoint.sh "$@"
+      ;;
+  esac
+}
+
+# The supervisors' node-facing Python deps, healed by asking the question the
+# launch asks rather than by keeping a list.
+#
+# fm_data declares them (`<exec_depend>python3-jsonschema</exec_depend>`) and
+# rosdep installs them where its database is usable. Inside the published Humble
+# image it is not, and the miss does not surface at install — it surfaces at boot,
+# as process_supervisor dying on `No module named 'jsonschema'` while systemd
+# reports the service started (#134).
+#
+# Import-driven rather than a hand-kept list: the packages already declare their
+# dependencies, and a second copy of that list here would drift from them.
+#
+# Both sides of the container boundary need this, which is why it lives here.
+# On a Humble host the ROS interpreter is the host's, and setup-processor.sh heals
+# it at install. On a host whose processor runs in the container (#127) the ROS
+# interpreter is the container's, so the install-time heal runs against an
+# interpreter the nodes never use — there, processor-boot.sh heals at boot, inside.
+
+# fm_processor_supervisor_import_error <workspace-root>
+# Echo the import error the supervisors raise under the ROS interpreter, empty when
+# they import cleanly. Run in a subshell by every caller, so the overlay it sources
+# never leaks into the rest of the script.
+fm_processor_supervisor_import_error() {  # workspace-root
+  local root="${1:?workspace root}"
+  # Neither errexit nor nounset: the overlay's setup.bash reads unset variables by
+  # design, and a failing import is the answer being collected rather than a reason
+  # to abort.
+  set +eu
+  # shellcheck disable=SC1091
+  . "$root/install/setup.bash" >/dev/null 2>&1
+  export PYTHONPATH="$root/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
+  # Only the error text is wanted: stderr takes over the caller's stdout, then the
+  # command's own stdout is dropped. Order matters — the redirections are applied
+  # left to right, so this is not "both to /dev/null".
+  # shellcheck disable=SC2069  # deliberate: stderr to the caller, stdout dropped
+  python3 -c 'import fm_data_dataset.process_supervisor, fm_data_dataset.release_supervisor' 2>&1 1>/dev/null
+  return 0
+}
+
+# fm_processor_install_for_ros_python <workspace-root> <module>
+# Install one module for the ROS interpreter — never the engine venv, which only
+# the dataset_process subprocess uses. Keep it in a bind-mounted workspace target
+# so a compose recreation cannot discard it with the old container.
+fm_processor_install_for_ros_python() {  # workspace-root module
+  local root="${1:?workspace root}" module="${2:?module}"
+  if python3 -m pip --version >/dev/null 2>&1; then
+    mkdir -p "$root/.ros-runtime"
+    python3 -m pip install --quiet --upgrade --target "$root/.ros-runtime" "$module"
+  elif [ "$(id -u)" = 0 ]; then
+    apt-get install -y "python3-$module"
+  else
+    sudo apt-get install -y "python3-$module"
+  fi
+}
+
+# fm_processor_heal_imports <workspace-root>
+# Install what the supervisors turn out to be missing. 0 when they import cleanly
+# afterwards, 1 with the error on stderr when they still do not — the caller
+# decides whether that is fatal.
+fm_processor_heal_imports() {  # workspace-root
+  local root="${1:?workspace root}" error module _attempt
+  # Three passes: each install can reveal the next missing module.
+  for _attempt in 1 2 3; do
+    error="$(fm_processor_supervisor_import_error "$root")"
+    [ -z "$error" ] && return 0
+    module="$(printf '%s' "$error" | sed -n "s/.*No module named '\([^']*\)'.*/\1/p" | head -1)"
+    # Anything that is not a missing module (a syntax error, a broken build) is not
+    # this step's to fix, and a missing WORKSPACE package is a build problem —
+    # installing a same-named thing from an index would paper over it.
+    case "${module:-none}" in
+      none | fm_data*) break ;;
+    esac
+    echo "processor: installing '$module' for the ROS interpreter" >&2
+    fm_processor_install_for_ros_python "$root" "$module" || true
+  done
+  error="$(fm_processor_supervisor_import_error "$root")"
+  [ -z "$error" ] && return 0
+  printf '%s\n' "$error" | sed 's/^/       /' >&2
+  return 1
+}
+
+# fm_processor_env <key>
+# Echo one value from the processor role's EnvironmentFile, or nothing.
+#
+# The role's directories are configured, not assumed: a rig with a data volume
+# reads /data/recordings while the verb's own default is ~/recordings. `fm dataset
+# process` used its default on such a host and pointed the engine at a directory
+# the processor container does not even mount — it reported the input as missing
+# while the episodes sat where the service would have found them (gate 4.2).
+#
+# Parsed rather than sourced: the file belongs to a systemd unit and may carry
+# anything, and sourcing it would import all of it into the verb's shell.
+fm_processor_env() {  # key
+  local key="${1:?env key}" file="${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}"
+  [ -f "$file" ] || return 0
+  sed -n "s/^${key}=//p" "$file" | tail -1
+}
+
+# fm_processor_heal_bag_tier <workspace-root>
+# Install the engine's bag-ingest tier for the ROS interpreter when it is absent.
+#
+# On a Humble host setup-processor.sh puts this in the engine venv. In the
+# container there is no venv — dataset_process runs under the ROS interpreter — and
+# nothing installed it there, so every `fm dataset process` over a real recording
+# stopped at "bag ingest requires the package-owned bag tier" (gate 4.2).
+#
+# The tier resolves on the container's Python 3.10 now that requirements-image.txt
+# splits its numpy pin on a marker (fm-ros2#145); before that it could not have
+# been installed here at all.
+#
+# Idempotent and quiet once satisfied: one import decides.
+fm_processor_heal_bag_tier() {  # workspace-root
+  local root="${1:?workspace root}" tier
+  python3 -c 'import rosbags' >/dev/null 2>&1 && return 0
+  tier="$root/src/fm_data/fm_data_dataset/requirements-bags.txt"
+  if [ ! -f "$tier" ]; then
+    echo "processor: no bag tier at $tier — bag ingest will refuse" >&2
+    return 0
+  fi
+  echo "processor: installing the bag-ingest tier for the ROS interpreter" >&2
+  python3 -m pip install --quiet -r "$tier" || {
+    echo "processor: the bag tier did not install — bag ingest will refuse" >&2
+    return 0
+  }
+}
+
+# fm_processor_mounts_overlay <workspace-root>
+# Write a compose overlay mounting every directory the role is CONFIGURED with,
+# and echo its path. Empty output when there is nothing to add.
+#
+# compose.processor.yaml mounts a hardcoded set under $HOME. A rig with a data
+# volume points its knobs at /data/... instead, and those never crossed into the
+# container: the engine was handed /data/recordings, which the role reads and the
+# container cannot see, and reported the input as missing while the episodes sat
+# exactly where the service would have looked (gate 4.2).
+#
+# Generated rather than hand-listed because the set is not fixed — thirteen knobs
+# today, and a new one is a new directory. Written to a stable path with sorted
+# content, so an unchanged configuration renders byte-identical and compose does
+# not treat it as a reason to recreate the container.
+fm_processor_mounts_overlay() {  # workspace-root
+  local root="${1:?workspace root}"
+  local file="$root/.fm-processor-mounts.yaml"
+  local dirs key dir parent skip seen="" body=""
+
+  # Resolve every key to its directory, then walk them in PATH order. Sorted
+  # lexicographically a parent always precedes its own children, which is what
+  # collapses the eight annotation knobs onto the one runs directory they live
+  # under. Sorting also renders deterministically, so an unchanged configuration
+  # is never itself a reason to recreate the container.
+  dirs="$(mktemp)"
+  fm_processor_mount_keys "$root" | while IFS= read -r key; do
+    [ -n "$key" ] || continue
+    dir="$(fm_processor_env "$key")"
+    # Only an absolute path outside $HOME needs adding: the base overlay already
+    # carries the $HOME set, and a relative value is not a mount at all.
+    case "$dir" in
+      "$HOME"/*) continue ;;
+      /*) printf '%s\n' "$dir" ;;
+    esac
+  done | sort -u > "$dirs"
+
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    skip=""
+    for parent in $seen; do
+      case "$dir" in "$parent"/*) skip=1; break ;; esac
+    done
+    [ -n "$skip" ] && continue
+    seen="$seen $dir"
+    body="$body      - $dir:$dir\n"
+  done < "$dirs"
+  rm -f "$dirs"
+
+  [ -n "$body" ] || { rm -f "$file"; return 0; }
+  {
+    echo "# Generated by fm_processor_mounts_overlay — the role's configured"
+    echo "# directories, read from its EnvironmentFile. Do not edit; edit the env."
+    echo "services:"
+    echo "  fm:"
+    echo "    volumes:"
+    printf '%b' "$body"
+  } > "$file"
+  printf '%s\n' "$file"
+}
+
+# fm_processor_mount_keys <workspace-root>
+# Echo the env keys naming a directory, collapsed to their roots: the annotation
+# knobs all sit under one runs directory, and mounting that once beats mounting
+# eight children of it.
+fm_processor_mount_keys() {  # workspace-root
+  local file="${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}"
+  [ -f "$file" ] || return 0
+  # grep -E, not sed: BSD sed has no alternation in a basic regex, so a sed form
+  # matched on the rigs and silently produced nothing on a Mac.
+  grep -oE '^FM_PROCESSOR_[A-Z0-9_]*(_DIR|_ROOT)=' "$file" | sed 's/=$//' 
 }

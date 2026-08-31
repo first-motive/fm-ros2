@@ -124,11 +124,45 @@ jobs:
       - name: compose project per role
         run: bash scripts/ci/test-compose-project.sh
 
+      # A repo with a metapackage at its root hides the packages nested inside it,
+      # and a build that misses them fails an hour later inside the loop (#147).
+      - name: the build verb sees the whole workspace
+        run: bash scripts/ci/test-build-verb.sh
+
+      # Whether the container joins the host's loopback DDS island depends on the
+      # overlay and the profile, and when it is wrong nothing errors — the bridge
+      # simply routes an empty graph (#148). Asserted, not read.
+      - name: container joins the host's DDS island
+        run: bash scripts/ci/test-compose-transport.sh
+
+      # A replaced container leaves the host bridge routing for participants that
+      # are gone, and every sample crosses twice. Silent — the rate just doubles.
+      - name: a replaced container does not double the fabric
+        run: bash scripts/ci/test-bridge-restart.sh
+
       # The processor role picks native Humble or the Humble container by host
       # (#127); the picker is stubbed here so a wrong branch fails in CI, not on
       # the workstation.
       - name: processor runtime resolution
         run: bash scripts/ci/test-processor-runtime.sh
+
+      # The supervisors' deps must be healed on the interpreter that runs them.
+      # On a container-runtime host the install-time heal ran against the host's
+      # (#127), and the miss surfaced at boot as a dead role (#134).
+      - name: processor supervisors import where they run
+        run: bash scripts/ci/test-processor-imports.sh
+
+      # The dataset verbs must reach the runtime that HAS the engine. Routing them
+      # on --backend sent them into the sim container, which is built without it
+      # (#145).
+      - name: dataset verbs run where the engine is
+        run: bash scripts/ci/test-dataset-runtime.sh
+
+      # A rig with a data volume points its knobs outside $HOME, and those
+      # directories have to cross into the container or the engine is handed a
+      # path it cannot see (#145).
+      - name: the processor mounts what it is configured with
+        run: bash scripts/ci/test-processor-mounts.sh
 
       # A non-Humble Linux processor uses its prepared Humble container for the
       # standalone Foxglove bridge. Exercise the existing-only route and scoped
@@ -225,7 +259,10 @@ jobs:
       - name: colcon build
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
-            bash -lc 'source /opt/ros/humble/setup.bash && colcon build --symlink-install'
+            bash -lc 'source /opt/ros/humble/setup.bash &&
+                      source scripts/internal/lib-buildtree.sh &&
+                      fm_buildtree_base_paths /ws &&
+                      colcon build --symlink-install --base-paths "${FM_BASE_PATHS[@]}"'
 
       # Test the First Motive packages only — the vendored externals (openarm_*,
       # unitree_*) carry their own test suites, which are not ours to keep green.
@@ -235,7 +272,9 @@ jobs:
         run: |
           docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc 'source /opt/ros/humble/setup.bash && source install/setup.bash &&
-                      fm_pkgs=$(colcon list --names-only | grep "^fm_") &&
+                      source scripts/internal/lib-buildtree.sh &&
+                      fm_buildtree_base_paths /ws &&
+                      fm_pkgs=$(colcon list --base-paths "${FM_BASE_PATHS[@]}" --names-only | grep "^fm_") &&
                       colcon test --packages-select $fm_pkgs &&
                       colcon test-result --verbose'
 
@@ -315,8 +354,10 @@ jobs:
       # here and the container is committed back as the image the loop step runs
       # — a `--rm` step would drop them before the next one started. The overlay
       # repos carry a metapackage at their root, so colcon and rosdep stop there
-      # and never see the nested packages: the nested dirs are listed explicitly,
-      # as the provisioning scripts do. -r keeps a stray unresolvable key from
+      # and never see the nested packages: rosdep is given the nested dirs
+      # explicitly, and the build goes through `fm build`, which discovers them —
+      # the same verb a person types, so CI cannot pass on a workspace shape the
+      # verb would miss. -r keeps a stray unresolvable key from
       # masking the loop's own verdict. The engine's bag-ingest tier is pip, not
       # rosdep — numpy pinned to the last 3.10-compatible release because the
       # Humble image's Python is 3.10, exactly as setup-processor.sh does.
@@ -330,17 +371,45 @@ jobs:
                    --ignore-src -y -r --rosdistro humble \
               && pip install --quiet "numpy==2.2.6" \
                    "$(grep -E "^rosbags==" src/fm_data/fm_data_dataset/requirements-bags.txt)" \
-              && colcon build --symlink-install \
-                   --base-paths src external src/fm_data/fm_data_* src/fm_policy/fm_policy_*'
+              && ./scripts/run/build.sh'
           docker commit ws-build fm-ros2:ci >/dev/null
           docker rm ws-build >/dev/null
 
       # The loop drives the same verbs a person types. Bounded by the script's own
       # timed waits and teardown, with the step timeout as the second bound.
+      #
+      # Still pinned to `none`, and now for a narrower reason than before.
+      #
+      # The pin was raised when the loop failed here and the workspace was also
+      # incomplete, which made the transport a suspect it did not deserve. The
+      # workspace is whole now — the image's missing apt packages are installed,
+      # the mujoco backend builds, and `fm build` reaches the nested data packages
+      # (#147) — so the two questions are separable, and dropping the pin was tried
+      # on that basis.
+      #
+      # It still fails, and the run narrows the fault rather than explaining it:
+      #
+      #   PASS: stack up on the mujoco backend
+      #   PASS: topic surface complete        (/joint_states advertised and listed)
+      #   FAIL: no /joint_states message within 20s
+      #
+      # So under the zenoh profile in this container the graph forms and a
+      # subscriber still receives no sample. That is not the shape of a missing
+      # package, and it is not what the same stack does on real hardware: gate 3.1
+      # reads 100 Hz in the workstation's container under this profile. Whatever
+      # differs is specific to a bare `docker run` — no host networking, no
+      # `--ipc host`, and the 64 MB default /dev/shm rather than the 128 MB the
+      # compose overlay sets for exactly this middleware.
+      #
+      # `none` leaves the image's own middleware alone, which is what this job had
+      # before the verbs sourced a transport at all. Drop the pin when the
+      # difference above is understood — not merely when hardware is green, which
+      # it now is.
       - name: Record and process an episode
         timeout-minutes: 25
         run: |
-          docker run --rm -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
+          docker run --rm -e FM_TRANSPORT=none \
+            -v "${{ github.workspace }}:/ws" -w /ws fm-ros2:ci \
             bash -lc './scripts/ci/loop.sh'
 
   # The real native path, end to end: full pixi env from the lockfile, host colcon
