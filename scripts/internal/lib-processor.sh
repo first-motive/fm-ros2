@@ -90,6 +90,14 @@ fm_processor_compose() {
 fm_processor_prepare_mounts() {
   local d
   for d in "${FM_PROCESSOR_MOUNTS[@]}"; do mkdir -p "$HOME/$d"; done
+  # The container overlay also mounts the workstation's shared, irreplaceable
+  # recording root. fm-setup owns this path; refusing an absent path prevents
+  # Docker from silently creating a root-owned empty directory that makes the
+  # uploader report an empty archive.
+  [ -d /data/recordings ] || {
+    echo "ERROR: /data/recordings is missing; run the fm-setup users/storage step" >&2
+    return 1
+  }
 }
 
 # fm_processor_prepare_identity_mounts

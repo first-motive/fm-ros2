@@ -48,22 +48,32 @@ if ! ros2 pkg prefix fm_data_archive >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
-  echo "archive-boot: enabled but the read-only B2 credentials are absent" >&2
+if [ -z "${BACKBLAZE_B2_PROCARCH_KEY_ID:-}" ] ||
+   [ -z "${BACKBLAZE_B2_PROCARCH_APPLICATION_KEY:-}" ]; then
+  echo "archive-boot: enabled but the read-only processor-archive B2 credentials are absent" >&2
   exit 1
 fi
+
+# The object-store adapter consumes the standard boto3 names. Keep the
+# canonical 1Password names in the service environment and export these only
+# in the node's process environment; they are never printed or passed as ROS
+# arguments. The uploader has its own service and credential pair.
+export AWS_ACCESS_KEY_ID="$BACKBLAZE_B2_PROCARCH_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$BACKBLAZE_B2_PROCARCH_APPLICATION_KEY"
 
 CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$HOME/.cache/fm-archive}"
 STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$HOME/.cache/fm-archive/staged}"
 LEROBOT_CATALOGUE_FILE="${FM_ARCHIVE_LEROBOT_CATALOGUE_FILE:-}"
 LEROBOT_STAGE_DIR="${FM_ARCHIVE_LEROBOT_STAGE_DIR:-$HOME/.cache/fm-archive/lerobot-staged}"
+INDEX_TOPIC="${FM_ARCHIVE_INDEX_TOPIC:-/archive/index}"
+STATUS_TOPIC="${FM_ARCHIVE_STATUS_TOPIC:-/archive/status}"
 
 echo "archive-boot: starting the local archive browser"
 exec ros2 run fm_data_archive archive_browser --ros-args \
   -p cache_dir:="$CACHE_DIR" \
-  -p index_topic:=/archive/index \
+  -p index_topic:="$INDEX_TOPIC" \
   -p detail_topic:=/archive/detail \
-  -p status_topic:=/archive/status \
+  -p status_topic:="$STATUS_TOPIC" \
   -p select_topic:=/archive/select \
   -p sync_topic:=/archive/sync \
   -p stage_topic:=/archive/stage \

@@ -14,6 +14,11 @@ services:
       - HOME=${HOME}
     volumes:
       - ${HOME}/recordings:${HOME}/recordings
+      # Workstations keep irreplaceable shared recordings under /data. The
+      # archive uploader reads that authoritative source, not the historical
+      # per-user mirror. fm-setup owns and creates this path before the
+      # processor role is installed.
+      - /data/recordings:/data/recordings
       - ${HOME}/processed:${HOME}/processed
       - ${HOME}/annotations:${HOME}/annotations
       - ${HOME}/fm-data-runs:${HOME}/fm-data-runs

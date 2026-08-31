@@ -10,6 +10,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 UNIT=/etc/systemd/system/fm-archive.service
 ENVFILE=/etc/fm-archive.env
+# Offline CI exercises the real transaction against an explicit temporary
+# root. Keep this seam opt-in; normal callers cannot redirect a sudo install
+# through an arbitrary inherited path.
+if [ "${FM_ARCHIVE_SERVICE_TEST_MODE:-0}" = 1 ]; then
+  : "${FM_ARCHIVE_SERVICE_TEST_ROOT:?FM_ARCHIVE_SERVICE_TEST_ROOT is required in test mode}"
+  UNIT="$FM_ARCHIVE_SERVICE_TEST_ROOT/systemd/fm-archive.service"
+  ENVFILE="$FM_ARCHIVE_SERVICE_TEST_ROOT/etc/fm-archive.env"
+fi
 WRAPPER="$ROOT/scripts/service/archive-boot.sh"
 SERVICE_USER="${SUDO_USER:-$USER}"
 SERVICE_HOME="$(getent passwd "$SERVICE_USER" 2>/dev/null | cut -d: -f6 || true)"
@@ -22,7 +30,24 @@ _require_linux_systemd() {
   fi
 }
 
+usage() {
+  cat <<'EOF'
+install-archive-service.sh — install/remove the processor archive browser (Linux)
+
+  (no args)    write the unit, enable it for boot, start it now
+  uninstall    stop + disable + remove the unit (preserve the env and cache)
+  --dry-run    print the managed paths and actions without changing the host
+  -h, --help   show this help
+
+The browser reads only the read-scoped Backblaze credential in
+/etc/fm-archive.env. It never reads the uploader credential or accepts a
+delete request. In the container runtime the service requires an already
+running processor container and cannot create, recreate, or stop it.
+EOF
+}
+
 do_install() {
+  local dry_run="${1:-false}"
   _require_linux_systemd || return 0
   [ -f "$WRAPPER" ] || { echo "ERROR: $WRAPPER is missing." >&2; return 1; }
 
@@ -36,6 +61,13 @@ do_install() {
     requires="Requires=docker.service"
   else
     exec_start="/bin/bash $WRAPPER"
+  fi
+
+  if [ "$dry_run" = true ]; then
+    item "would write $UNIT (User=$SERVICE_USER, workspace=$ROOT, runtime=$runtime)"
+    item "would preserve or create mode-600 $ENVFILE"
+    item "would enable + restart fm-archive.service"
+    return 0
   fi
 
   item "writing $UNIT (User=$SERVICE_USER, workspace=$ROOT, runtime=$runtime) ..."
@@ -52,6 +84,9 @@ Type=simple
 User=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
 EnvironmentFile=-$ENVFILE
+# Keep the existing-only lifecycle guard after the env file so an operator
+# cannot accidentally override it with a stale setting in /etc/fm-archive.env.
+Environment=FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1
 WorkingDirectory=$ROOT
 ExecStart=$exec_start
 $exec_stop
@@ -65,10 +100,12 @@ EOF
   if [ ! -f "$ENVFILE" ]; then
     item "writing disabled archive configuration at $ENVFILE ..."
     sudo tee "$ENVFILE" >/dev/null <<'EOF'
-# Enable only after a read-only B2 application key is installed here.
+# Enable only after the read-only processor-archive B2 application key is
+# installed here. This key is separate from the uploader key and is scoped to
+# the episodes/ prefix; it cannot write or delete objects.
 FM_ARCHIVE_ENABLED=false
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
+BACKBLAZE_B2_PROCARCH_KEY_ID=
+BACKBLAZE_B2_PROCARCH_APPLICATION_KEY=
 
 # Local staging is a separate opt-in. Desktop never receives these values.
 FM_ARCHIVE_STAGE_ENABLED=false
@@ -106,7 +143,9 @@ do_uninstall() {
 }
 
 case "${1:-}" in
-  ""|install) do_install ;;
+  ""|install) do_install false ;;
+  --dry-run) do_install true ;;
   uninstall) do_uninstall ;;
-  *) echo "usage: install-archive-service.sh [install|uninstall]" >&2; exit 2 ;;
+  -h|--help) usage ;;
+  *) echo "usage: install-archive-service.sh [install|uninstall|--dry-run]" >&2; exit 2 ;;
 esac

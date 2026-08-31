@@ -219,13 +219,37 @@ read-only B2 application key. Local staging is a second, default-off setting in
 that file. Restart `fm-archive.service` after enabling or changing the file.
 The service passes only archive topics over the existing local DDS
 and Foxglove boundary; Desktop never receives a credential, object key, or
-local path. The `/archive/stage` topic accepts a bounded episode request. The
-latched `/archive/status` topic reports queued, staging, refusal, failure, or
-completion in its `stage` block; there is no separate completion topic. Check
-the installed path with:
+local path. The browser keeps its catalogue on `/archive/index` and
+`/archive/status`; the bounded `/archive/stage` request remains available for
+read-side restore. The uploader publishes storage state separately on
+`/archive/storage/index` and `/archive/storage/status`. Check the installed path
+with:
 
 ```bash
 bash scripts/service/archive-check.sh
+```
+
+The uploader is a separate, default-off `fm-archive-uploader.service`. It reads
+only `/etc/fm-archive-uploader.env`, whose `BACKBLAZE_B2_FMREC_*` key is
+write-scoped to the approved recording prefixes and must not have remote-delete
+permission. The reader's `BACKBLAZE_B2_PROCARCH_*` key remains in
+`/etc/fm-archive.env`; the two files are never inherited by one another. The
+uploader allows one concurrent upload and requires 30 days of local
+retention, and gives deletion eligibility a 15-minute window. Local deletion is
+disabled in the first release. Its closed command topics are
+`/archive/upload/retry`, `/archive/retention/verify`, and
+`/archive/retention/delete` (the last is a confirmation request only, never a
+remote delete). On a container-runtime processor, both services require the
+already-running `fm-processor` container and cannot recreate or stop it.
+
+Use the person-run archive workflow for status, checks, recovery, or an
+idempotent install:
+
+```bash
+fm archive status
+fm archive preflight --json
+fm archive reconcile --dry-run
+fm archive install --dry-run
 ```
 
 The optional LeRobot source uses the same processor-owned service. Set
