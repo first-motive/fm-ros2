@@ -269,3 +269,20 @@ fm_processor_heal_imports() {  # workspace-root
   printf '%s\n' "$error" | sed 's/^/       /' >&2
   return 1
 }
+
+# fm_processor_env <key>
+# Echo one value from the processor role's EnvironmentFile, or nothing.
+#
+# The role's directories are configured, not assumed: a rig with a data volume
+# reads /data/recordings while the verb's own default is ~/recordings. `fm dataset
+# process` used its default on such a host and pointed the engine at a directory
+# the processor container does not even mount — it reported the input as missing
+# while the episodes sat where the service would have found them (gate 4.2).
+#
+# Parsed rather than sourced: the file belongs to a systemd unit and may carry
+# anything, and sourcing it would import all of it into the verb's shell.
+fm_processor_env() {  # key
+  local key="${1:?env key}" file="${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}"
+  [ -f "$file" ] || return 0
+  sed -n "s/^${key}=//p" "$file" | tail -1
+}

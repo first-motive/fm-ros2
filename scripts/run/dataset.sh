@@ -187,7 +187,7 @@ print(f"wrote profile {out} ({len(sets)} override(s))")
 main() {
   # shellcheck disable=SC2088  # deliberate: expanded by the far-side shell via
   # fm_stack_remote_path, not by this one.
-  local action="" input='~/recordings' output='~/processed' config=""
+  local action="" input="" output="" config=""
   local strict=false backend=mujoco real=false
   local -a sets=()
 
@@ -268,6 +268,23 @@ main() {
       return 2
     fi
     backend=real
+  fi
+
+  # Where this host keeps recordings, in priority order: what the caller asked
+  # for, then what the processor role is configured with, then the verb's own
+  # default. The middle one is the whole point — a rig with a data volume is not
+  # using ~/recordings, and neither should the verb.
+  if [[ -z "$input" ]]; then
+    input="$(fm_processor_env FM_PROCESSOR_RECORDINGS_DIR)"
+    # shellcheck disable=SC2088  # deliberate: expanded by the far-side shell
+    input="${input:-'~/recordings'}"
+    input="${input//\'/}"
+  fi
+  if [[ -z "$output" ]]; then
+    output="$(fm_processor_env FM_PROCESSOR_OUTPUT_DIR)"
+    # shellcheck disable=SC2088  # deliberate: expanded by the far-side shell
+    output="${output:-'~/processed'}"
+    output="${output//\'/}"
   fi
 
   backend=$(fm_stack_normalize "$backend")
