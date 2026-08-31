@@ -73,6 +73,9 @@ stack_up() {
     up_log="$(mktemp)"
     "${FM_COMPOSE[@]}" up -d 2>&1 | tee "$up_log"
     if fm_compose_created_container "$up_log"; then
+      # A fresh container is also a fresh image: install what it lacks before
+      # anything tries to record into it.
+      fm_compose_heal_stack_deps "${FM_COMPOSE[@]}"
       fm_compose_restart_bridge
     fi
     rm -f "$up_log"

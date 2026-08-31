@@ -457,32 +457,17 @@ main() {
   # them — and the failure is a build error in fm_control plus a mujoco backend that
   # cannot exist (fm-ros2#147), an hour into a fresh provision. Install whatever is
   # missing, apt cache and all.
+  #
+  # rosbag2-storage-mcap is the one the loop dies on: without it the recorder
+  # comes up, subscribes, accepts the start marker and then fails to open a bag
+  # ("Could not load/open plugin with storage id 'mcap'"), so no episode is ever
+  # finalized and the loop reports the index as empty (gate 3.5).
   # Idempotent and self-neutralising: once the republished image carries them, the
   # check costs one `dpkg-query` and installs nothing.
   step "Stack Dependencies"
-  "${COMPOSE[@]}" exec -T "$SERVICE" bash -c '
-    need=""
-    for p in ros-humble-moveit-servo ros-humble-mujoco-ros2-control; do
-      dpkg-query -W -f="\${Status}" "$p" 2>/dev/null | grep -q "install ok installed" \
-        || need="$need $p"
-    done
-    if [ -n "$need" ]; then
-      echo "installing apt packages the running image lacks:$need"
-      apt-get update -qq && apt-get install -y --no-install-recommends $need
-    else
-      echo "stack apt dependencies present"
-    fi
-  '
+  fm_compose_heal_stack_deps "${COMPOSE[@]}"
+  item "stack apt dependencies present"
 
-  # The published fm-app image can lag its Dockerfile — mediapipe was added after the
-  # last publish, and the mesh-converter deps (trimesh/pycollada) only just landed in the
-  # base — so a fresh pull may be missing what vision teleop needs. Until the image chain
-  # is republished, install whatever the running image lacks so a fresh install still
-  # (a) builds fm_description's OpenArm visual meshes and (b) runs hand tracking, and fetch
-  # the MediaPipe .task models (gitignored, ~30 MB) if absent. All idempotent: pip is a
-  # near-instant no-op once satisfied, download_model.sh skips when the models exist, so this
-  # self-neutralises once the baked image carries them. Runs BEFORE the build because
-  # trimesh/pycollada are build-time deps of fm_description.
   step "Vision Dependencies"
   "${COMPOSE[@]}" exec -T "$SERVICE" bash -c '
     need=""

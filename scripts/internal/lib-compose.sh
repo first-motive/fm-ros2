@@ -119,3 +119,34 @@ fm_compose_restart_bridge() {
     echo ">>       sudo systemctl restart fm-zenoh-bridge" >&2
   fi
 }
+
+# fm_compose_heal_stack_deps <compose-cmd...>
+# Install the apt packages the running image lacks, inside the container.
+#
+# The published image can lag its Dockerfile: a host that pulled the tag before a
+# line landed has an image without it. Three matter to the stack, and the third is
+# the one the loop dies on — without the MCAP storage plugin the recorder starts,
+# subscribes, accepts the start marker and then cannot open a bag ("Could not
+# load/open plugin with storage id 'mcap'"), so no episode is ever finalized and
+# the loop reports an empty index (gate 3.5).
+#
+# Here rather than in one verb because every path that CREATES a container needs
+# it: the launcher, `fm stack up`, and the loop that drives the stack through it.
+#
+# Idempotent and self-neutralising: once the republished image carries them this
+# costs one dpkg-query and installs nothing.
+fm_compose_heal_stack_deps() {  # compose-cmd...
+  [ "$#" -gt 0 ] || return 0
+  "$@" exec -T fm bash -c '
+    need=""
+    for p in ros-humble-moveit-servo ros-humble-mujoco-ros2-control \
+             ros-humble-rosbag2-storage-mcap; do
+      dpkg-query -W -f="${Status}" "$p" 2>/dev/null | grep -q "install ok installed" \
+        || need="$need $p"
+    done
+    if [ -n "$need" ]; then
+      echo ">> installing apt packages the running image lacks:$need"
+      apt-get update -qq && apt-get install -y --no-install-recommends $need >/dev/null
+    fi
+  ' 2>/dev/null || true
+}

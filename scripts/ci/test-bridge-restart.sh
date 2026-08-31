@@ -71,6 +71,23 @@ else
 fi
 unset -f systemctl sudo
 
+echo "== a fresh container gets the packages the image lacks =="
+# The recorder needs the MCAP storage plugin to open a bag at all, and the loop
+# creates its container through stack.sh, not the launcher — so the heal has to
+# run on every creating path, not just one (gate 3.5).
+for caller in scripts/internal/container.sh scripts/run/stack.sh; do
+  if grep -q 'fm_compose_heal_stack_deps' "$caller"; then
+    pass "$(basename "$caller") installs what the running image lacks"
+  else
+    fail "$(basename "$caller") creates a container and never heals its packages"
+  fi
+done
+if grep -q 'rosbag2-storage-mcap' scripts/internal/lib-compose.sh; then
+  pass "the MCAP storage plugin is one of them"
+else
+  fail "the MCAP storage plugin is not installed — the recorder cannot open a bag"
+fi
+
 echo "== every path that creates a container restarts the bridge =="
 for caller in scripts/internal/container.sh scripts/run/stack.sh scripts/service/container-exec.sh; do
   if grep -q 'fm_compose_restart_bridge' "$caller"; then
