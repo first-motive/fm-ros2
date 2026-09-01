@@ -105,13 +105,37 @@ esac
 # would interrupt the processor (or a sibling role) just to restore the viewer.
 # Its caller opts into an existing-only check and receives an actionable failure
 # when the processor role is not already running.
+#
+# `After=fm-processor.service` is satisfied when systemd *starts* the processor
+# unit, not when its role container is accepting exec. A sibling entered here on
+# the same boot or deploy therefore reaches this check seconds before the
+# container exists. Refusing at once made every boot and every converge log a
+# unit failure that the following restart silently cleared, which is exactly the
+# signal a fail-closed uploader cannot afford to lose. Wait a bounded time for
+# the role to appear, and keep the refusal for a processor that never arrives.
 if [ "${FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING:-0}" = 1 ]; then
-  if ! "${FM_COMPOSE[@]}" ps --status running --services 2>/dev/null \
-      | grep -Fxq fm; then
-    echo "ERROR: processor container is not already running; refusing to start $wrapper" >&2
-    echo "       Start the prepared processor role first (fm-processor.service), then retry." >&2
-    exit 1
-  fi
+  wait_seconds="${FM_PROCESSOR_CONTAINER_WAIT_SECONDS:-60}"
+  case "$wait_seconds" in
+    ''|*[!0-9]*)
+      echo "ERROR: FM_PROCESSOR_CONTAINER_WAIT_SECONDS must be a whole number of seconds (got '$wait_seconds')" >&2
+      exit 1
+      ;;
+  esac
+  waited=0
+  until "${FM_COMPOSE[@]}" ps --status running --services 2>/dev/null \
+      | grep -Fxq fm; do
+    if [ "$waited" -ge "$wait_seconds" ]; then
+      echo "ERROR: processor container is not already running; refusing to start $wrapper" >&2
+      echo "       Waited ${wait_seconds}s for the processor role container." >&2
+      echo "       Start the prepared processor role first (fm-processor.service), then retry." >&2
+      exit 1
+    fi
+    if [ "$waited" = 0 ]; then
+      echo "waiting up to ${wait_seconds}s for the processor role container ..." >&2
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
 else
   # Same reason as the stack path: a replaced container leaves the host bridge
   # routing for participants that no longer exist, doubling every stream.

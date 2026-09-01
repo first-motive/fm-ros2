@@ -33,8 +33,19 @@ cat >"$TMP_DIR/bin/docker" <<'EOF'
 set -euo pipefail
 printf 'argv=%s\n' "$*" >>"${FM_TEST_DOCKER_LOG:?}"
 printf 'commit=%s\n' "${FM_PROCESSOR_ANNOTATE_GIT_COMMIT:-<unset>}" >>"${FM_TEST_DOCKER_LOG:?}"
-if [[ "$*" == *" ps --status running --services"* ]] && [ "${FM_TEST_DOCKER_RUNNING:-0}" = 1 ]; then
-  printf 'fm\n'
+if [[ "$*" == *" ps --status running --services"* ]]; then
+  # Count the readiness polls so a test can make the role appear mid-wait, the
+  # way a processor container does when systemd starts a sibling alongside it.
+  polls=0
+  [ -f "${FM_TEST_DOCKER_PS_COUNT:-/dev/null}" ] &&
+    polls="$(cat "${FM_TEST_DOCKER_PS_COUNT}")"
+  polls=$((polls + 1))
+  [ -n "${FM_TEST_DOCKER_PS_COUNT:-}" ] && printf '%s\n' "$polls" >"$FM_TEST_DOCKER_PS_COUNT"
+  if [ "${FM_TEST_DOCKER_RUNNING:-0}" = 1 ] ||
+      { [ -n "${FM_TEST_DOCKER_RUNNING_AFTER:-}" ] &&
+        [ "$polls" -ge "$FM_TEST_DOCKER_RUNNING_AFTER" ]; }; then
+    printf 'fm\n'
+  fi
 fi
 EOF
 chmod +x "$TMP_DIR/bin/docker"
@@ -181,7 +192,7 @@ pass "reader wrapper receives only its canonical service credential pair"
 # container. The existing-only mode refuses before `up -d` when the role is not
 # already running, and reaches only `compose exec` once the `fm` service exists.
 clear_log
-if FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1 \
+if FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1 FM_PROCESSOR_CONTAINER_WAIT_SECONDS=0 \
     bash "$WORKSPACE/scripts/service/container-exec.sh" scripts/service/archive-uploader-boot.sh \
     >"$TMP_DIR/not-running.out" 2>"$TMP_DIR/not-running.err"; then
   fail "existing-only container entry accepted a stopped processor"
@@ -204,6 +215,50 @@ if grep -q 'up -d' "$FM_TEST_DOCKER_LOG"; then
 fi
 grep -q 'exec' "$FM_TEST_DOCKER_LOG" || fail "existing-only entry did not exec the uploader"
 pass "existing-only entry execs a running processor without lifecycle changes"
+
+# systemd satisfies After=fm-processor.service when the processor unit starts,
+# not when its container accepts exec, so a sibling can poll before the role
+# exists. The entry waits a bounded time for it instead of turning every boot
+# and converge into a logged unit failure, and still refuses a processor that
+# never arrives.
+clear_log
+export FM_TEST_DOCKER_PS_COUNT="$TMP_DIR/ps-count"
+: >"$FM_TEST_DOCKER_PS_COUNT"
+FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1 FM_PROCESSOR_CONTAINER_WAIT_SECONDS=5 \
+  FM_TEST_DOCKER_RUNNING_AFTER=3 \
+  bash "$WORKSPACE/scripts/service/container-exec.sh" scripts/service/archive-uploader-boot.sh \
+  >"$TMP_DIR/late-start.out" 2>"$TMP_DIR/late-start.err" || {
+    cat "$TMP_DIR/late-start.err" >&2
+    fail "existing-only entry refused a processor that arrived during the wait"
+  }
+[ "$(cat "$FM_TEST_DOCKER_PS_COUNT")" -ge 3 ] || fail "readiness check did not poll while waiting"
+grep -q 'up -d' "$FM_TEST_DOCKER_LOG" && fail "waiting entry recreated the processor container"
+grep -q 'exec' "$FM_TEST_DOCKER_LOG" || fail "waiting entry did not exec the uploader once the role appeared"
+grep -q 'waiting up to 5s' "$TMP_DIR/late-start.err" || fail "waiting entry did not report why it paused"
+pass "existing-only entry waits for a processor that is still starting"
+
+clear_log
+: >"$FM_TEST_DOCKER_PS_COUNT"
+if FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1 FM_PROCESSOR_CONTAINER_WAIT_SECONDS=2 \
+    bash "$WORKSPACE/scripts/service/container-exec.sh" scripts/service/archive-uploader-boot.sh \
+    >"$TMP_DIR/wait-expired.out" 2>"$TMP_DIR/wait-expired.err"; then
+  fail "bounded wait accepted a processor that never started"
+fi
+grep -q 'up -d' "$FM_TEST_DOCKER_LOG" && fail "expired wait ran compose up"
+grep -q 'not already running' "$TMP_DIR/wait-expired.err" || fail "expired wait refusal was not actionable"
+grep -q 'Waited 2s' "$TMP_DIR/wait-expired.err" || fail "expired wait did not report how long it waited"
+pass "bounded wait still refuses a processor that never arrives"
+
+clear_log
+if FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1 FM_PROCESSOR_CONTAINER_WAIT_SECONDS=forever \
+    bash "$WORKSPACE/scripts/service/container-exec.sh" scripts/service/archive-uploader-boot.sh \
+    >"$TMP_DIR/bad-wait.out" 2>"$TMP_DIR/bad-wait.err"; then
+  fail "a non-numeric wait was accepted"
+fi
+[ ! -s "$FM_TEST_DOCKER_LOG" ] || fail "a non-numeric wait reached Docker"
+grep -q 'whole number of seconds' "$TMP_DIR/bad-wait.err" || fail "non-numeric wait error was not actionable"
+pass "a misconfigured wait fails closed with an actionable message"
+unset FM_TEST_DOCKER_PS_COUNT
 
 # Every unit entered through this wrapper execs compose exec, so its ExecStop ends
 # the in-container wrapper and leaves systemd to SIGTERM the exec itself. That
