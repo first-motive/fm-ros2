@@ -121,20 +121,23 @@ if [ "${FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING:-0}" = 1 ]; then
       exit 1
       ;;
   esac
-  waited=0
+  # Bounded by the wall clock, not a poll count: each `compose ps` can itself
+  # take seconds on a loaded host, and counting polls would then wait far
+  # longer than the knob promises.
+  wait_started=$SECONDS
   until "${FM_COMPOSE[@]}" ps --status running --services 2>/dev/null \
       | grep -Fxq fm; do
-    if [ "$waited" -ge "$wait_seconds" ]; then
+    if [ $((SECONDS - wait_started)) -ge "$wait_seconds" ]; then
       echo "ERROR: processor container is not already running; refusing to start $wrapper" >&2
       echo "       Waited ${wait_seconds}s for the processor role container." >&2
       echo "       Start the prepared processor role first (fm-processor.service), then retry." >&2
       exit 1
     fi
-    if [ "$waited" = 0 ]; then
+    if [ "$wait_started" = "$SECONDS" ] && [ -z "${wait_announced:-}" ]; then
+      wait_announced=1
       echo "waiting up to ${wait_seconds}s for the processor role container ..." >&2
     fi
     sleep 1
-    waited=$((waited + 1))
   done
 else
   # Same reason as the stack path: a replaced container leaves the host bridge
