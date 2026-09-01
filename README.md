@@ -388,6 +388,33 @@ for parity) — no GPU, no hardware; MuJoCo runs native. The full workspace buil
 natively; driving real Unitree hardware still needs the container — see
 [SETUP.md](docs/SETUP.md).
 
+## Releasing
+
+Rigs converge on release tags, never on `main`, so a merged change reaches no
+machine until a tag carries it. The front door for cutting one is `fm release`,
+which refuses to tag a commit CI is not green on and only then delegates to this
+repo's script:
+
+```bash
+fm release --repo fm-ros2                            # is the next tag safe to cut?
+fm release --repo fm-ros2 --cut -- --apply           # gate, then cut the patch bump
+fm release --repo fm-ros2 --cut -- --minor --apply   # gate, then cut the minor bump
+```
+
+Calling the script directly skips that gate, which is why a hook blocks it and
+points back at the verb. What the verb delegates to, from a workspace checkout
+with every repo imported:
+
+```bash
+./scripts/dev/cut-release.sh                  # print the plan, change nothing
+./scripts/dev/cut-release.sh --apply          # cut and push the patch bump
+./scripts/dev/cut-release.sh --minor --apply  # cut and push the minor bump
+```
+
+A release is the whole set of repos the workspace assembles, not this one alone.
+Cadence, the repos it discovers, and verifying convergence:
+[RELEASE.md](docs/RELEASE.md).
+
 ## CI
 
 [![CI](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml/badge.svg)](https://github.com/first-motive/fm-ros2/actions/workflows/ci.yml)
