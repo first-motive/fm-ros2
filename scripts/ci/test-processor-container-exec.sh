@@ -205,4 +205,14 @@ fi
 grep -q 'exec' "$FM_TEST_DOCKER_LOG" || fail "existing-only entry did not exec the uploader"
 pass "existing-only entry execs a running processor without lifecycle changes"
 
+# Every unit entered through this wrapper execs compose exec, so its ExecStop ends
+# the in-container wrapper and leaves systemd to SIGTERM the exec itself. That
+# exits 143, which systemd calls a failure unless the unit says otherwise.
+for installer in install-processor-service.sh install-archive-service.sh \
+  install-archive-uploader-service.sh install-foxglove-service.sh; do
+  grep -q '^SuccessExitStatus=143$' "$ROOT/scripts/install/$installer" ||
+    fail "$installer reports a deliberate stop as a failure"
+done
+pass "every container-exec unit treats a deliberate stop as a clean exit"
+
 echo "processor container-exec behavior: all checks passed"

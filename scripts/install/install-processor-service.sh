@@ -362,6 +362,10 @@ EnvironmentFile=-$BRIDGE_ENV
 WorkingDirectory=$ROOT
 ExecStart=$exec_start
 $exec_stop
+# A deliberate stop first ends the wrapper inside the container, then systemd
+# sends SIGTERM to this unit's compose exec, which exits 143. Without this the
+# journal records every clean stop as a failure, so a real one stops standing out.
+SuccessExitStatus=143
 Restart=on-failure
 RestartSec=5
 
