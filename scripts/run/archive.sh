@@ -175,12 +175,6 @@ preflight() {
   check eligibility_window floor_is_valid "$eligibility_window" 15
   check single_concurrent concurrency_is_valid "$max_concurrent"
   check bandwidth_ceiling floor_is_valid "$bandwidth" 1
-  check storage_cap_evidence enabled_value_is_present \
-    "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_STORAGE_CAP_BYTES)" "${uploader_enabled:-false}"
-  check required_storage_cap enabled_value_is_present \
-    "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_REQUIRED_STORAGE_CAP_BYTES)" "${uploader_enabled:-false}"
-  check storage_cap_verified_at enabled_value_is_present \
-    "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_STORAGE_CAP_VERIFIED_AT)" "${uploader_enabled:-false}"
   check no_remote_delete_api no_delete_api
 
   if command -v ros2 >/dev/null 2>&1; then

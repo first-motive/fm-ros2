@@ -54,7 +54,13 @@ grep -q 'fm_processor_env FM_PROCESSOR_RECORDINGS_DIR' "$INSTALLER" || fail "upl
 grep -q 'ARCHIVE_DATA_ROOT/fm-data-runs/archive-uploader' "$BOOT" || fail "uploader state is not on persistent data storage"
 grep -q -- 'recordings:/data/recordings' "$ROOT/compose.processor.yaml" || fail "processor container does not mount the authoritative recording root"
 grep -q 'archive_preflight' "$BOOT" || fail "live provider preflight gate is absent"
-grep -q 'FM_ARCHIVE_STORAGE_CAP_BYTES=' "$INSTALLER" || fail "storage-cap evidence field is absent"
+# The live provider preflight above is the upload gate. The account storage cap
+# was operator-typed console evidence carrying a 24-hour freshness window, so it
+# expired on a clock rather than on anything changing and stopped uploads at the
+# next restart; it must not come back through the installer.
+if grep -q 'FM_ARCHIVE_STORAGE_CAP' "$INSTALLER"; then
+  fail "storage-cap gate reintroduced"
+fi
 if grep -R -E -q 'delete_object|delete_objects|DeleteObject|DeleteObjects' "$BOOT" "$INSTALLER"; then
   fail "uploader wiring contains a remote-delete API"
 fi
