@@ -133,6 +133,17 @@ else
   pass "a default rig's compose invocation carries no overlay"
 fi
 
+echo "== the ~/...-shaped knobs reach the same directory =="
+# process_supervisor's model_views_dir default and setup-qwen.sh's FM_QWEN_ROOT
+# name $HOME inside the container and no env knob overrides them. Without this
+# bind they resolve to the writable layer, so the 16 GB weights view downloads
+# again on every recreate and qwen_ready never turns true.
+if grep -q -- '/fm-data-runs:${HOME}/fm-data-runs' compose.processor.yaml; then
+  pass "the runs directory is bound at the container HOME as well"
+else
+  fail "the ~/fm-data-runs knobs land in the container's writable layer"
+fi
+
 echo
 if [[ "$fails" -gt 0 ]]; then
   echo "$fails check(s) failed"

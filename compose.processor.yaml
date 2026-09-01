@@ -17,6 +17,13 @@ services:
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/processed:/data/processed
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/annotations:/data/annotations
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/fm-data-runs:/data/fm-data-runs
+      # Same directory again at the container's HOME. The role still has
+      # ~/...-shaped knobs that no env knob overrides — process_supervisor's
+      # model_views_dir default and setup-qwen.sh's FM_QWEN_ROOT — and on a
+      # rig with a data volume those name the container's writable layer
+      # instead of this mount. The 16 GB weights view then downloads again
+      # on every recreate and never satisfies the qwen_ready check.
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/fm-data-runs:${HOME}/fm-data-runs
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/dataset-releases:/data/dataset-releases
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/lerobot-staged:/data/lerobot-staged
       # The relocatable release venv keeps its interpreter in uv's managed
