@@ -112,6 +112,24 @@ main() {
     esac
   done
 
+  # A release is the whole set, so the set has to be real before anything is
+  # tagged. This script discovers repos from directories — src/*, docker/,
+  # comms/ — which a bare clone of the orchestrator simply does not have. Run
+  # there, it scanned one repo and printed "nothing to release", the same
+  # sentence a genuinely current workspace prints. Acting on that ships the
+  # orchestrator's own tag and leaves every package repo untagged: the fleet
+  # keeps running old package code while every check reports healthy.
+  local scanned
+  scanned="$(_workspace_repos | wc -l | tr -d ' ')"
+  item "scanned $scanned repos under $ROOT"
+  if [ "$scanned" -le 1 ]; then
+    echo "error: $ROOT is a bare clone, not an assembled workspace." >&2
+    echo "       Found $scanned repo; a release needs src/, docker/ and comms/." >&2
+    echo "       Assemble it first (vcs import < fm-ros2.repos) or run this from" >&2
+    echo "       the assembled workspace, then re-run." >&2
+    return 2
+  fi
+
   local dir name branch current next tip tagged planned=0
   while IFS= read -r dir; do
     name="$(basename "$dir")"
