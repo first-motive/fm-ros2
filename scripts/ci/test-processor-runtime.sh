@@ -112,5 +112,9 @@ grep -q 'annotate_git_commit' scripts/service/processor-boot.sh \
   && grep -q 'FM_PROCESSOR_ANNOTATE_GIT_COMMIT' scripts/service/container-exec.sh \
   && echo "PASS: processor boot carries exact data package source identity" || { echo "FAIL: source identity route missing"; fail=1; }
 
+grep -q 'snapshot_download' scripts/install/setup-qwen.sh \
+  && ! grep -q 'reusing the existing staging download' scripts/install/setup-qwen.sh \
+  && echo "PASS: an interrupted weights download resumes instead of dead-ending" || { echo "FAIL: a partial staging directory skips the download and can never verify"; fail=1; }
+
 [ "$fail" = 0 ] && echo "processor runtime: all checks passed"
 exit "$fail"

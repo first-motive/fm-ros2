@@ -147,12 +147,15 @@ do_install() {
   else
     item "downloading $REPO_ID @ ${REVISION:0:8} (large pinned model view) ..."
     local staging="$QWEN_ROOT/_model-views/.staging-$VIEW_NAME"
-    if [ -d "$staging" ]; then
-      item "reusing the existing staging download after full verification ..."
-    else
-      mkdir -p "$staging"
-      _uv run --quiet --python "$PYTHON_VERSION" --no-project \
-        --with huggingface_hub python - "$staging" <<PY
+    # Unconditional, including onto an existing staging directory: the download
+    # is resumable and a no-op once complete, so an interrupt costs only the
+    # shards it had not reached. Skipping it when the directory exists dead-ends
+    # a partial download instead - verification refuses the missing shards, and
+    # every later attempt refuses the same way (fm-ws-01's qwen3.5, stalled at
+    # two of four shards since 28 August).
+    mkdir -p "$staging"
+    _uv run --quiet --python "$PYTHON_VERSION" --no-project \
+      --with huggingface_hub python - "$staging" <<PY
 import sys
 from huggingface_hub import snapshot_download
 snapshot_download(
@@ -161,7 +164,6 @@ snapshot_download(
     local_dir=sys.argv[1],
 )
 PY
-    fi
     item "verifying the download against the pinned inventory identity ..."
     _verify_and_write_inventory "$staging"
     rm -rf "$staging/.cache"
