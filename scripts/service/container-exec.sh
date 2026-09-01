@@ -133,7 +133,7 @@ if [ "${FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING:-0}" = 1 ]; then
       echo "       Start the prepared processor role first (fm-processor.service), then retry." >&2
       exit 1
     fi
-    if [ "$wait_started" = "$SECONDS" ] && [ -z "${wait_announced:-}" ]; then
+    if [ -z "${wait_announced:-}" ]; then
       wait_announced=1
       echo "waiting up to ${wait_seconds}s for the processor role container ..." >&2
     fi
