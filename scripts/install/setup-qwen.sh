@@ -110,10 +110,14 @@ do_install() {
     return 0
   fi
 
+  # Measured where the view lands, not under $HOME: on a rig with a data volume
+  # FM_QWEN_ROOT is on another filesystem, and a full $HOME check passes while
+  # the download fills the volume.
   local free_gb
-  free_gb=$(df -BG --output=avail "$HOME" | tail -1 | tr -dc '0-9')
+  mkdir -p "$QWEN_ROOT"
+  free_gb=$(df -BG --output=avail "$QWEN_ROOT" | tail -1 | tr -dc '0-9')
   if [ "${free_gb:-0}" -lt "$NEED_GB" ] && [ ! -d "$VIEW_DIR" ]; then
-    echo "ERROR: ~${NEED_GB} GB free needed under \$HOME for the model view; have ${free_gb:-?} GB." >&2
+    echo "ERROR: ~${NEED_GB} GB free needed under $QWEN_ROOT for the model view; have ${free_gb:-?} GB." >&2
     return 1
   fi
 
@@ -151,8 +155,7 @@ do_install() {
     # is resumable and a no-op once complete, so an interrupt costs only the
     # shards it had not reached. Skipping it when the directory exists dead-ends
     # a partial download instead - verification refuses the missing shards, and
-    # every later attempt refuses the same way (fm-ws-01's qwen3.5, stalled at
-    # two of four shards since 28 August).
+    # every later attempt refuses the same way.
     mkdir -p "$staging"
     _uv run --quiet --python "$PYTHON_VERSION" --no-project \
       --with huggingface_hub python - "$staging" <<PY
@@ -165,7 +168,15 @@ snapshot_download(
 )
 PY
     item "verifying the download against the pinned inventory identity ..."
-    _verify_and_write_inventory "$staging"
+    # A complete staging directory with a wrong shard passes the download's own
+    # metadata check and fails here on every run. Resuming cannot repair it, so
+    # name the one remedy instead of refusing identically forever.
+    _verify_and_write_inventory "$staging" || {
+      echo "ERROR: the staged download does not match the pinned inventory and a" >&2
+      echo "       resume will not change it. Remove it and re-run:" >&2
+      echo "         rm -rf '$staging'" >&2
+      return 1
+    }
     rm -rf "$staging/.cache"
     mv "$staging" "$VIEW_DIR"
     item "weights view promoted: $VIEW_DIR"
