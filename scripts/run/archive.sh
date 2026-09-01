@@ -30,9 +30,9 @@ Usage: ./scripts/run/archive.sh <status|preflight|reconcile|install> [options]
   --dry-run    print changes for reconcile/install without applying them
   -h, --help   show this help
 
-Provider Object Lock, retention, and storage-cap evidence is never inferred
-from an env file. The uploader's provider preflight owns that live check; this
-front door reports whether the local service is configured to perform it.
+Provider Object Lock and default retention are never inferred from an env file.
+The uploader's provider preflight owns that live check; this front door reports
+whether the local service is configured to perform it.
 EOF
 }
 
@@ -175,12 +175,6 @@ preflight() {
   check eligibility_window floor_is_valid "$eligibility_window" 15
   check single_concurrent concurrency_is_valid "$max_concurrent"
   check bandwidth_ceiling floor_is_valid "$bandwidth" 1
-  check storage_cap_evidence enabled_value_is_present \
-    "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_STORAGE_CAP_BYTES)" "${uploader_enabled:-false}"
-  check required_storage_cap enabled_value_is_present \
-    "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_REQUIRED_STORAGE_CAP_BYTES)" "${uploader_enabled:-false}"
-  check storage_cap_verified_at enabled_value_is_present \
-    "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_STORAGE_CAP_VERIFIED_AT)" "${uploader_enabled:-false}"
   check no_remote_delete_api no_delete_api
 
   if command -v ros2 >/dev/null 2>&1; then

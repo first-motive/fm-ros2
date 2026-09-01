@@ -146,15 +146,6 @@ FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15
 FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1
 FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=8388608
 FM_ARCHIVE_UPLOADER_DELETE_ENABLED=false
-
-# Automatic upload stays blocked until a person verifies the Backblaze console
-# cap and records fresh evidence here. Backblaze exposes Object Lock through
-# its API, but account caps only through the console. Both byte values must be
-# positive, the verified cap must meet the required cap, and the timestamp must
-# be no more than 24 hours old when the service starts.
-FM_ARCHIVE_STORAGE_CAP_BYTES=
-FM_ARCHIVE_REQUIRED_STORAGE_CAP_BYTES=
-FM_ARCHIVE_STORAGE_CAP_VERIFIED_AT=
 EOF
   fi
   # The env file is root-owned and mode 0600 because it carries the uploader's
