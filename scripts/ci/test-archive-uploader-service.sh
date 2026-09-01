@@ -133,6 +133,13 @@ grep -q 'container-exec.sh stop archive_uploader' \
   "$TEST_UNIT" || fail "container unit lacks scoped stop"
 pass "container unit uses existing-only exec and scoped process stop"
 
+# The ExecStop ends the wrapper inside the container, so the unit's own compose
+# exec is left to be SIGTERMed and exits 143. Without SuccessExitStatus, systemd
+# logs every operator stop as a failure and a real one no longer stands out.
+grep -q '^SuccessExitStatus=143$' \
+  "$TEST_UNIT" || fail "container unit reports a deliberate stop as a failure"
+pass "container unit treats a deliberate stop as a clean exit"
+
 before_unit="$(hash_file "$TEST_UNIT")"
 before_env="$(hash_file "$TEST_ENV")"
 bash "$INSTALLER" --dry-run >/dev/null
