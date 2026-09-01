@@ -76,6 +76,14 @@ grep -q -- '-p "lerobot_catalogue_file:' scripts/service/archive-boot.sh
 grep -q -- '-p lerobot_stage_dir:' scripts/service/archive-boot.sh
 grep -q -- '-p lerobot_stage_enabled:' scripts/service/archive-boot.sh
 
+# A staged episode is published into the recording root the processor reads.
+# That root is /data/recordings on the appliance and $HOME/recordings on a
+# native install, so the boot script must resolve and pass it. Without this the
+# node falls back to refusing, and every restore on a non-appliance host fails.
+grep -q -- '-p recordings_dir:' scripts/service/archive-boot.sh
+grep -q 'FM_PROCESSOR_RECORDINGS_DIR' scripts/service/archive-boot.sh
+grep -q 'FM_ARCHIVE_RECORDINGS_DIR=' scripts/install/install-archive-service.sh
+
 # The app-facing boundary receives only ROS parameters. Credentials remain in
 # the service environment and are never passed as node arguments.
 if grep -E -- '-p (AWS_|BACKBLAZE_|B2_|bucket|key|prefix)' scripts/service/archive-boot.sh; then

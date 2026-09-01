@@ -86,8 +86,8 @@ echo "archive-uploader-boot: starting the uploader"
 # These are bridge contract topics, shared with Desktop. They are deliberately
 # fixed here; an env-file typo must not leave a healthy uploader invisible to the
 # app or route a command to an unrelated graph topic.
-# A live provider check is a hard start gate. It verifies bucket Object Lock,
-# default retention, and fresh account-cap evidence before one byte is queued.
+# A live provider check is a hard start gate. It verifies bucket Object Lock and
+# default retention against the provider before one byte is queued.
 if [ "${FM_ARCHIVE_UPLOADER_DRY_RUN:-false}" != true ]; then
   ros2 run fm_data_archive archive_preflight || exit $?
 fi

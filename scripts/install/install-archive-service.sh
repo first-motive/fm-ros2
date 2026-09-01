@@ -125,6 +125,12 @@ FM_ARCHIVE_STAGE_DIR=
 FM_ARCHIVE_LEROBOT_CATALOGUE_FILE=
 FM_ARCHIVE_LEROBOT_STAGE_DIR=/data/lerobot-staged
 FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false
+
+# Where a staged episode is published so the processor can reach it. Empty
+# resolves to the same recording root the processor and uploader use; a wrong
+# value publishes where Process cannot find the bag, so it fails closed rather
+# than guessing.
+FM_ARCHIVE_RECORDINGS_DIR=
 FM_ARCHIVE_MAX_OBJECTS=16
 FM_ARCHIVE_MAX_TOTAL_BYTES=2147483648
 FM_ARCHIVE_MAX_EPISODES=32

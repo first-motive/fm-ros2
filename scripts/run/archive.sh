@@ -30,9 +30,9 @@ Usage: ./scripts/run/archive.sh <status|preflight|reconcile|install> [options]
   --dry-run    print changes for reconcile/install without applying them
   -h, --help   show this help
 
-Provider Object Lock, retention, and storage-cap evidence is never inferred
-from an env file. The uploader's provider preflight owns that live check; this
-front door reports whether the local service is configured to perform it.
+Provider Object Lock and default retention are never inferred from an env file.
+The uploader's provider preflight owns that live check; this front door reports
+whether the local service is configured to perform it.
 EOF
 }
 

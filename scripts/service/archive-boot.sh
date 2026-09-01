@@ -65,6 +65,21 @@ ARCHIVE_DATA_ROOT=/data
 if [ ! -d "$ARCHIVE_DATA_ROOT" ] || [ ! -w "$ARCHIVE_DATA_ROOT" ]; then
   ARCHIVE_DATA_ROOT="$HOME"
 fi
+# Where a staged episode is published. It MUST be the same root the processor
+# reads: `bag_dir_for_record` resolves a session record by joining its basename
+# under this directory, so publishing anywhere else leaves the episode
+# undiscoverable. Mirrors archive-uploader-boot.sh, and prefers the processor's
+# own configured root the way the service installers do.
+RECORDINGS_DIR="${FM_ARCHIVE_RECORDINGS_DIR:-}"
+if [ -z "$RECORDINGS_DIR" ]; then
+  # Parsed rather than sourced: the processor env file belongs to a systemd unit
+  # and may carry anything. Same read as `fm_processor_env`, which is an
+  # installer library and is not sourced into a boot path.
+  RECORDINGS_DIR="$(sed -n 's/^FM_PROCESSOR_RECORDINGS_DIR=//p' \
+    "${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}" 2>/dev/null | tail -1)"
+fi
+RECORDINGS_DIR="${RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordings}"
+
 CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-cache}"
 STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-cache/staged}"
 LEROBOT_CATALOGUE_FILE="${FM_ARCHIVE_LEROBOT_CATALOGUE_FILE:-}"
@@ -86,6 +101,7 @@ exec ros2 run fm_data_archive archive_browser --ros-args \
   -p sync_topic:=/archive/sync \
   -p stage_topic:=/archive/stage \
   -p stage_dir:="$STAGE_DIR" \
+  -p recordings_dir:="$RECORDINGS_DIR" \
   -p stage_enabled:="${FM_ARCHIVE_STAGE_ENABLED:-false}" \
   ${LEROBOT_CATALOGUE_ARGS[@]+"${LEROBOT_CATALOGUE_ARGS[@]}"} \
   -p lerobot_stage_dir:="$LEROBOT_STAGE_DIR" \
