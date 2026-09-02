@@ -155,6 +155,13 @@ grep -q "^FM_ARCHIVE_RECORDINGS_DIR=$TMP_DIR/rig/recordings\$" "$TEST_ENV" || {
   echo "archive install did not fill an empty recording root" >&2
   exit 1
 }
+# An env file older than the key itself (fmtower's, 2026-09-02): appended.
+sed -i.bak '/^FM_ARCHIVE_RECORDINGS_DIR=/d' "$TEST_ENV"
+bash scripts/install/install-archive-service.sh install >/dev/null
+grep -q "^FM_ARCHIVE_RECORDINGS_DIR=$TMP_DIR/rig/recordings\$" "$TEST_ENV" || {
+  echo "archive install did not append a missing recording root" >&2
+  exit 1
+}
 # A root that names somewhere the processor does not read is refused, not kept.
 sed -i.bak 's#^FM_ARCHIVE_RECORDINGS_DIR=.*#FM_ARCHIVE_RECORDINGS_DIR=/elsewhere#' "$TEST_ENV"
 if bash scripts/install/install-archive-service.sh install >/dev/null 2>&1; then

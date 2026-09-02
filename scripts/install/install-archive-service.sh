@@ -157,8 +157,13 @@ EOF
   if [ -n "$processor_recordings" ] && [ -z "$existing_recordings" ]; then
     # A file written before the root was baked here, or by this install just
     # now: fill the processor's root so the browser publishes where it reads.
-    sudo sed -i.bak "s#^FM_ARCHIVE_RECORDINGS_DIR=\$#FM_ARCHIVE_RECORDINGS_DIR=$processor_recordings#" "$ENVFILE"
-    sudo rm -f "${ENVFILE}.bak"
+    # A file older than the key itself has no line to fill, so append one.
+    if sudo grep -q '^FM_ARCHIVE_RECORDINGS_DIR=' "$ENVFILE"; then
+      sudo sed -i.bak "s#^FM_ARCHIVE_RECORDINGS_DIR=\$#FM_ARCHIVE_RECORDINGS_DIR=$processor_recordings#" "$ENVFILE"
+      sudo rm -f "${ENVFILE}.bak"
+    else
+      printf 'FM_ARCHIVE_RECORDINGS_DIR=%s\n' "$processor_recordings" | sudo tee -a "$ENVFILE" >/dev/null
+    fi
   elif [ -n "$processor_recordings" ] && [ "$processor_recordings" != "$existing_recordings" ]; then
     echo "ERROR: archive recordings root differs from the processor root." >&2
     echo "       archive:   $existing_recordings" >&2
