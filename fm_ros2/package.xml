@@ -10,7 +10,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <!-- Group metapackages — each pulls its own sub-packages transitively.
-       A private learning overlay lives in a separate manifest, not this public
+       The private data overlay lives in a separate manifest, not this public
        one. colcon still builds it when the overlay is imported into src/; the
        dep is left out here so the public workspace resolves with only the four
        public groups. See docs/ARCHITECTURE.md. -->

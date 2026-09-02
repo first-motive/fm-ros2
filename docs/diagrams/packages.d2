@@ -2,8 +2,9 @@
 # `fm_ros2` exec-depends on the four public group metapackages; each group pulls
 # its own leaf packages. Solid edges are build/exec `<depend>` relations between
 # packages. Every cross-group edge originates in `fm_bringup` — the app layer is
-# the only integration point. The private learning overlay stays an opaque node
-# (this repo is public) — its internal packages live in private repos.
+# the only integration point. The private data overlay stays an opaque node
+# (this repo is public) — its internal packages live in a private repo. The
+# policy layer is a standalone project outside this workspace, so it has no node.
 ...@styles
 direction: down
 
@@ -38,7 +39,7 @@ teleop: fm-teleop · teleop layer {
   vision: "fm_teleop_vision" { class: node }
 }
 
-learning: "learning overlay · private\ndata engine + policy" { class: node }
+overlay: "private overlay\ndata engine" { class: node }
 
 # metapackage exec-deps — fm_ros2 pulls each group metapackage
 root -> robot.control
@@ -60,4 +61,4 @@ app.bringup -> sim.backends
 app.bringup -> teleop.device
 
 # overlay plugs in at the control layer, depends on no public package
-learning -> robot.control: plugs in on top { style.stroke-dash: 4 }
+overlay -> robot.control: plugs in on top { style.stroke-dash: 4 }

@@ -5,8 +5,8 @@
 First Motive's ROS2 workspace orchestrator.
 
 The public stack lives in four per-package repos under the `first-motive` org. A
-private learning overlay (data engine + policy) plugs in on top for team members
-with access. This repo holds no package source — it assembles those repos into
+private overlay — the data engine — plugs in on top for team members with
+access. This repo holds no package source — it assembles those repos into
 one colcon workspace via `vcs`, and carries the shared tooling (Docker, dev
 container, CI, scripts) and the full-system docs.
 
@@ -78,10 +78,11 @@ curl ... | bash -s -- --container                  # Docker + compose
 | `--container` | Docker + compose (default: Linux; CI/parity elsewhere) |
 | `--viewer foxglove\|rviz\|none` | viewer to install (default: foxglove) |
 
-The private learning overlay imports automatically for team members: when the
+The private data overlay imports automatically for team members: when the
 installer's org-auth gate passes, its team-setup step provisions the overlay on
 top of the public workspace. No flag needed. Opt out with `--no-learning`; force
-it with `--learning` (which fails loud without org access):
+it with `--learning` (which fails loud without org access) — the flags keep their
+original spelling, from when the overlay still carried the policy layer:
 
 ```bash
 curl ... | bash -s -- --no-learning   # skip the overlay
@@ -330,8 +331,8 @@ The service and Avahi advert both read that file. Use
 ## Architecture
 
 `fm_description` feeds `fm_control`; control drives a backend-selectable hardware
-interface; `fm_bringup` launches the graph. A private learning overlay (data
-engine + policy) plugs in on top. Full diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+interface; `fm_bringup` launches the graph. A private overlay — the data engine —
+plugs in on top. Full diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ![system](docs/diagrams/system.svg)
 
@@ -373,8 +374,8 @@ split):
 | [fm-teleop](https://github.com/first-motive/fm-teleop) | teleop | `fm_teleop_core` · `device` · `leader` · `vr` · `vision` · `panel` |
 | [fm-app](https://github.com/first-motive/fm-app) | application | `fm_bringup` · `fm_tui` |
 
-A private learning overlay plugs in on top for team members with access — see
-[Learning Stack](docs/ARCHITECTURE.md#learning-stack-private-overlay).
+A private data overlay plugs in on top for team members with access — see
+[Private Data Overlay](docs/ARCHITECTURE.md#private-data-overlay).
 
 ## Platforms
 

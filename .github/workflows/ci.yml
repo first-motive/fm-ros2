@@ -288,7 +288,7 @@ jobs:
       # rviz path lost joint_state_publisher_gui and stayed broken (fm-robot#35).
       #
       # Blocking. The findings it opened with were triaged (fm-robot#36): two belonged
-      # to the private learning overlay, whose packages this image is not built to run
+      # to the private data overlay, whose packages this image is not built to run
       # and which the check no longer scopes in; two were the arm64-only Gazebo
       # absence, which does not apply on the amd64 runner; and three were real gaps,
       # fixed in fm-robot#37 and fm-app#48. Nothing is exempted, so a new drift is a
@@ -343,9 +343,9 @@ jobs:
           docker tag ghcr.io/first-motive/fm-app:humble fm-ros2:ci
 
       # The loop is the one job that needs the data engine, which lives in the
-      # private learning overlay. Its repo slugs come from a repo variable so no
-      # tracked file names them (repo-hygiene refuses that).
-      - name: Import the learning overlay
+      # private overlay. Its repo slug comes from a repo variable so no tracked
+      # file names it (repo-hygiene refuses that).
+      - name: Import the private overlay
         env:
           FM_OVERLAY_REPOS: ${{ vars.FM_OVERLAY_REPOS }}
         run: ./scripts/ci/import-overlay.sh
@@ -358,7 +358,7 @@ jobs:
       # The launcher image carries no overlay dependencies, so they are installed
       # here and the container is committed back as the image the loop step runs
       # — a `--rm` step would drop them before the next one started. The overlay
-      # repos carry a metapackage at their root, so colcon and rosdep stop there
+      # repo carries a metapackage at its root, so colcon and rosdep stop there
       # and never see the nested packages: rosdep is given the nested dirs
       # explicitly, and the build goes through `fm build`, which discovers them —
       # the same verb a person types, so CI cannot pass on a workspace shape the
@@ -372,7 +372,7 @@ jobs:
             bash -lc 'source /opt/ros/humble/setup.bash \
               && (rosdep update --rosdistro humble >/dev/null 2>&1 || true) \
               && apt-get update -qq \
-              && rosdep install --from-paths src external src/fm_data/fm_data_* src/fm_policy/fm_policy_* \
+              && rosdep install --from-paths src external src/fm_data/fm_data_* \
                    --ignore-src -y -r --rosdistro humble \
               && pip install --quiet "numpy==2.2.6" \
                    "$(grep -E "^rosbags==" src/fm_data/fm_data_dataset/requirements-bags.txt)" \

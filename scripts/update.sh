@@ -109,7 +109,7 @@ main() {
     echo "plan:"
     echo "  1. pull fm_ros2 (--ff-only; skipped if this tree is dirty)"
     echo "  2. vcs import < fm-ros2.repos            (packages)"
-    echo "  3. vcs import < private-overlay.repos    (learning overlay, if present)"
+    echo "  3. vcs import < private-overlay.repos    (private overlay, if present)"
     echo "  4. ./scripts/install/import-externals.sh  (externals)"
     echo "  5. report dirty sub-repos left untouched"
     return 0
@@ -123,7 +123,7 @@ main() {
     if [[ -f private-overlay.repos ]]; then
       item "[dry-run] would vcs import < private-overlay.repos"
     else
-      item "[dry-run] private-overlay.repos absent — would skip the learning overlay"
+      item "[dry-run] private-overlay.repos absent — would skip the private overlay"
     fi
     item "[dry-run] would run ./scripts/install/import-externals.sh"
     item "[dry-run] would report dirty sub-repos left untouched"
@@ -154,21 +154,21 @@ main() {
     return 1
   fi
 
-  # Optional private learning overlay — absent for members without access, so
+  # Optional private data overlay — absent for members without access, so
   # skip quietly when the manifest is not present.
   if [[ -f private-overlay.repos ]]; then
     # The overlay manifest is gitignored and copied onto this machine, so it can
     # be older than the tracked source it came from. Check the spelling before
     # the import acts on it, not after the duplicate src/ tree exists.
     refuse_kebab_manifest private-overlay.repos || return 1
-    item "re-importing the learning overlay (src/ + external/) ..."
-    if ! spin "re-importing learning overlay" vcs import < private-overlay.repos; then
-      echo "error: failed to import the learning overlay (private-overlay.repos)." >&2
-      echo "       This needs access to the private learning repos. Check your auth." >&2
+    item "re-importing the private overlay (src/ + external/) ..."
+    if ! spin "re-importing private overlay" vcs import < private-overlay.repos; then
+      echo "error: failed to import the private overlay (private-overlay.repos)." >&2
+      echo "       This needs access to the private org repos. Check your auth." >&2
       return 1
     fi
   else
-    item "no private-overlay.repos — skipping the learning overlay"
+    item "no private-overlay.repos — skipping the private overlay"
   fi
 
   # Both imports above take their checkout paths from a manifest, and a manifest

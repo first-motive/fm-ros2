@@ -63,11 +63,10 @@ main() {
   # here is what the image contains, so the workspace supplies package.xml files and
   # nothing else.
   # Scope to the repos this manifest assembles. A developer checkout also carries the
-  # private learning overlay (fm_data, fm_policy, fm_learning), whose packages the
-  # fm-app image is not built to run — holding the image to their dependencies
-  # reports gaps that are not the image's to fill. CI clones only the manifest, so
-  # without this the check would behave differently on a laptop than in CI, which is
-  # its own kind of lie.
+  # private overlay (fm_data), whose packages the fm-app image is not built to run —
+  # holding the image to their dependencies reports gaps that are not the image's to
+  # fill. CI clones only the manifest, so without this the check would behave
+  # differently on a laptop than in CI, which is its own kind of lie.
   local scoped=""
   while read -r url; do
     local name="${url##*/}"; name="${name%.git}"; name="${name//-/_}"

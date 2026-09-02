@@ -8,7 +8,7 @@ system design.
 
 `fm-ros2` is the orchestrator for First Motive's ROS2 robot stack. The
 public packages live in four per-package repos under the `first-motive` org; a
-private learning overlay plugs in on top for team members with access. This repo
+private data overlay plugs in on top for team members with access. This repo
 assembles them
 into one colcon workspace via `vcs` and holds the shared tooling (Docker, dev
 container, CI, scripts) and full-system docs. It carries no package source — only
@@ -67,10 +67,11 @@ vcs import < private-overlay.repos # private overlay — team members with acces
 ./scripts/install/import-externals.sh      # vendor externals into external/
 ```
 
-The learning overlay is provisioned automatically for team members: `install.sh`'s
+The data overlay is provisioned automatically for team members: `install.sh`'s
 auth gate (gh auth + org read) routes it through the private team-setup step, which
-imports it on top of the public workspace. `--no-learning` opts out. The public
-installer names no private learning repo — the manual `vcs import` above uses the
+imports it on top of the public workspace. `--no-learning` opts out — the flag keeps
+its original spelling, from when the overlay still carried the policy layer. The
+public installer names no private repo — the manual `vcs import` above uses the
 gitignored `private-overlay.repos`, present only in a member's checkout.
 
 ## Testing

@@ -22,10 +22,12 @@
 # with a clear "need org access" message without it. Team-only by design.
 #
 # Flags (pass through the pipe with `bash -s --`):
-#   curl ... | bash -s -- --no-learning   # skip the private learning overlay
+#   curl ... | bash -s -- --no-learning   # skip the private overlay
 #
-# Team members with org access get the private learning overlay automatically;
-# --no-learning opts out, --learning forces it (and fails loud without auth).
+# Team members with org access get the private data overlay automatically;
+# --no-learning opts out, --learning forces it (and fails loud without auth). The
+# flags keep their original spelling, from when the overlay carried the policy
+# layer that is now a standalone project outside this workspace.
 #
 # The body is wrapped in main() and called on the last line, so a truncated
 # curl|bash leaves an incomplete function that never runs.
@@ -162,10 +164,10 @@ Viewer:
                       run scripts open its file:// page against the bridge)
 
 Options:
-  --learning          force-import the private learning overlay; fails loud
+  --learning          force-import the private data overlay; fails loud
                       without org access (members auto-get it, so this is only
                       needed to turn a non-default skip back on)
-  --no-learning       skip the learning overlay even as a team member
+  --no-learning       skip the private overlay even as a team member
   --no-desktop        skip the First Motive app in the team-extras step (members)
   --no-ai             skip the AI harness in the team-extras step (members)
   --service           recorder/processor paths only: also install + enable + start
@@ -595,10 +597,10 @@ main() {
     ./scripts/install/import-externals.sh
   fi
 
-  # --learning forces the private learning overlay and must fail loud without org
+  # --learning forces the private data overlay and must fail loud without org
   # access, so a non-member cannot silently miss it. The clone + import themselves
   # live in the auth-gated team-setup step below (fetched over gh), which keeps
-  # this public installer from naming any private learning repo — the flag is
+  # this public installer from naming any private repo — the flag is
   # forwarded there. auto/off need no gate here: a non-member auto-skips, and off
   # opts out regardless.
   if [[ "$learning" == on ]] && ! team_member; then
@@ -642,15 +644,15 @@ main() {
   fi
 
   # The recorder and processor are headless appliance roles — no run.sh routing
-  # profile and no team extras (app / AI harness / learning overlay). Their setup
+  # profile and no team extras (app / AI harness / private overlay). Their setup
   # scripts already printed run commands, so just close out below.
   if [[ "$path" != recorder && "$path" != processor ]]; then
     write_profile "$path" "$viewer"
 
     # Team members with org access get the private extras layered on top — the app,
-    # the AI harness, and the learning overlay — everyone else stops at the
+    # the AI harness, and the private data overlay — everyone else stops at the
     # provisioned public workspace above. The overlay clone + import lives inside the
-    # auth-gated team-setup step (it names the private learning repos, which this
+    # auth-gated team-setup step (it names the private repos, which this
     # public installer must not), so forward the learning choice as a flag: off skips
     # it, on forces it (already gated above), auto lets team-setup apply its default.
     local -a extra_flags=()

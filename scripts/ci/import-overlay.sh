@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Clone the learning overlay into src/ for the loop job. The overlay's repos are
-# private and this repo is public, so their slugs arrive through the
-# FM_OVERLAY_REPOS Actions variable rather than a tracked manifest — the
-# repo-hygiene scan refuses a private slug in any tracked file. The App token
-# the import-packages action minted is already wired into git via insteadOf.
+# Clone the private overlay into src/ for the loop job. The overlay is the data
+# engine: the policy layer is a standalone project outside this colcon
+# workspace and must not be listed here. The overlay's repos are private and
+# this repo is public, so their slugs arrive through the FM_OVERLAY_REPOS
+# Actions variable rather than a tracked manifest — the repo-hygiene scan
+# refuses a private slug in any tracked file. The App token the import-packages
+# action minted is already wired into git via insteadOf.
 #
 # Usage: FM_OVERLAY_REPOS="<slug> <slug>" ./scripts/ci/import-overlay.sh
 set -euo pipefail
