@@ -68,17 +68,11 @@ fi
 # Where a staged episode is published. It MUST be the same root the processor
 # reads: `bag_dir_for_record` resolves a session record by joining its basename
 # under this directory, so publishing anywhere else leaves the episode
-# undiscoverable. Mirrors archive-uploader-boot.sh, and prefers the processor's
-# own configured root the way the service installers do.
-RECORDINGS_DIR="${FM_ARCHIVE_RECORDINGS_DIR:-}"
-if [ -z "$RECORDINGS_DIR" ]; then
-  # Parsed rather than sourced: the processor env file belongs to a systemd unit
-  # and may carry anything. Same read as `fm_processor_env`, which is an
-  # installer library and is not sourced into a boot path.
-  RECORDINGS_DIR="$(sed -n 's/^FM_PROCESSOR_RECORDINGS_DIR=//p' \
-    "${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}" 2>/dev/null | tail -1)"
-fi
-RECORDINGS_DIR="${RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordings}"
+# undiscoverable. The installer resolves the processor's configured root on the
+# host and bakes it into /etc/fm-archive.env; it cannot be read here because in
+# the container runtime this wrapper runs where the processor env file is not
+# mounted.
+RECORDINGS_DIR="${FM_ARCHIVE_RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordings}"
 
 CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-cache}"
 STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-cache/staged}"

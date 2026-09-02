@@ -10,6 +10,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 UNIT=/etc/systemd/system/fm-archive.service
 ENVFILE=/etc/fm-archive.env
+PROCESSOR_ENVFILE=/etc/fm-processor.env
 # Offline CI exercises the real transaction against an explicit temporary
 # root. Keep this seam opt-in; normal callers cannot redirect a sudo install
 # through an arbitrary inherited path.
@@ -17,6 +18,7 @@ if [ "${FM_ARCHIVE_SERVICE_TEST_MODE:-0}" = 1 ]; then
   : "${FM_ARCHIVE_SERVICE_TEST_ROOT:?FM_ARCHIVE_SERVICE_TEST_ROOT is required in test mode}"
   UNIT="$FM_ARCHIVE_SERVICE_TEST_ROOT/systemd/fm-archive.service"
   ENVFILE="$FM_ARCHIVE_SERVICE_TEST_ROOT/etc/fm-archive.env"
+  PROCESSOR_ENVFILE="$FM_ARCHIVE_SERVICE_TEST_ROOT/etc/fm-processor.env"
 fi
 WRAPPER="$ROOT/scripts/service/archive-boot.sh"
 SERVICE_USER="${SUDO_USER:-$USER}"
@@ -54,7 +56,15 @@ do_install() {
   # Same runtime split as fm-processor.service (#127): in the container runtime
   # the wrapper runs through compose, since ROS lives in the image.
   local runtime exec_start exec_stop="" requires=""
+  local processor_recordings existing_recordings
   runtime="$(fm_processor_runtime)" || return 1
+  # The recording root is resolved here, on the host, and baked into the env
+  # file the way the uploader installer does. The boot wrapper runs inside the
+  # processor container in the container runtime, where /etc/fm-processor.env
+  # is not mounted, so a read there is always empty and falls back to
+  # /data/recordings — the wrong root on a rig with a custom one.
+  processor_recordings="$(FM_PROCESSOR_ENV_FILE="$PROCESSOR_ENVFILE" \
+    fm_processor_env FM_PROCESSOR_RECORDINGS_DIR)"
   if [ "$runtime" = container ]; then
     exec_start="/bin/bash $ROOT/scripts/service/container-exec.sh scripts/service/archive-boot.sh"
     exec_stop="ExecStop=/bin/bash $ROOT/scripts/service/container-exec.sh stop archive_browser"
@@ -126,10 +136,9 @@ FM_ARCHIVE_LEROBOT_CATALOGUE_FILE=
 FM_ARCHIVE_LEROBOT_STAGE_DIR=/data/lerobot-staged
 FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false
 
-# Where a staged episode is published so the processor can reach it. Empty
-# resolves to the same recording root the processor and uploader use; a wrong
-# value publishes where Process cannot find the bag, so it fails closed rather
-# than guessing.
+# Where a staged episode is published so the processor can reach it. Filled
+# from the processor's own configured root at install; a wrong value publishes
+# where Process cannot find the bag, so it fails closed rather than guessing.
 FM_ARCHIVE_RECORDINGS_DIR=
 FM_ARCHIVE_MAX_OBJECTS=16
 FM_ARCHIVE_MAX_TOTAL_BYTES=2147483648
@@ -141,6 +150,20 @@ EOF
       sudo sed -i.bak "s#=/data/#=$archive_data_root/#g" "$ENVFILE"
       sudo rm -f "${ENVFILE}.bak"
     fi
+  fi
+  # The env file is root-owned and mode 0600. Read only the one path field
+  # through the same privilege boundary the writes use.
+  existing_recordings="$(sudo sed -n 's/^FM_ARCHIVE_RECORDINGS_DIR=//p' "$ENVFILE" | tail -1)"
+  if [ -n "$processor_recordings" ] && [ -z "$existing_recordings" ]; then
+    # A file written before the root was baked here, or by this install just
+    # now: fill the processor's root so the browser publishes where it reads.
+    sudo sed -i.bak "s#^FM_ARCHIVE_RECORDINGS_DIR=\$#FM_ARCHIVE_RECORDINGS_DIR=$processor_recordings#" "$ENVFILE"
+    sudo rm -f "${ENVFILE}.bak"
+  elif [ -n "$processor_recordings" ] && [ "$processor_recordings" != "$existing_recordings" ]; then
+    echo "ERROR: archive recordings root differs from the processor root." >&2
+    echo "       archive:   $existing_recordings" >&2
+    echo "       processor: $processor_recordings" >&2
+    return 1
   fi
   # Re-apply the private mode on every install. A prior manual edit or restore
   # must not leave the read-only application key world-readable.
