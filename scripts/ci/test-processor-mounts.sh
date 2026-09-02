@@ -3,8 +3,8 @@
 #
 #   ./scripts/ci/test-processor-mounts.sh
 #
-# compose.processor.yaml carries a fixed set under $HOME. A rig with a data volume
-# points its knobs at /data/... instead, and those never crossed the boundary: the
+# compose.processor.yaml carries a fixed set under $HOME. A rig with a data root
+# points its knobs there instead, and those never crossed the boundary: the
 # engine was handed /data/recordings — which the role reads and the container could
 # not see — and reported the input as missing while the episodes sat exactly where
 # the service would have looked (gate 4.2, fm-ws-01).
@@ -35,6 +35,9 @@ if (FM_PROCESSOR_DATA_ROOT="$WORK/not-a-directory" fm_processor_prepare_mounts "
 else
   pass "an invalid shared data root stops before compose can create placeholders"
 fi
+# The shared root itself has to be valid, or the check below stops on it first
+# rather than on the configured mount it is meant to exercise.
+mkdir -p "$WORK/data/recordings"
 cat > "$WORK/invalid-env" <<ENV
 FM_PROCESSOR_RECORDINGS_DIR=$WORK/not-a-directory/recordings
 ENV
@@ -48,9 +51,9 @@ fi
 cat > "$WORK/env" <<ENV
 FM_PROCESSOR_RECORDINGS_DIR=/data/recordings
 FM_PROCESSOR_OUTPUT_DIR=/data/processed
-FM_PROCESSOR_RUNS_DIR=/data/fm-data-runs
-FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=/data/fm-data-runs/annotation-attempts
-FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=/data/fm-data-runs/annotation-reviews
+FM_PROCESSOR_ANNOTATIONS_DIR=/data/annotations
+FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=/data/annotations/runs/attempts
+FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=/data/annotations/runs/reviews
 FM_PROCESSOR_HOME_DIR=$HOME/processed
 FM_PROCESSOR_RELATIVE_DIR=not-a-path
 ENV
@@ -72,12 +75,12 @@ else
 fi
 
 echo "== the annotation knobs collapse onto their parent =="
-if grep -q -- "- /data/fm-data-runs:/data/fm-data-runs" "$rendered"; then
-  pass "the runs directory is mounted once"
+if grep -q -- "- /data/annotations:/data/annotations" "$rendered"; then
+  pass "the annotations directory is mounted once"
 else
-  fail "the runs directory is missing"
+  fail "the annotations directory is missing"
 fi
-if grep -q "annotation-attempts" "$rendered"; then
+if grep -q "annotations/runs" "$rendered"; then
   fail "a child of an already-mounted directory was mounted again"
 else
   pass "children of a mounted directory are not repeated"

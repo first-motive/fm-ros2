@@ -16,6 +16,12 @@
 # Native on a non-22.04 Linux host (option 2 in #127) is future work: it needs
 # the Humble gate dropped and a Lyrical CI job, and nothing here blocks it.
 
+# fm_data_root, which decides where the role's directories live. Sourced here
+# rather than left to the caller so a test that loads only this library resolves
+# the same root the installers do.
+# shellcheck source=../../lib.sh disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/lib.sh"
+
 # The compose project the processor owns. Without it the role ran under the
 # checkout directory's name, which the sim stack's checkout carries too, and the
 # two shared one container (#135).
@@ -78,9 +84,9 @@ fm_processor_has_docker() { command -v docker >/dev/null 2>&1 && docker info >/d
 
 # Directories the processor overlay bind-mounts (compose.processor.yaml). Created
 # below the shared data root before the first `up`, so docker never creates them
-# root-owned. A provisioned workstation owns /data; a standalone developer host
-# falls back to HOME.
-FM_PROCESSOR_MOUNTS=(recordings processed annotations fm-data-runs dataset-releases lerobot-staged)
+# root-owned. A provisioned workstation owns <workspace>/data; a standalone
+# developer host falls back to HOME (fm_data_root in lib.sh).
+FM_PROCESSOR_MOUNTS=(recordings processed annotations releases staged hf)
 
 # Roles Anywhere material is deliberately a separate, read-only mount set.  It
 # must never be folded into the HOME bind mount: the latter would expose SSH and
@@ -107,11 +113,8 @@ fm_processor_compose() {
     return 1
   }
   if [ -z "${FM_PROCESSOR_DATA_ROOT:-}" ]; then
-    if [ -d /data ] && [ -w /data ]; then
-      export FM_PROCESSOR_DATA_ROOT=/data
-    else
-      export FM_PROCESSOR_DATA_ROOT="$HOME"
-    fi
+    FM_PROCESSOR_DATA_ROOT="$(fm_data_root "$root")"
+    export FM_PROCESSOR_DATA_ROOT
   fi
   # The processor container is host-networked too, so it joins the host's DDS
   # island the same way the sim stack's does.
@@ -138,8 +141,8 @@ fm_processor_prepare_mounts() {  # [workspace-root]
   local d key dir target root="${FM_PROCESSOR_DATA_ROOT:-$HOME}"
   # fm-setup owns the workstation recording root. Refusing an absent path keeps
   # Docker and the processor setup from creating a plausible empty archive.
-  if [ "$root" = /data ] && [ ! -d /data/recordings ]; then
-    echo "ERROR: /data/recordings is missing; run the fm-setup users/storage step" >&2
+  if [ "$root" != "$HOME" ] && [ ! -d "$root/recordings" ]; then
+    echo "ERROR: $root/recordings is missing; run the fm-setup data-root step" >&2
     return 1
   fi
   for d in "${FM_PROCESSOR_MOUNTS[@]}"; do
@@ -327,8 +330,8 @@ fm_processor_heal_imports() {  # workspace-root
 # Echo one value from the processor role's EnvironmentFile, or nothing.
 #
 # The role's directories are configured, not assumed: a rig with a data volume
-# reads /data/recordings while the verb's own default is ~/recordings. `fm dataset
-# process` used its default on such a host and pointed the engine at a directory
+# reads <workspace>/data/recordings while the verb's default is ~/recordings.
+# `fm dataset process` used its default on such a host and pointed the engine at a directory
 # the processor container does not even mount — it reported the input as missing
 # while the episodes sat where the service would have found them (gate 4.2).
 #
@@ -373,10 +376,10 @@ fm_processor_heal_bag_tier() {  # workspace-root
 # and echo its path. Empty output when there is nothing to add.
 #
 # compose.processor.yaml mounts a hardcoded set under $HOME. A rig with a data
-# volume points its knobs at /data/... instead, and those never crossed into the
-# container: the engine was handed /data/recordings, which the role reads and the
-# container cannot see, and reported the input as missing while the episodes sat
-# exactly where the service would have looked (gate 4.2).
+# root points its knobs there instead, and those never crossed into the
+# container: the engine was handed the data root's recordings, which the role
+# reads and the container cannot see, and reported the input as missing while
+# the episodes sat exactly where the service would have looked (gate 4.2).
 #
 # Generated rather than hand-listed because the set is not fixed — thirteen knobs
 # today, and a new one is a new directory. Written to a stable path with sorted
@@ -389,8 +392,8 @@ fm_processor_mounts_overlay() {  # workspace-root
 
   # Resolve every key to its directory, then walk them in PATH order. Sorted
   # lexicographically a parent always precedes its own children, which is what
-  # collapses the eight annotation knobs onto the one runs directory they live
-  # under. Sorting also renders deterministically, so an unchanged configuration
+  # collapses the eight annotation knobs onto the one annotations directory they
+  # live under. Sorting also renders deterministically, so an unchanged configuration
   # is never itself a reason to recreate the container.
   dirs="$(mktemp)"
   fm_processor_mount_keys "$root" | while IFS= read -r key; do
@@ -430,8 +433,8 @@ fm_processor_mounts_overlay() {  # workspace-root
 
 # fm_processor_mount_keys <workspace-root>
 # Echo the env keys naming a directory, collapsed to their roots: the annotation
-# knobs all sit under one runs directory, and mounting that once beats mounting
-# eight children of it.
+# knobs all sit under one annotations directory, and mounting that once beats
+# mounting eight children of it.
 fm_processor_mount_keys() {  # workspace-root
   local file="${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}"
   [ -f "$file" ] || return 0

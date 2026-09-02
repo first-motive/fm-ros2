@@ -235,9 +235,12 @@ the service install:
 ```bash
 export FM_AWS_INFERENCE_SERVICE_MODE=1
 export FM_AWS_INFERENCE_BUCKET="$FM_AWS_IDENTITY_BUCKET"
-export FM_AWS_INFERENCE_READINESS_DIR=~/fm-data-runs/aws-readiness
 ./scripts/install/install-processor-service.sh
 ```
+
+Readiness receipts default to `annotations/runs/aws-readiness` below the
+workspace data root. Export `FM_AWS_INFERENCE_READINESS_DIR` before the install
+to put them elsewhere.
 
 The installer requires the installed identity profile to pass its read-only
 check, then derives that profile and the Ohio region before it writes the

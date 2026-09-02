@@ -12,6 +12,9 @@ WORKSPACE="$TMP_DIR/workspace"
 mkdir -p "$WORKSPACE/scripts/internal" "$WORKSPACE/scripts/service" \
   "$WORKSPACE/src/fm_data" "$TMP_DIR/bin" "$TMP_DIR/uv-python"
 export FM_PROCESSOR_UV_PYTHON_ROOT="$TMP_DIR/uv-python"
+# lib-processor.sh sources lib.sh for fm_data_root, so the fixture workspace
+# carries it the way a real checkout does.
+cp "$ROOT/lib.sh" "$WORKSPACE/"
 cp "$ROOT/scripts/service/container-exec.sh" "$WORKSPACE/scripts/service/"
 cp "$ROOT/scripts/internal/lib-processor.sh" "$WORKSPACE/scripts/internal/"
 cp "$ROOT/scripts/internal/lib-compose.sh" "$WORKSPACE/scripts/internal/"

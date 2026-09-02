@@ -51,7 +51,7 @@ grep -q 'FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15' "$INSTALLER" || fail
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1' "$INSTALLER" || fail "concurrency default drifted"
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=8388608' "$INSTALLER" || fail "bandwidth ceiling drifted"
 grep -q 'fm_processor_env FM_PROCESSOR_RECORDINGS_DIR' "$INSTALLER" || fail "uploader ignores the processor recording root"
-grep -q 'ARCHIVE_DATA_ROOT/fm-data-runs/archive-uploader' "$BOOT" || fail "uploader state is not on persistent data storage"
+grep -q 'ARCHIVE_DATA_ROOT/staged/archive-uploader' "$BOOT" || fail "uploader state is not on persistent data storage"
 grep -q -- 'recordings:/data/recordings' "$ROOT/compose.processor.yaml" || fail "processor container does not mount the authoritative recording root"
 grep -q 'archive_preflight' "$BOOT" || fail "live provider preflight gate is absent"
 # The live provider preflight above is the upload gate. The account storage cap
@@ -69,7 +69,7 @@ pass "uploader contract names, topics, policy, and no-delete boundary"
 mkdir -p "$TMP_DIR/bin" "$TMP_DIR/etc" "$TMP_DIR/systemd"
 cat > "$TMP_DIR/etc/fm-processor.env" <<EOF
 FM_PROCESSOR_RECORDINGS_DIR=$TMP_DIR/data/recordings
-FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=$TMP_DIR/data/fm-data-runs/annotation-attempts
+FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=$TMP_DIR/data/annotations/runs/attempts
 EOF
 cat >"$TMP_DIR/bin/sudo" <<'EOF'
 #!/usr/bin/env bash
@@ -110,7 +110,7 @@ bash "$INSTALLER" install >/dev/null
 [ -f "$TEST_ENV" ] || fail "first install did not write env"
 grep -q "FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=$TMP_DIR/data/recordings" "$TEST_ENV" || \
   fail "uploader did not inherit the processor recording root"
-grep -q "FM_ARCHIVE_UPLOADER_STATE_DIR=$TMP_DIR/data/fm-data-runs/archive-uploader" "$TEST_ENV" || \
+grep -q "FM_ARCHIVE_UPLOADER_STATE_DIR=$TMP_DIR/data/staged/archive-uploader" "$TEST_ENV" || \
   fail "uploader state does not share the processor persistent root"
 env_mode="$(stat -c '%a' "$TEST_ENV" 2>/dev/null || stat -f '%Lp' "$TEST_ENV")"
 [ "$env_mode" = 600 ] || fail "uploader env is not mode 600"

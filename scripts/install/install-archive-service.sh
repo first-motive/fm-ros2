@@ -112,10 +112,10 @@ WantedBy=multi-user.target
 EOF
 
   if [ ! -f "$ENVFILE" ]; then
-    local archive_data_root=/data
-    if [ ! -d "$archive_data_root" ] || [ ! -w "$archive_data_root" ]; then
-      archive_data_root="$SERVICE_HOME"
-    fi
+    # The template below is written with the container's view of the data root.
+    # A host whose root sits elsewhere has every value retargeted after the write.
+    local archive_data_root
+    archive_data_root="$(fm_data_root "$ROOT" "$SERVICE_HOME")"
     item "writing disabled archive configuration at $ENVFILE ..."
     sudo tee "$ENVFILE" >/dev/null <<'EOF'
 # Enable only after the read-only processor-archive B2 application key is
@@ -133,7 +133,7 @@ FM_ARCHIVE_STAGE_DIR=
 # The LeRobot catalogue is a processor-owned closed JSON file. Empty keeps the
 # source unpublished; Desktop cannot provide a bucket prefix or catalogue path.
 FM_ARCHIVE_LEROBOT_CATALOGUE_FILE=
-FM_ARCHIVE_LEROBOT_STAGE_DIR=/data/lerobot-staged
+FM_ARCHIVE_LEROBOT_STAGE_DIR=/data/staged/lerobot
 FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false
 
 # Where a staged episode is published so the processor can reach it. Filled

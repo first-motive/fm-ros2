@@ -153,7 +153,7 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
 ```
 
 On a provisioned workstation, processor evidence and derived artifacts use the
-shared `/data` root. The installer creates the bag-processing and RLDS runtime
+workspace's shared `data/` root. The installer creates the bag-processing and RLDS runtime
 plus a separate release runtime because their NumPy contracts differ. It wires
 candidate export, Pack v2 build and verification, LeRobot conversion, Rerun,
 and the `hf` CLI into the processor service. Hugging Face authentication and
@@ -196,15 +196,15 @@ and canonical file-inventory digest before promoting either view.
 Model execution itself stays approval-gated per run; provisioning only
 downloads and verifies content identities. The processor service retains each
 real-model attempt, including failed and GPU-blocked runs, under
-`~/fm-data-runs/annotation-attempts`; override that durable root with
+`<workspace>/data/annotations/runs/attempts`; override that durable root with
 `FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR` in `/etc/fm-processor.env`.
 Human review receipts, corrected outputs, and learning records persist beside
-it under `~/fm-data-runs/annotation-{reviews,corrections,learning}`. Their
+it under `data/annotations/runs/{reviews,corrections,learning}`. Their
 `FM_PROCESSOR_ANNOTATION_*_DIR` settings are kept in the same environment file,
 so processor restarts and updater re-installs retain the full review lineage.
 Adjudications, revocations, frozen learning snapshots, and reproducible
 improvement-run receipts persist in sibling
-`annotation-{adjudications,revocations,learning-snapshots,improvement-runs}`
+`{adjudications,revocations,learning-snapshots,improvement-runs}`
 roots. The processor exposes only bounded read-only governance facts to
 Desktop; the private data engine remains the writer and verifier authority.
 The same supervisor serves exact review frames through the bounded
@@ -267,7 +267,7 @@ catalogue JSON when it is approved for use. The empty default publishes no
 LeRobot episodes. `FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false` is a separate
 default-off gate; when enabled, staged imports use
 `FM_ARCHIVE_LEROBOT_STAGE_DIR` (default
-`~/.cache/fm-archive/lerobot-staged`). Desktop sends only a published episode
+`<workspace>/data/staged/lerobot`). Desktop sends only a published episode
 identity and request ID; it never supplies this path, a bucket prefix, or a
 credential. The processor service reads the same canonical root through
 `FM_PROCESSOR_LEROBOT_IMPORTS_DIR`; if either root is customized, set both to

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared narration helpers for the fm_ros2 scripts. Sourced, never executed.
+# Shared narration and path helpers for the fm_ros2 scripts. Sourced, never executed.
 #
 # This file is the only copy. install.sh runs curl-piped before the clone exists,
 # so it fetches this file and evals it (see load_lib there) rather than carrying
@@ -7,6 +7,37 @@
 
 # Status line under a step header — one place to restyle later.
 item() { echo "$1"; }
+
+# The machine-owned data root the roles read and write: the `data/` directory
+# beside the repos in the card workspace, holding recordings, processed, annotations,
+# releases, staged, hf, and policies. fm-setup's data-root step creates it; this
+# only selects it, and never creates anything.
+#
+# The processor container mounts the checkout at /ws and that same root at /data,
+# so the one expression resolves on both sides of the boundary.
+#
+# A standalone developer host has no card workspace, so it falls back — to the
+# service home when the caller passes one, otherwise to HOME. The subdirectory
+# names below the root are identical either way.
+#
+# An empty fallback is refused rather than returned: HOME is unset in a systemd
+# unit that does not set it, and an empty root would silently place the role's
+# directories at the filesystem root instead of failing where it can be seen.
+fm_data_root() {  # checkout  [fallback]
+  local parent root fallback
+  parent="$(cd "${1:-.}/.." 2>/dev/null && pwd)" || parent=
+  root="${parent%/}/data"
+  if [ -n "$parent" ] && [ -d "$root" ] && [ -w "$root" ]; then
+    printf '%s\n' "$root"
+    return 0
+  fi
+  fallback="${2:-$HOME}"
+  if [ -z "$fallback" ]; then
+    echo "ERROR: no data root: $root is unusable and no fallback is set." >&2
+    return 1
+  fi
+  printf '%s\n' "$fallback"
+}
 
 # Newest release tag of a checkout (vN.N.N-style, highest by version sort), or
 # empty when the repo has none. The appliance release channel keys off this:

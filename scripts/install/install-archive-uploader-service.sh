@@ -59,7 +59,7 @@ do_install() {
   [ -f "$WRAPPER" ] || { echo "ERROR: $WRAPPER is missing." >&2; return 1; }
 
   local runtime exec_start exec_stop="" requires=""
-  local uploader_data_root processor_recordings processor_attempts
+  local uploader_data_root processor_recordings
   local uploader_recordings uploader_state existing_recordings
   runtime="$(fm_processor_runtime)" || return 1
   if [ "$runtime" = container ]; then
@@ -69,21 +69,20 @@ do_install() {
   else
     exec_start="/bin/bash $WRAPPER"
   fi
+  # The container reaches the data root at its own mount point; a native host
+  # resolves the workspace root, falling back to the service home.
   uploader_data_root=/data
-  if [ "$runtime" = native ] && \
-     { [ ! -d "$uploader_data_root" ] || [ ! -w "$uploader_data_root" ]; }; then
-    uploader_data_root="$SERVICE_HOME"
+  if [ "$runtime" = native ]; then
+    uploader_data_root="$(fm_data_root "$ROOT" "$SERVICE_HOME")"
   fi
   processor_recordings="$(FM_PROCESSOR_ENV_FILE="$PROCESSOR_ENVFILE" \
     fm_processor_env FM_PROCESSOR_RECORDINGS_DIR)"
-  processor_attempts="$(FM_PROCESSOR_ENV_FILE="$PROCESSOR_ENVFILE" \
-    fm_processor_env FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR)"
   uploader_recordings="${processor_recordings:-$uploader_data_root/recordings}"
-  if [ -n "$processor_attempts" ]; then
-    uploader_state="${processor_attempts%/*}/archive-uploader"
-  else
-    uploader_state="$uploader_data_root/fm-data-runs/archive-uploader"
-  fi
+  # The uploader's queue and receipts are archive state, so they belong beside
+  # the archive's other staging trees. Derived from the recording root rather
+  # than the local default, so a host with a relocated data root keeps both
+  # halves of the uploader on the same volume.
+  uploader_state="${uploader_recordings%/*}/staged/archive-uploader"
 
   if [ "$dry_run" = true ]; then
     item "would write $UNIT (User=$SERVICE_USER, workspace=$ROOT, runtime=$runtime)"
@@ -159,6 +158,10 @@ EOF
     echo "       processor: $processor_recordings" >&2
     return 1
   fi
+  # A host installed before the state directory moved still carries the old
+  # literal in /etc. Match that historical value exactly and retarget it; a
+  # value an operator chose is left alone. Read under sudo: the env file is
+  # root-owned and mode 600.
   if sudo grep -qx 'FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader' "$ENVFILE"; then
     sudo sed -i.bak \
       "s#^FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader\$#FM_ARCHIVE_UPLOADER_STATE_DIR=$uploader_state#" \
