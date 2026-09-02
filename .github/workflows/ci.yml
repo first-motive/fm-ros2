@@ -195,6 +195,11 @@ jobs:
       - name: processor AWS identity installer
         run: bash scripts/ci/test-processor-identity.sh
 
+      # A release is the whole manifest set. The guard is graded against a bare
+      # clone, a half-assembled workspace, and a complete one, offline.
+      - name: release guard requires the manifest set
+        run: bash scripts/ci/test-cut-release.sh
+
       # Every install script is Linux-only and mostly unreachable in CI, so a parse
       # error would otherwise surface first on a real rig mid-provision.
       - name: install scripts parse

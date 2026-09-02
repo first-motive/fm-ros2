@@ -43,7 +43,9 @@ From a workspace checkout with every repo imported:
 
 The script finds the repos rather than listing them: the workspace root,
 `docker/`, `comms/`, and each `src/<repo>`. A repo added to a manifest is
-released without editing anything. `external/` is skipped, since those are
+released without editing anything, and the run refuses to plan until every
+path the manifests name is a checkout — a bare or half-assembled clone would
+otherwise tag a partial set. `external/` is skipped, since those are
 vendored upstreams pinned by commit.
 
 Each repo bumps from its own newest tag, so repos on different versions stay on

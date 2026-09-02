@@ -67,6 +67,32 @@ _workspace_repos() {
   done
 }
 
+# The paths the manifests assemble, one per line: every key under
+# `repositories:` in fm-ros2.repos, plus the private overlay's when a member's
+# checkout carries it. This is the set a release must cover; _workspace_repos is
+# only what happens to be on disk.
+_manifest_repo_paths() {
+  local manifest
+  for manifest in "$ROOT/fm-ros2.repos" "$ROOT/private-overlay.repos"; do
+    [ -f "$manifest" ] || continue
+    awk '
+      /^repositories:/ { on = 1; next }
+      on && /^  [^ #][^:]*:[[:space:]]*$/ { sub(/^  /, ""); sub(/:[[:space:]]*$/, ""); print }
+    ' "$manifest"
+  done
+}
+
+# Manifest paths with no git checkout under them, one per line.
+_missing_manifest_repos() {
+  local path
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    [ -d "$ROOT/$path/.git" ] || printf '%s\n' "$path"
+  done <<EOF
+$(_manifest_repo_paths)
+EOF
+}
+
 # The remote's default branch, asked of the remote rather than assumed. A repo
 # whose default is not main would otherwise be released from a branch nobody
 # merges into.
@@ -114,17 +140,20 @@ main() {
 
   # A release is the whole set, so the set has to be real before anything is
   # tagged. This script discovers repos from directories — src/*, docker/,
-  # comms/ — which a bare clone of the orchestrator simply does not have. Run
-  # there, it scanned one repo and printed "nothing to release", the same
-  # sentence a genuinely current workspace prints. Acting on that ships the
-  # orchestrator's own tag and leaves every package repo untagged: the fleet
-  # keeps running old package code while every check reports healthy.
-  local scanned
-  scanned="$(_workspace_repos | wc -l | tr -d ' ')"
-  item "scanned $scanned repos under $ROOT"
-  if [ "$scanned" -le 1 ]; then
-    echo "error: $ROOT is a bare clone, not an assembled workspace." >&2
-    echo "       Found $scanned repo; a release needs src/, docker/ and comms/." >&2
+  # comms/ — which a bare clone of the orchestrator simply does not have, and
+  # which a half-assembled one has only some of. Either way it would scan what
+  # is there and print "nothing to release", the same sentence a genuinely
+  # current workspace prints. Acting on that ships a partial set and leaves the
+  # rest untagged: the fleet keeps running old package code while every check
+  # reports healthy. So the expected set comes from the manifests, and every
+  # path they name has to be a checkout before anything is tagged.
+  local missing
+  missing="$(_missing_manifest_repos)"
+  item "scanned $(_workspace_repos | wc -l | tr -d ' ') repos under $ROOT"
+  if [ -n "$missing" ]; then
+    echo "error: $ROOT is not a fully assembled workspace." >&2
+    echo "       Manifest repos with no checkout:" >&2
+    printf '%s\n' "$missing" | sed 's/^/         /' >&2
     echo "       Assemble it first (vcs import < fm-ros2.repos) or run this from" >&2
     echo "       the assembled workspace, then re-run." >&2
     return 2
