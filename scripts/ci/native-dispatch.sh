@@ -82,9 +82,16 @@ main() {
     | grep -q 'sim resolved (robot=so101, backend=mujoco'
   FM_SELFTEST=1 ./scripts/run/foxglove.sh -t -p 9000 \
     | grep -q 'foxglove resolved (mode=throwaway, port=9000'
+  FM_SELFTEST=1 ./scripts/run/process.sh run ep-1 ep-2 --emit --reprocess \
+    | grep -q 'process run resolved (episodes=2, emit=true, reprocess=true'
+  FM_SELFTEST=1 ./scripts/run/release.sh verify pack-1 --strict \
+    | grep -q 'release verify resolved (target=pack-1, strict=true'
   # Validation still runs ahead of the hook — selftest must not mask a bad flag.
   if FM_SELFTEST=1 ./scripts/run/teleop.sh --backend bogus >/dev/null 2>&1; then
     echo "FAIL: teleop.sh accepted an invalid backend" >&2; return 1
+  fi
+  if FM_SELFTEST=1 ./scripts/run/process.sh show '../etc' >/dev/null 2>&1; then
+    echo "FAIL: process.sh accepted a path as an episode id" >&2; return 1
   fi
 
   echo "PASS: native dispatch + flag parsing"
