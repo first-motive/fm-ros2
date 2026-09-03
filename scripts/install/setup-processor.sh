@@ -37,7 +37,7 @@ clone_data_engine() {
 }
 
 prepare_release_runtime() {
-  local uv_bin="" release_venv="$ROOT/.release-venv"
+  local uv_bin="" release_venv="$ROOT/.release-venv" ros_runtime="$ROOT/.ros-runtime"
   if command -v uv >/dev/null 2>&1; then
     uv_bin="$(command -v uv)"
   elif [ -x "$HOME/.local/bin/uv" ]; then
@@ -70,6 +70,18 @@ prepare_release_runtime() {
   "$release_venv/bin/python" -c \
     'import fm_data_annotate, fm_data_dataset, fm_data_package, fm_data_record, huggingface_hub, lerobot, rerun'
   "$release_venv/bin/hf" version
+
+  # Archive nodes run under the ROS interpreter, not the release venv. Keep
+  # their pure-Python provider tier in the workspace target that is mounted
+  # into the processor container and survives its replacement.
+  if [ -d "$ros_runtime" ] &&
+     find "$ros_runtime" ! -user "$(id -u)" -print -quit 2>/dev/null | grep -q .; then
+    item "reclaiming the generated ROS runtime from the processor container ..."
+    sudo chown -R "$(id -u):$(id -g)" "$ros_runtime"
+  fi
+  item "installing the archive provider runtime for ROS nodes ..."
+  "$uv_bin" pip install --upgrade --python-version 3.10 --target "$ros_runtime" \
+    -r "$ROOT/src/fm_data/fm_data_archive/requirements-archive.txt"
 }
 
 install_services() {
