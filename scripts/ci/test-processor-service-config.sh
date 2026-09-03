@@ -257,4 +257,48 @@ for override in FM_AWS_PROFILE=other-profile FM_AWS_INFERENCE_BUCKET=other-bucke
 done
 pass "service selectors must bind the checked workload identity"
 
+# --- an existing env file converges onto the current tree ----------------------
+#
+# The template is written only when the file is absent, so a rig provisioned
+# before the data root moved would keep naming fm-data-runs — a tree nothing
+# mounts any more, which sends every annotation it writes to the container's
+# writable layer. Found on fm-ws-01, whose env file carried exactly these paths.
+
+cat > "$TMP_DIR/etc/fm-processor.env" <<'OLDENV'
+FM_PROCESSOR_RECORDINGS_DIR=/data/recordings
+FM_PROCESSOR_LEROBOT_IMPORTS_DIR=/data/lerobot-staged
+FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=/data/fm-data-runs/annotation-attempts
+FM_PROCESSOR_ANNOTATION_LEARNING_DIR=/data/fm-data-runs/annotation-learning
+FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR=/data/fm-data-runs/annotation-learning-snapshots
+FM_PROCESSOR_RELEASE_ROOT=/data/dataset-releases
+FM_PROCESSOR_OPERATOR_CHOICE=/mnt/big/somewhere-else
+# a comment naming /data/fm-data-runs/annotation-attempts stays prose
+OLDENV
+
+bash "$INSTALLER" install >/dev/null 2>&1 || true
+moved="$TMP_DIR/etc/fm-processor.env"
+
+grep -q '^FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=/data/annotations/runs/attempts$' "$moved" \
+  || fail "the attempts directory did not move onto the current tree"
+grep -q '^FM_PROCESSOR_ANNOTATION_LEARNING_DIR=/data/annotations/runs/learning$' "$moved" \
+  || fail "the learning directory did not move"
+grep -q '^FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR=/data/annotations/runs/learning-snapshots$' "$moved" \
+  || fail "the longer snapshots name was eaten by the shorter learning rule"
+grep -q '^FM_PROCESSOR_LEROBOT_IMPORTS_DIR=/data/staged/lerobot$' "$moved" \
+  || fail "the lerobot import directory did not move"
+grep -q '^FM_PROCESSOR_RELEASE_ROOT=/data/releases$' "$moved" \
+  || fail "the release root did not move"
+grep -q '^FM_PROCESSOR_OPERATOR_CHOICE=/mnt/big/somewhere-else$' "$moved" \
+  || fail "a directory the operator chose was rewritten"
+grep -q 'a comment naming /data/fm-data-runs/annotation-attempts stays prose' "$moved" \
+  || fail "a comment was rewritten as though it were a value"
+grep -q 'fm-data-runs' <(grep -v '^#' "$moved") \
+  && fail "a value still names the retired tree"
+pass "an env file written before the move converges onto the current tree"
+
+settled="$(hash_file "$moved")"
+bash "$INSTALLER" install >/dev/null 2>&1 || true
+[ "$(hash_file "$moved")" = "$settled" ] || fail "a second install moved the paths again"
+pass "the move is idempotent"
+
 echo "processor service config behavior: all checks passed"
