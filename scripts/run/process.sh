@@ -172,7 +172,7 @@ main() {
         [[ -n "$target" ]] && request+=", \"target\": \"$target\""
       fi
       request+="}"
-      echo ">> requesting $action for $count episode(s)"
+      echo ">> requesting $action for $count episode(s)" >&2
       local outcome rc=0
       outcome=$(fm_supervisor_request "/process/$action" "$request" /process/status "${episodes[@]}") || rc=$?
       [[ -n "$outcome" ]] || return "$rc"

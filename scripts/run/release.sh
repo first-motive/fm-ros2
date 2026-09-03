@@ -35,7 +35,10 @@ USAGE
 FMT_STATUS='
 import json, sys
 s = json.load(sys.stdin)
-print("state: %s  queued: %d" % (s.get("state"), len(s.get("queue") or [])))
+queue = s.get("queue") or []
+print("state: %s  queued: %d" % (s.get("state"), len(queue)))
+for job in queue:
+    print("queued: " + " ".join("%s=%s" % (k, v) for k, v in job.items() if isinstance(v, (bool, int, str))))
 for key in ("current", "last"):
     job = s.get(key)
     if job:
@@ -152,7 +155,7 @@ main() {
     verify)
       local request_id outcome rc=0
       request_id=$(fm_supervisor_request_id)
-      echo ">> requesting verify of pack $target (strict=$strict, request $request_id)"
+      echo ">> requesting verify of pack $target (strict=$strict, request $request_id)" >&2
       outcome=$(fm_supervisor_request /release/verify \
         "$(request verify "$target" "{\"strict\": $strict}" "$request_id")" \
         /release/status "$request_id" "$target") || rc=$?
