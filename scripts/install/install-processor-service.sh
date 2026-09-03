@@ -280,6 +280,49 @@ _require_linux_systemd() {
   return 0
 }
 
+# The directory names that moved when the data root landed, old suffix first.
+# Matched as suffixes so one table converges a container-side value (/data/…) and
+# a native one (/opt/fm/…) alike, without this script needing to know which shape
+# a given host wrote.
+FM_PROCESSOR_ENV_MOVES=(
+  "/fm-data-runs/annotation-attempts=/annotations/runs/attempts"
+  "/fm-data-runs/annotation-reviews=/annotations/runs/reviews"
+  "/fm-data-runs/annotation-corrections=/annotations/runs/corrections"
+  "/fm-data-runs/annotation-learning-snapshots=/annotations/runs/learning-snapshots"
+  "/fm-data-runs/annotation-learning=/annotations/runs/learning"
+  "/fm-data-runs/annotation-adjudications=/annotations/runs/adjudications"
+  "/fm-data-runs/annotation-revocations=/annotations/runs/revocations"
+  "/fm-data-runs/annotation-improvement-runs=/annotations/runs/improvement-runs"
+  "/fm-data-runs/archive-cache=/staged/episodes"
+  "/fm-data-runs/huggingface=/hf"
+  "/lerobot-staged=/staged/lerobot"
+  "/dataset-releases=/releases"
+)
+
+# Move an existing env file's directory knobs onto the current tree.
+#
+# Idempotent: the new names contain none of the old ones, so a second run finds
+# nothing to rewrite. Reports what it changed, because a path moving under a
+# running service is exactly the kind of silent edit an operator should see in
+# the install log.
+_migrate_processor_env() {
+  [ -f "$ENVFILE" ] || return 0
+  local move old new changed=0
+  for move in "${FM_PROCESSOR_ENV_MOVES[@]}"; do
+    old="${move%%=*}"
+    new="${move#*=}"
+    # Anchored to a value, so a comment mentioning the old tree is left as prose.
+    if sudo grep -q "=[^=]*${old}" "$ENVFILE" 2>/dev/null; then
+      sudo sed -i.bak "s#\(=[^=]*\)${old}#\1${new}#g" "$ENVFILE" || return 1
+      sudo rm -f "${ENVFILE}.bak"
+      item "moved ${old} -> ${new} in $ENVFILE"
+      changed=1
+    fi
+  done
+  [ "$changed" -eq 1 ] && item "restart the service to apply the moved paths"
+  return 0
+}
+
 do_install() {
   _require_linux_systemd || return 0
   if [ ! -f "$WRAPPER" ]; then
@@ -372,6 +415,14 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
+
+  # A host provisioned before the data root moved keeps its own env file, and the
+  # template below is written only when one is absent — so without this its knobs
+  # would still name the retired fm-data-runs tree, which nothing mounts any
+  # more. Only the exact old shapes are rewritten, by suffix rather than by whole
+  # path, so a native root and a container root both converge and a directory an
+  # operator chose is left alone.
+  _migrate_processor_env
 
   # Config knobs — write a template only when absent, so a re-install never clobbers a
   # host's tuned values (custom dirs, a pinned LAN IP, ...).
