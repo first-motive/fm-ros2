@@ -8,6 +8,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export PYTHONPATH="$ROOT/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONDONTWRITEBYTECODE=1
 
 case "${FM_ARCHIVE_ENABLED:-false}" in
   true) ;;
@@ -42,6 +44,11 @@ source "$ROOT/install/setup.bash"
 # shellcheck disable=SC1091
 source "$ROOT/scripts/env/comms.sh"
 set -u
+
+python3 -c 'import boto3' >/dev/null 2>&1 || {
+  echo "archive-boot: archive provider runtime is missing; run setup-processor.sh" >&2
+  exit 1
+}
 
 if ! ros2 pkg prefix fm_data_archive >/dev/null 2>&1; then
   echo "archive-boot: fm_data_archive is not built; run setup-processor.sh" >&2
