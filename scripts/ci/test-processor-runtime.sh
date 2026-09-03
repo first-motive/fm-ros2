@@ -89,7 +89,7 @@ grep -q 'prepare_release_runtime' scripts/install/setup-processor.sh \
   && grep -q 'requirements-release.txt' scripts/install/setup-processor.sh \
   && grep -q "FM_INSTALL_RLDS=\${FM_INSTALL_RLDS:-1}" scripts/install/setup-processor.sh \
   && echo "PASS: processor setup installs release and RLDS runtimes" || { echo "FAIL: full data runtime missing"; fail=1; }
-grep -q 'FM_PROCESSOR_RELEASE_ROOT=/data/dataset-releases' scripts/install/install-processor-service.sh \
+grep -q 'FM_PROCESSOR_RELEASE_ROOT=/data/releases' scripts/install/install-processor-service.sh \
   && grep -q '.release-venv/bin/hf' scripts/service/processor-boot.sh \
   && echo "PASS: processor boot activates shared releases and hf" || { echo "FAIL: release service wiring missing"; fail=1; }
 grep -q 'sudo chown -R.*release_venv' scripts/install/setup-processor.sh \
@@ -103,7 +103,7 @@ grep -q '\.ros-runtime' scripts/internal/lib-processor.sh \
   && echo "PASS: ROS Python dependencies survive container recreation" || { echo "FAIL: persistent ROS Python runtime missing"; fail=1; }
 grep -q 'git curl ffmpeg' scripts/install/setup-processor.sh \
   && echo "PASS: processor setup installs release media tools" || { echo "FAIL: ffmpeg install missing"; fail=1; }
-grep -q 'FM_PROCESSOR_HUGGINGFACE_HOME:-$PROCESSOR_DATA_ROOT/fm-data-runs/huggingface' scripts/service/processor-boot.sh \
+grep -q 'FM_PROCESSOR_HUGGINGFACE_HOME:-$PROCESSOR_DATA_ROOT/hf' scripts/service/processor-boot.sh \
   && echo "PASS: Hugging Face auth state uses persistent processor storage" || { echo "FAIL: persistent Hugging Face auth path missing"; fail=1; }
 grep -q 'FM_AWS_INFERENCE_SERVICE_MODE' scripts/install/install-processor-service.sh \
   && grep -q 'FM_AWS_INFERENCE_READINESS_DIR' scripts/install/install-processor-service.sh \

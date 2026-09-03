@@ -388,7 +388,7 @@ Next — open a NEW terminal, then:
 
   # It serves /process/* over the capture session's foxglove bridge; kick off runs from
   # the desktop app's Process window. Manifests land under ~/processed/<episode_id>/;
-  # annotation attempt evidence persists under ~/fm-data-runs/annotation-attempts/.
+  # annotation attempt evidence persists under <workspace>/data/annotations/runs/attempts/.
 
   # One-off CLI runs (no app) still work directly:
   ros2 run fm_data_dataset dataset_process --input <bag_dir> --output <out_dir>

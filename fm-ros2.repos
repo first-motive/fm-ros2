@@ -4,7 +4,7 @@
 # Zenoh transport configs into comms/, and the four public First Motive package
 # repos into src/, each tracking main. Paths are
 # relative to the workspace root, so import from the root (no `src` argument). A
-# private learning overlay lives in a separate manifest — team members with
+# private data overlay lives in a separate manifest — team members with
 # access import it on top of this one; see docs/ARCHITECTURE.md. Externals
 # (lerobot, OpenArm, Unitree, ...)
 # are vendored separately into external/ by scripts/import-externals.sh, which

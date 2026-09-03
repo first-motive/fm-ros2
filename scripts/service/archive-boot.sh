@@ -61,10 +61,13 @@ fi
 export AWS_ACCESS_KEY_ID="$BACKBLAZE_B2_PROCARCH_KEY_ID"
 export AWS_SECRET_ACCESS_KEY="$BACKBLAZE_B2_PROCARCH_APPLICATION_KEY"
 
-ARCHIVE_DATA_ROOT=/data
-if [ ! -d "$ARCHIVE_DATA_ROOT" ] || [ ! -w "$ARCHIVE_DATA_ROOT" ]; then
-  ARCHIVE_DATA_ROOT="$HOME"
-fi
+# shellcheck disable=SC1091
+. "$ROOT/lib.sh"          # fm_data_root
+ARCHIVE_DATA_ROOT="$(fm_data_root "$ROOT")"
+# The stage directory stays a child of the cache directory: staged episodes are
+# cached objects promoted in place, and one tree keeps that relation visible.
+CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$ARCHIVE_DATA_ROOT/staged/episodes}"
+STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$ARCHIVE_DATA_ROOT/staged/episodes/staged}"
 # Where a staged episode is published. It MUST be the same root the processor
 # reads: `bag_dir_for_record` resolves a session record by joining its basename
 # under this directory, so publishing anywhere else leaves the episode
@@ -73,11 +76,8 @@ fi
 # the container runtime this wrapper runs where the processor env file is not
 # mounted.
 RECORDINGS_DIR="${FM_ARCHIVE_RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordings}"
-
-CACHE_DIR="${FM_ARCHIVE_CACHE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-cache}"
-STAGE_DIR="${FM_ARCHIVE_STAGE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-cache/staged}"
 LEROBOT_CATALOGUE_FILE="${FM_ARCHIVE_LEROBOT_CATALOGUE_FILE:-}"
-LEROBOT_STAGE_DIR="${FM_ARCHIVE_LEROBOT_STAGE_DIR:-$ARCHIVE_DATA_ROOT/lerobot-staged}"
+LEROBOT_STAGE_DIR="${FM_ARCHIVE_LEROBOT_STAGE_DIR:-$ARCHIVE_DATA_ROOT/staged/lerobot}"
 LEROBOT_CATALOGUE_ARGS=()
 if [ -n "$LEROBOT_CATALOGUE_FILE" ]; then
   LEROBOT_CATALOGUE_ARGS=(-p "lerobot_catalogue_file:=$LEROBOT_CATALOGUE_FILE")

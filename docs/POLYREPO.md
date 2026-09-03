@@ -34,9 +34,10 @@ the repo that owns that layer, then assemble the workspace through `fm-ros2`.
 | `fm-teleop` | Teleoperation layer | Foxglove panel, leader arm, vision input, retargeting, device input |
 | `.github` | Org meta | shared GitHub defaults, org profile, templates, automation defaults |
 
-A private learning overlay plugs in on top for team members with access. Its
-repos, workflows, and import manifest are documented privately — see the
-member-only org profile.
+A private data overlay plugs in on top for team members with access. Its repo,
+workflows, and import manifest are documented privately — see the member-only org
+profile. The policy layer is a standalone project outside this workspace and does
+not import into `src/`.
 
 ## Where To Work
 
@@ -90,7 +91,7 @@ fm_ros2/
   external/...
 ```
 
-Team members with private access layer the learning overlay on top of the same
+Team members with private access layer the data overlay on top of the same
 workspace; the import manifest is managed privately.
 
 ## Branch Rules

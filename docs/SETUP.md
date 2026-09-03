@@ -110,15 +110,17 @@ vcs import < fm-ros2.repos     # pull the four public package repos into src/
 builds the base image (arm64). The package source comes from the four public repos
 in `fm-ros2.repos` — import them into `src/` first, as shown above.
 
-### Learning overlay (team members)
+### Private overlay (team members)
 
-The private learning overlay (data engine + policy) imports automatically when you
+The private data overlay imports automatically when you
 install through `install.sh`: its auth gate (`gh auth` + org read) detects org
 access and the authenticated team-setup step provisions the overlay on top of the
 public workspace. No flag is needed — `--no-learning` opts out, `--learning` forces
-it and fails loud when no org access is detected. A non-member install skips the
-overlay silently and lands a complete public workspace. The public installer names
-no private learning repo; members find the manual steps in the private team docs.
+it and fails loud when no org access is detected; the flags keep their original
+spelling, from when the overlay still carried the policy layer. A non-member
+install skips the overlay silently and lands a complete public workspace. The
+public installer names no private repo; members find the manual steps in the
+private team docs.
 
 ## Bring the stack up
 
@@ -235,9 +237,12 @@ the service install:
 ```bash
 export FM_AWS_INFERENCE_SERVICE_MODE=1
 export FM_AWS_INFERENCE_BUCKET="$FM_AWS_IDENTITY_BUCKET"
-export FM_AWS_INFERENCE_READINESS_DIR=~/fm-data-runs/aws-readiness
 ./scripts/install/install-processor-service.sh
 ```
+
+Readiness receipts default to `annotations/runs/aws-readiness` below the
+workspace data root. Export `FM_AWS_INFERENCE_READINESS_DIR` before the install
+to put them elsewhere.
 
 The installer requires the installed identity profile to pass its read-only
 check, then derives that profile and the Ohio region before it writes the

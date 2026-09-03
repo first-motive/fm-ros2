@@ -126,7 +126,7 @@ _validate_aws_inference_config() {
   region="${FM_AWS_INFERENCE_REGION:-${FM_AWS_IDENTITY_REGION:-${IDENTITY_REGION_CONFIG:-us-east-2}}}"
   profile="${FM_AWS_PROFILE:-${FM_AWS_IDENTITY_PROFILE:-$IDENTITY_PROFILE_CONFIG}}"
   bucket="${FM_AWS_INFERENCE_BUCKET:-${FM_AWS_IDENTITY_BUCKET:-$IDENTITY_BUCKET_CONFIG}}"
-  readiness="${FM_AWS_INFERENCE_READINESS_DIR:-~/fm-data-runs/aws-readiness}"
+  readiness="${FM_AWS_INFERENCE_READINESS_DIR:-$(fm_data_root "$ROOT" "$SERVICE_HOME")/annotations/runs/aws-readiness}"
   script="${FM_PROCESSOR_AWS_INFERENCE_SCRIPT:-$AWS_INFERENCE_SCRIPT_DEFAULT}"
   timeout="${FM_AWS_SERVICE_TIMEOUT_SECONDS:-7200}"
 
@@ -376,10 +376,10 @@ EOF
   # Config knobs — write a template only when absent, so a re-install never clobbers a
   # host's tuned values (custom dirs, a pinned LAN IP, ...).
   if [ ! -f "$ENVFILE" ]; then
-    local processor_data_root=/data
-    if [ ! -d "$processor_data_root" ] || [ ! -w "$processor_data_root" ]; then
-      processor_data_root="$SERVICE_HOME"
-    fi
+    # The template below is written with the container's view of the data root.
+    # A host whose root sits elsewhere has every value retargeted after the write.
+    local processor_data_root
+    processor_data_root="$(fm_data_root "$ROOT" "$SERVICE_HOME")"
     item "writing $ENVFILE (config knobs — edit, then restart the service to apply) ..."
     sudo tee "$ENVFILE" >/dev/null <<'EOF'
 # fm-processor.service knobs — edit, then: sudo systemctl restart fm-processor
@@ -401,22 +401,22 @@ FM_PROCESSOR_CONFIG=
 FM_PROCESSOR_ANNOTATIONS_DIR=/data/annotations
 # Processor-owned receipt-bound LeRobot imports. Keep this equal to
 # FM_ARCHIVE_LEROBOT_STAGE_DIR in /etc/fm-archive.env when a custom root is used.
-FM_PROCESSOR_LEROBOT_IMPORTS_DIR=/data/lerobot-staged
+FM_PROCESSOR_LEROBOT_IMPORTS_DIR=/data/staged/lerobot
 # Durable queued/running/generated/failed/blocked annotation attempt evidence:
-FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=/data/fm-data-runs/annotation-attempts
+FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=/data/annotations/runs/attempts
 # Durable immutable review, correction, learning, governance, and run lineage:
-FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=/data/fm-data-runs/annotation-reviews
-FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=/data/fm-data-runs/annotation-corrections
-FM_PROCESSOR_ANNOTATION_LEARNING_DIR=/data/fm-data-runs/annotation-learning
-FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR=/data/fm-data-runs/annotation-adjudications
-FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR=/data/fm-data-runs/annotation-revocations
-FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR=/data/fm-data-runs/annotation-learning-snapshots
-FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR=/data/fm-data-runs/annotation-improvement-runs
+FM_PROCESSOR_ANNOTATION_REVIEWS_DIR=/data/annotations/runs/reviews
+FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR=/data/annotations/runs/corrections
+FM_PROCESSOR_ANNOTATION_LEARNING_DIR=/data/annotations/runs/learning
+FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR=/data/annotations/runs/adjudications
+FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR=/data/annotations/runs/revocations
+FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR=/data/annotations/runs/learning-snapshots
+FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR=/data/annotations/runs/improvement-runs
 # Release export, Pack verification, LeRobot conversion, and the hf CLI use the
 # isolated .release-venv installed by setup-processor.sh. The boot wrapper finds
 # those paths automatically. Set only the approved private Hub destination here;
 # authentication remains an operator action.
-FM_PROCESSOR_RELEASE_ROOT=/data/dataset-releases
+FM_PROCESSOR_RELEASE_ROOT=/data/releases
 # Optional immutable container image digest used by release provenance:
 #FM_PROCESSOR_RELEASE_RUNTIME_IMAGE_DIGEST=sha256:...
 #FM_PROCESSOR_RELEASE_HUGGINGFACE_REPOSITORY=first-motive/private-dataset
@@ -438,7 +438,7 @@ FM_PROCESSOR_RELEASE_ROOT=/data/dataset-releases
 # unset unless the reviewed identity contract explicitly requires an override.
 #FM_AWS_PROFILE=
 #FM_AWS_INFERENCE_BUCKET=
-#FM_AWS_INFERENCE_READINESS_DIR=~/fm-data-runs/aws-readiness
+#FM_AWS_INFERENCE_READINESS_DIR=/data/annotations/runs/aws-readiness
 #FM_AWS_SERVICE_TIMEOUT_SECONDS=7200
 EOF
     if [ "$processor_data_root" != /data ]; then

@@ -16,16 +16,18 @@ services:
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/recordings:/data/recordings
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/processed:/data/processed
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/annotations:/data/annotations
-      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/fm-data-runs:/data/fm-data-runs
-      # Same directory again at the container's HOME. The role still has
-      # ~/...-shaped knobs that no env knob overrides — process_supervisor's
-      # model_views_dir default and setup-qwen.sh's FM_QWEN_ROOT — and on a
-      # rig with a data volume those name the container's writable layer
-      # instead of this mount. The 16 GB weights view then downloads again
-      # on every recreate and never satisfies the qwen_ready check.
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/releases:/data/releases
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/staged:/data/staged
+      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/hf:/data/hf
+      # The old tree, at the container's HOME, until the last default that
+      # names it moves. The role still has ~/...-shaped knobs no env knob
+      # overrides — the data engine's own `process_session.launch.py` defaults its
+      # annotation attempts to `~/fm-data-runs/annotation-attempts`, and that
+      # default lives in another repo. On a rig with a data volume those name
+      # the container's writable layer instead of a mount, so the 16 GB weights
+      # view downloads again on every recreate and never satisfies the
+      # qwen_ready check. Drop this line once the data engine's defaults move too.
       - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/fm-data-runs:${HOME}/fm-data-runs
-      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/dataset-releases:/data/dataset-releases
-      - ${FM_PROCESSOR_DATA_ROOT:-${HOME}}/lerobot-staged:/data/lerobot-staged
       # The relocatable release venv keeps its interpreter in uv's managed
       # Python root. Expose that immutable versioned runtime read-only at the
       # same container path; credentials and the rest of HOME stay outside.

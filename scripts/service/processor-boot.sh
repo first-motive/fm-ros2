@@ -55,20 +55,29 @@ export PYTHONPATH="$ROOT/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
 # Keep Python from writing root-owned bytecode into that bind-mounted runtime.
 export PYTHONDONTWRITEBYTECODE=1
 
+# shellcheck disable=SC1091
+. "$ROOT/lib.sh"          # fm_data_root
+# Every default below hangs off the machine-owned data root, so a host with no
+# /etc/fm-processor.env writes where a provisioned one does, one level up.
+PROCESSOR_DATA_ROOT="$(fm_data_root "$ROOT")"
+# Keep the user-authenticated Hub state there too. Login remains an explicit
+# operator action; the service only selects the path.
+export HF_HOME="${FM_PROCESSOR_HUGGINGFACE_HOME:-$PROCESSOR_DATA_ROOT/hf}"
+
 RECORDINGS_DIR="${FM_PROCESSOR_RECORDINGS_DIR:-~/recordings}"
 OUTPUT_DIR="${FM_PROCESSOR_OUTPUT_DIR:-~/processed}"
 CONFIG="${FM_PROCESSOR_CONFIG:-}"
 ANNOTATIONS_DIR="${FM_PROCESSOR_ANNOTATIONS_DIR:-}"
-LEROBOT_IMPORTS_DIR="${FM_PROCESSOR_LEROBOT_IMPORTS_DIR:-~/.cache/fm-archive/lerobot-staged}"
-ANNOTATION_ATTEMPTS_DIR="${FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR:-~/fm-data-runs/annotation-attempts}"
-ANNOTATION_REVIEWS_DIR="${FM_PROCESSOR_ANNOTATION_REVIEWS_DIR:-~/fm-data-runs/annotation-reviews}"
-ANNOTATION_CORRECTIONS_DIR="${FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR:-~/fm-data-runs/annotation-corrections}"
-ANNOTATION_LEARNING_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_DIR:-~/fm-data-runs/annotation-learning}"
+LEROBOT_IMPORTS_DIR="${FM_PROCESSOR_LEROBOT_IMPORTS_DIR:-$PROCESSOR_DATA_ROOT/staged/lerobot}"
+ANNOTATION_ATTEMPTS_DIR="${FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR:-$PROCESSOR_DATA_ROOT/annotations/runs/attempts}"
+ANNOTATION_REVIEWS_DIR="${FM_PROCESSOR_ANNOTATION_REVIEWS_DIR:-$PROCESSOR_DATA_ROOT/annotations/runs/reviews}"
+ANNOTATION_CORRECTIONS_DIR="${FM_PROCESSOR_ANNOTATION_CORRECTIONS_DIR:-$PROCESSOR_DATA_ROOT/annotations/runs/corrections}"
+ANNOTATION_LEARNING_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_DIR:-$PROCESSOR_DATA_ROOT/annotations/runs/learning}"
 OPERATOR_EVIDENCE_DIR="${FM_PROCESSOR_OPERATOR_EVIDENCE_DIR:-}"
-ANNOTATION_ADJUDICATIONS_DIR="${FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR:-~/fm-data-runs/annotation-adjudications}"
-ANNOTATION_REVOCATIONS_DIR="${FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR:-~/fm-data-runs/annotation-revocations}"
-ANNOTATION_LEARNING_SNAPSHOTS_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR:-~/fm-data-runs/annotation-learning-snapshots}"
-ANNOTATION_IMPROVEMENT_RUNS_DIR="${FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR:-~/fm-data-runs/annotation-improvement-runs}"
+ANNOTATION_ADJUDICATIONS_DIR="${FM_PROCESSOR_ANNOTATION_ADJUDICATIONS_DIR:-$PROCESSOR_DATA_ROOT/annotations/runs/adjudications}"
+ANNOTATION_REVOCATIONS_DIR="${FM_PROCESSOR_ANNOTATION_REVOCATIONS_DIR:-$PROCESSOR_DATA_ROOT/annotations/runs/revocations}"
+ANNOTATION_LEARNING_SNAPSHOTS_DIR="${FM_PROCESSOR_ANNOTATION_LEARNING_SNAPSHOTS_DIR:-$PROCESSOR_DATA_ROOT/annotations/runs/learning-snapshots}"
+ANNOTATION_IMPROVEMENT_RUNS_DIR="${FM_PROCESSOR_ANNOTATION_IMPROVEMENT_RUNS_DIR:-$PROCESSOR_DATA_ROOT/annotations/runs/improvement-runs}"
 AWS_INFERENCE_SCRIPT="${FM_PROCESSOR_AWS_INFERENCE_SCRIPT:-}"
 ANNOTATE_GIT_COMMIT="${FM_PROCESSOR_ANNOTATE_GIT_COMMIT:-}"
 # The managed service env uses a workspace-relative adapter path so the same
@@ -76,21 +85,13 @@ ANNOTATE_GIT_COMMIT="${FM_PROCESSOR_ANNOTATE_GIT_COMMIT:-}"
 if [ -n "$AWS_INFERENCE_SCRIPT" ] && [[ "$AWS_INFERENCE_SCRIPT" != /* ]]; then
   AWS_INFERENCE_SCRIPT="$ROOT/$AWS_INFERENCE_SCRIPT"
 fi
-RELEASE_ROOT="${FM_PROCESSOR_RELEASE_ROOT:-~/dataset-releases}"
+RELEASE_ROOT="${FM_PROCESSOR_RELEASE_ROOT:-$PROCESSOR_DATA_ROOT/releases}"
 RELEASE_DATASET_EXPORTER="${FM_PROCESSOR_RELEASE_DATASET_EXPORTER:-}"
 RELEASE_PYTHON="${FM_PROCESSOR_RELEASE_PYTHON:-}"
 RELEASE_PACK_CONFIG="${FM_PROCESSOR_RELEASE_PACK_CONFIG:-}"
 RELEASE_HUGGINGFACE_CLI="${FM_PROCESSOR_RELEASE_HUGGINGFACE_CLI:-}"
 RELEASE_HUGGINGFACE_REPOSITORY="${FM_PROCESSOR_RELEASE_HUGGINGFACE_REPOSITORY:-}"
 RELEASE_RUNTIME_IMAGE_DIGEST="${FM_PROCESSOR_RELEASE_RUNTIME_IMAGE_DIGEST:-}"
-# Keep the user-authenticated Hub state in the processor's persistent data root.
-# The container always has /data; a native host without it uses the service home.
-# Login remains an explicit operator action; the service only selects the path.
-PROCESSOR_DATA_ROOT=/data
-if [ ! -d "$PROCESSOR_DATA_ROOT" ] || [ ! -w "$PROCESSOR_DATA_ROOT" ]; then
-  PROCESSOR_DATA_ROOT="$HOME"
-fi
-export HF_HOME="${FM_PROCESSOR_HUGGINGFACE_HOME:-$PROCESSOR_DATA_ROOT/fm-data-runs/huggingface}"
 # The release exporter has a Python 3.12 dependency contract that conflicts
 # with the ROS engine runtime. setup-processor.sh installs it separately and
 # these defaults activate it only when every required artifact is present.

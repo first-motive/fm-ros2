@@ -1,7 +1,9 @@
-# Repo map — four public package repos assemble into src/; a private learning
+# Repo map — four public package repos assemble into src/; a private data
 # overlay plugs in on top. Dependencies point one way: the application layer
 # depends on the layers below; the overlay never depends on the application
-# layer. Dashed edges are launch / plug-in links, not build dependencies.
+# layer. Dashed edges are launch / plug-in links, not build dependencies. The
+# policy layer is a standalone project outside this workspace, so it is not a
+# node here — see docs/ARCHITECTURE.md.
 ...@styles
 direction: right
 
@@ -20,11 +22,11 @@ robot: fm-robot · robot layer {
 
 sim: "fm-sim\nsim loop · backends · MJCF registry" { class: node }
 teleop: "fm-teleop\nservo · input adapters" { class: node }
-learning: "learning overlay · private\ndata engine + policy" { class: node }
+overlay: "private overlay\ndata engine" { class: node }
 
 app.bringup -> robot.control
 app.bringup -> sim
 app.bringup -> teleop
 robot.control -> robot.desc
 app.bringup -> app.tui: launches { style.stroke-dash: 4 }
-learning -> robot.control: plugs in on top { style.stroke-dash: 4 }
+overlay -> robot.control: plugs in on top { style.stroke-dash: 4 }

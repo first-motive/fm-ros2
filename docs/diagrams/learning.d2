@@ -1,7 +1,8 @@
-# Learning loop — the private overlay follows the standard imitation-learning
-# shape: teleop generates data, data trains policies, policy output feeds back
-# into the same fm_control stack the operator drives manually. The dashed edge is
-# the policy-serving path that closes the autonomy loop.
+# Learning loop — the standard imitation-learning shape: teleop generates data,
+# data trains policies, policy output feeds back into the same fm_control stack
+# the operator drives manually. The dashed edge is the policy-serving path that
+# closes the autonomy loop. Only record/dataset are packages in this workspace
+# (the private data overlay); train/serve are a standalone project outside it.
 ...@styles
 direction: right
 

@@ -75,12 +75,13 @@ if ! ros2 pkg prefix fm_data_archive >/dev/null 2>&1; then
   exit 1
 fi
 
-ARCHIVE_DATA_ROOT=/data
-if [ ! -d "$ARCHIVE_DATA_ROOT" ] || [ ! -w "$ARCHIVE_DATA_ROOT" ]; then
-  ARCHIVE_DATA_ROOT="$HOME"
-fi
+# shellcheck disable=SC1091
+. "$ROOT/lib.sh"          # fm_data_root
+ARCHIVE_DATA_ROOT="$(fm_data_root "$ROOT")"
 RECORDINGS_DIR="${FM_ARCHIVE_UPLOADER_RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordings}"
-STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-$ARCHIVE_DATA_ROOT/fm-data-runs/archive-uploader}"
+# The uploader's queue and receipts are archive state, so they sit beside the
+# archive's other stage directories rather than in the recording root it reads.
+STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-$ARCHIVE_DATA_ROOT/staged/archive-uploader}"
 
 echo "archive-uploader-boot: starting the uploader"
 # These are bridge contract topics, shared with Desktop. They are deliberately

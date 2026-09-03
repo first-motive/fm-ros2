@@ -5,8 +5,8 @@
 First Motive's ROS2 workspace orchestrator.
 
 The public stack lives in four per-package repos under the `first-motive` org. A
-private learning overlay (data engine + policy) plugs in on top for team members
-with access. This repo holds no package source — it assembles those repos into
+private overlay — the data engine — plugs in on top for team members with
+access. This repo holds no package source — it assembles those repos into
 one colcon workspace via `vcs`, and carries the shared tooling (Docker, dev
 container, CI, scripts) and the full-system docs.
 
@@ -78,10 +78,11 @@ curl ... | bash -s -- --container                  # Docker + compose
 | `--container` | Docker + compose (default: Linux; CI/parity elsewhere) |
 | `--viewer foxglove\|rviz\|none` | viewer to install (default: foxglove) |
 
-The private learning overlay imports automatically for team members: when the
+The private data overlay imports automatically for team members: when the
 installer's org-auth gate passes, its team-setup step provisions the overlay on
 top of the public workspace. No flag needed. Opt out with `--no-learning`; force
-it with `--learning` (which fails loud without org access):
+it with `--learning` (which fails loud without org access) — the flags keep their
+original spelling, from when the overlay still carried the policy layer:
 
 ```bash
 curl ... | bash -s -- --no-learning   # skip the overlay
@@ -153,7 +154,7 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
 ```
 
 On a provisioned workstation, processor evidence and derived artifacts use the
-shared `/data` root. The installer creates the bag-processing and RLDS runtime
+workspace's shared `data/` root. The installer creates the bag-processing and RLDS runtime
 plus a separate release runtime because their NumPy contracts differ. It wires
 candidate export, Pack v2 build and verification, LeRobot conversion, Rerun,
 and the `hf` CLI into the processor service. Hugging Face authentication and
@@ -196,15 +197,15 @@ and canonical file-inventory digest before promoting either view.
 Model execution itself stays approval-gated per run; provisioning only
 downloads and verifies content identities. The processor service retains each
 real-model attempt, including failed and GPU-blocked runs, under
-`~/fm-data-runs/annotation-attempts`; override that durable root with
+`<workspace>/data/annotations/runs/attempts`; override that durable root with
 `FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR` in `/etc/fm-processor.env`.
 Human review receipts, corrected outputs, and learning records persist beside
-it under `~/fm-data-runs/annotation-{reviews,corrections,learning}`. Their
+it under `data/annotations/runs/{reviews,corrections,learning}`. Their
 `FM_PROCESSOR_ANNOTATION_*_DIR` settings are kept in the same environment file,
 so processor restarts and updater re-installs retain the full review lineage.
 Adjudications, revocations, frozen learning snapshots, and reproducible
 improvement-run receipts persist in sibling
-`annotation-{adjudications,revocations,learning-snapshots,improvement-runs}`
+`{adjudications,revocations,learning-snapshots,improvement-runs}`
 roots. The processor exposes only bounded read-only governance facts to
 Desktop; the private data engine remains the writer and verifier authority.
 The same supervisor serves exact review frames through the bounded
@@ -267,7 +268,7 @@ catalogue JSON when it is approved for use. The empty default publishes no
 LeRobot episodes. `FM_ARCHIVE_LEROBOT_STAGE_ENABLED=false` is a separate
 default-off gate; when enabled, staged imports use
 `FM_ARCHIVE_LEROBOT_STAGE_DIR` (default
-`~/.cache/fm-archive/lerobot-staged`). Desktop sends only a published episode
+`<workspace>/data/staged/lerobot`). Desktop sends only a published episode
 identity and request ID; it never supplies this path, a bucket prefix, or a
 credential. The processor service reads the same canonical root through
 `FM_PROCESSOR_LEROBOT_IMPORTS_DIR`; if either root is customized, set both to
@@ -330,8 +331,8 @@ The service and Avahi advert both read that file. Use
 ## Architecture
 
 `fm_description` feeds `fm_control`; control drives a backend-selectable hardware
-interface; `fm_bringup` launches the graph. A private learning overlay (data
-engine + policy) plugs in on top. Full diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+interface; `fm_bringup` launches the graph. A private overlay — the data engine —
+plugs in on top. Full diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ![system](docs/diagrams/system.svg)
 
@@ -373,8 +374,8 @@ split):
 | [fm-teleop](https://github.com/first-motive/fm-teleop) | teleop | `fm_teleop_core` · `device` · `leader` · `vr` · `vision` · `panel` |
 | [fm-app](https://github.com/first-motive/fm-app) | application | `fm_bringup` · `fm_tui` |
 
-A private learning overlay plugs in on top for team members with access — see
-[Learning Stack](docs/ARCHITECTURE.md#learning-stack-private-overlay).
+A private data overlay plugs in on top for team members with access — see
+[Private Data Overlay](docs/ARCHITECTURE.md#private-data-overlay).
 
 ## Platforms
 

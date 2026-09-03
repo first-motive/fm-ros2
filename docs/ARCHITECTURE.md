@@ -2,7 +2,7 @@
 
 `fm-ros2` is the **orchestrator** for First Motive's ROS2 robot stack.
 It assembles four public per-package repos into one colcon workspace — plus a
-private learning overlay for team members with access — holds the shared tooling
+private data overlay for team members with access — holds the shared tooling
 (Docker, dev container, CI, scripts), and carries the full-system view. It holds
 no package source.
 
@@ -48,7 +48,7 @@ Source: [`diagrams/run.d2`](diagrams/run.d2),
 ## System Context
 
 The workspace runs inside a dev container. Operators drive it from a browser
-(Foxglove) or a terminal (TUI). Physics and learning assets are vendored
+(Foxglove) or a terminal (TUI). Physics and dataset assets are vendored
 externals. On Linux, the same stack reaches real OpenArm hardware over CAN.
 
 ![context](diagrams/context.svg)
@@ -66,9 +66,9 @@ Source: [`diagrams/context.d2`](diagrams/context.d2).
 
 ## Repo Map
 
-Four public package repos assemble into `src/`; a private learning overlay plugs
+Four public package repos assemble into `src/`; a private data overlay plugs
 in on top. Dependencies point one way: the application layer depends on the layers
-below it; the learning overlay never depends on the application layer.
+below it; the data overlay never depends on the application layer.
 
 ![repo map](diagrams/repomap.svg)
 
@@ -81,16 +81,16 @@ Source: [`diagrams/repomap.d2`](diagrams/repomap.d2).
 | [fm-sim](https://github.com/first-motive/fm-sim) | `fm_sim_core`, `fm_sim_backends`, `fm_sim_models`, `fm_sim` | ament_cmake | Headless dev loop, backend hosts, MJCF registry |
 | [fm-teleop](https://github.com/first-motive/fm-teleop) | `fm_teleop_*` | ament_python | Servo wiring + pluggable input adapters |
 
-A private learning overlay adds the data engine and policy layer on top — see
-[Learning Stack](#learning-stack-private-overlay).
+A private overlay adds the data engine on top — see
+[Private Data Overlay](#private-data-overlay).
 
 `fm_ros2` (this repo) is the workspace metapackage: it exec-depends on every public
 group metapackage, so `colcon build` recurses and finds every package regardless of
-nesting depth. When the learning overlay is imported, colcon builds it too.
+nesting depth. When the data overlay is imported, colcon builds it too.
 
 The dependency direction is the design contract: **`fm_description` is the
 foundation**, `fm_control` adds the control layer on top of it, and `fm_bringup`
-orchestrates everything. The learning overlay plugs in at the top without the lower
+orchestrates everything. The data overlay plugs in at the top without the lower
 layers knowing it exists.
 
 ## Package Dependency Graph
@@ -114,9 +114,10 @@ Two properties of the graph are the design contract:
   `fm_description` and nothing depends back on it. The teleop group is a star — all
   four adapters depend on `fm_teleop_core`, never on each other.
 
-The private learning overlay plugs in at `fm_control` (policy serving feeds the same
-control stack the operator drives) and depends on no public package, so it adds a
-top edge without the lower layers knowing it exists.
+The private data overlay depends on no public package, so it adds a top edge
+without the lower layers knowing it exists. Policy serving reaches the same
+`fm_control` stack the operator drives manually, but it does so from outside this
+workspace — see [Policy Layer](#policy-layer-outside-this-workspace).
 
 ## Per-Repo Architecture
 
@@ -130,7 +131,7 @@ with its package.
 | [fm-sim](https://github.com/first-motive/fm-sim/blob/main/docs/ARCHITECTURE.md) | simulation layer | Backend hosts, MJCF registry, headless dev loop |
 | [fm-teleop](https://github.com/first-motive/fm-teleop/blob/main/docs/ARCHITECTURE.md) | teleop layer | The input contract, sources, vision pipeline |
 
-The private learning overlay documents its internals in its own (private) repos.
+The private data overlay documents its internals in its own (private) repo.
 
 ## Hardware Abstraction
 
@@ -197,20 +198,33 @@ and on the container path selects the compose overlay, brings the container up, 
 opens the `fm_tui` launcher. The `openarm_hardware` and `openarm_can` packages are
 `COLCON_IGNORE`'d on macOS, since they need Linux SocketCAN.
 
-## Learning Stack (private overlay)
+## Private Data Overlay
 
-The learning loop is a private overlay, imported on top of the public workspace
-by team members with access. It is not part of the public stack. Structurally it
-follows the standard imitation-learning shape:
+The data engine is a private overlay, imported on top of the public workspace by
+team members with access from a manifest this public repo does not carry. It is
+one colcon package tree at `src/fm_data`, plus the LeRobot source its release
+exporter imports, vendored at `external/lerobot`. It is not part of the public
+stack.
+
+Recording and dataset production are the overlay's whole job. Everything
+downstream of the emitted dataset is the policy layer, and that no longer lives
+in this workspace.
+
+## Policy Layer (outside this workspace)
+
+Training and serving are a standalone private project with its own Python
+environment, not a colcon package and not imported into `src/`. It is named here
+only to place it in the full loop:
 
 ![learning loop](diagrams/learning.svg)
 
 Source: [`diagrams/learning.d2`](diagrams/learning.d2).
 
-This closes the autonomy loop: teleop generates data, data trains policies, and
-policy output feeds back into the same `fm_control` stack the operator drives
-manually — manual and autonomous control share one motion path. Internals live in
-the private repos.
+The loop closes at `fm_control`: teleop generates data, the data engine emits a
+dataset, the standalone policy project trains and serves from it, and its output
+reaches the same control stack the operator drives manually — manual and
+autonomous control share one motion path. Only the left half of that picture is
+a package in this workspace.
 
 ## Design Principles
 
@@ -220,10 +234,10 @@ The rationale behind the boundaries above.
 |-----------|-----------------|--------|
 | **One interface, many backends** | `sim_backend` selects the `ros2_control` hardware plugin | Sim ↔ real is a launch arg; controllers and teleop never change |
 | **Normalize inputs early** | Every teleop adapter emits `delta_twist_cmds` | Add an input device without touching servo or control |
-| **Layered, one-way deps** | `description → control → bringup`; data engine plugs in on top | Lower layers stay testable and reusable; no cycles |
+| **Layered, one-way deps** | `description → control → bringup`; the data engine plugs in on top | Lower layers stay testable and reusable; no cycles |
 | **Description as foundation** | `fm_description` registry abstracts robot + variant + meshes | New robot is a registry entry, not a fork |
 | **Polyrepo, one workspace** | Each layer is its own repo; `fm-ros2` assembles them via `vcs` | Teams own and ship their layer independently |
-| **Shared motion path** | Manual teleop and the learning overlay's policy serving both reach `fm_control` | Autonomy reuses the validated manual stack |
+| **Shared motion path** | Manual teleop and the standalone policy layer's serving both reach `fm_control` | Autonomy reuses the validated manual stack |
 
 For setup and run instructions, see [SETUP.md](SETUP.md) and [RUN.md](RUN.md).
 Per-package detail lives in each repo's `docs/ARCHITECTURE.md` and
