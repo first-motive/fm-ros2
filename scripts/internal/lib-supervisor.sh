@@ -44,8 +44,10 @@ fm_supervisor_exec() {
 # it within the timeout — the supervisor is down, or not on this graph.
 fm_supervisor_read() {
   local topic="$1" payload
+  # `echo` prints a `---` message separator after the field; drop it so the
+  # payload is exactly the JSON the supervisor published.
   payload=$(fm_supervisor_exec timeout "$FM_SUPERVISOR_TIMEOUT" \
-    ros2 topic echo --once --field data "$topic" 2>/dev/null || true)
+    ros2 topic echo --once --field data "$topic" 2>/dev/null | sed '/^---$/d' || true)
   if [[ -z "$payload" ]]; then
     echo "error: nothing published on $topic within ${FM_SUPERVISOR_TIMEOUT}s — is fm-processor.service running?" >&2
     return 1
