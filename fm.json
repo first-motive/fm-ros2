@@ -17,6 +17,14 @@
       "script": "scripts/run/dataset.sh",
       "help": "process recorded episodes into a manifest, and verify it"
     },
+    "process": {
+      "script": "scripts/run/process.sh",
+      "help": "inspect the process supervisor and queue processing or annotation"
+    },
+    "release": {
+      "script": "scripts/run/release.sh",
+      "help": "inspect release candidates and packs, and verify a pack"
+    },
     "archive": {
       "script": "scripts/run/archive.sh",
       "help": "inspect, preflight, reconcile, or install archive services"
