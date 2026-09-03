@@ -20,6 +20,17 @@ fm_supervisor_require() {
     echo "       run this where fm-processor.service lives" >&2
     return 1
   fi
+  # Resolve the runtime once, here, so a host that cannot reach it fails with
+  # that reason instead of a misleading "nothing published" after the timeout.
+  local runtime
+  runtime=$(fm_processor_runtime) || return 1
+  if [[ "$runtime" == container ]]; then
+    fm_processor_compose "$PWD" || return 1
+    if [[ -z "$("${FM_COMPOSE[@]}" ps -q fm 2>/dev/null)" ]]; then
+      echo "error: the processor container is not running — check: systemctl status fm-processor" >&2
+      return 1
+    fi
+  fi
 }
 
 # fm_supervisor_exec <command...>
