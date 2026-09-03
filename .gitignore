@@ -58,3 +58,4 @@ venv/
 .engine-venv/
 .fm-loop-*/
 .fm-processor-mounts.yaml
+.fm-compose-transport.yaml
