@@ -59,3 +59,9 @@ venv/
 .fm-loop-*/
 .fm-processor-mounts.yaml
 .fm-compose-transport.yaml
+
+# The processor's own Python runtime, pip-installed into the checkout by
+# lib-processor.sh so a container without a module can still start. Generated,
+# and large: leaving it untracked made `fm update` and the converge timer skip
+# this repo for a dirty tree, so a rig stopped taking releases (fm-ws-01).
+.ros-runtime/
