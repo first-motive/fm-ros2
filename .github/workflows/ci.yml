@@ -164,6 +164,13 @@ jobs:
       - name: the processor mounts what it is configured with
         run: bash scripts/ci/test-processor-mounts.sh
 
+      # One machine, one data root, and every process on it agreeing which. The
+      # card is what they agree through: deriving it from a checkout's own
+      # location answers differently on a host whose checkout sits outside the
+      # workspace the card names, which is fm-ws-01.
+      - name: the data root comes from the machine's card
+        run: bash scripts/ci/test-data-root.sh
+
       # A non-Humble Linux processor uses its prepared Humble container for the
       # standalone Foxglove bridge. Exercise the existing-only route and scoped
       # stop helper with stubs; never launch systemd, Docker, or ROS in CI.
