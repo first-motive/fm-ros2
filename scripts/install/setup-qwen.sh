@@ -7,10 +7,10 @@
 # script only DOWNLOADS; it never loads weights and never runs the model, so
 # the lane's human-approval gate is untouched.
 #
-# Layout matches the existing workstation evidence conventions:
-#   ~/fm-data-runs/_model-views/<descriptor>-<rev8>-<inv8>/    weights view
-#   ~/fm-data-runs/_model-views/<view>.MODEL_INVENTORY.json    hashed inventory
-#   ~/fm-data-runs/_runtime/qwen-cu128/requirements.lock       runtime pins
+# Layout, under the machine's own data root:
+#   <data root>/hf/_model-views/<descriptor>-<rev8>-<inv8>/    weights view
+#   <data root>/hf/_model-views/<view>.MODEL_INVENTORY.json    hashed inventory
+#   <data root>/hf/_runtime/qwen-cu128/requirements.lock       runtime pins
 #
 # Opt-in on purpose: each weights view is large, the shared torch wheel cache
 # adds several GB, and only GPU hosts benefit. Invoked by setup-processor.sh
@@ -29,7 +29,32 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")/../.." && pwd)"
 # shellcheck disable=SC1091
 [ -f "$ROOT/lib.sh" ] && . "$ROOT/lib.sh" || item() { echo "$1"; }
 
-QWEN_ROOT="${FM_QWEN_ROOT:-$HOME/fm-data-runs}"
+# The model cache belongs under the machine's data root, beside the other
+# evictable weights in `hf/`, rather than in the `fm-data-runs` tree that every
+# other path moved out of.
+#
+# A host that already holds a legacy tree keeps using it, and is told how to
+# move: the views are tens of gigabytes, and repointing the default would make a
+# re-run download them all again. `fm_data_root` is absent when lib.sh could not
+# be sourced — the `ssh 'bash -s'` path — and the legacy default holds there.
+qwen_default_root() {
+  local legacy="$HOME/fm-data-runs"
+  if declare -F fm_data_root >/dev/null 2>&1; then
+    local current
+    current="$(fm_data_root "$ROOT" "$HOME")/hf"
+    if [ -d "$legacy/_model-views" ] && [ ! -d "$current/_model-views" ]; then
+      echo "note: using the legacy model cache at $legacy" >&2
+      echo "      move it with: mv $legacy/_model-views $legacy/_runtime $current/" >&2
+      printf '%s\n' "$legacy"
+      return 0
+    fi
+    printf '%s\n' "$current"
+    return 0
+  fi
+  printf '%s\n' "$legacy"
+}
+
+QWEN_ROOT="${FM_QWEN_ROOT:-$(qwen_default_root)}"
 LOCK_DIR="$QWEN_ROOT/_runtime/qwen-cu128"
 LOCK_SRC="$ROOT/scripts/install/qwen/requirements-cu128.lock"
 TORCH_INDEX="https://download.pytorch.org/whl/cu128"
@@ -57,7 +82,7 @@ setup-qwen.sh — provision the real annotation model (opt-in, GPU hosts)
                (uv and the shared uv cache are left alone)
   -h, --help   show this help
 
-Knobs: FM_QWEN_ROOT (default ~/fm-data-runs), FM_QWEN_MODEL_SOURCE.
+Knobs: FM_QWEN_ROOT (default <data root>/hf), FM_QWEN_MODEL_SOURCE.
 Downloading needs the network;
 nothing here loads weights or runs the model — execution stays approval-gated.
 EOF
