@@ -36,38 +36,43 @@ Usage: ./scripts/run/process.sh <status|list|show|run|annotate> [options]
 USAGE
 }
 
+# Formatters run under the processor's own python (3.10 in the Humble image),
+# so no quotes inside f-string expressions: %-formatting with plain names.
 FMT_STATUS='
 import json, sys
 s = json.load(sys.stdin)
-print(f"state: {s.get(\"state\")}  queued: {len(s.get(\"queue\", []))}")
+queue = s.get("queue") or []
+print("state: %s  queued: %d" % (s.get("state"), len(queue)))
 cur = s.get("current")
 if cur:
-    print(f"current: {cur.get(\"episode_id\")} ({cur.get(\"kind\", \"process\")})")
+    print("current: %s (%s)" % (cur.get("episode_id"), cur.get("kind", "process")))
 last = s.get("last")
 if last:
-    ok = "ok" if last.get("ok") else f"failed exit={last.get(\"exit_code\")}"
-    print(f"last: {last.get(\"episode_id\")} {ok}" + (f" — {last[\"error\"]}" if last.get("error") else ""))
-for item in s.get("queue", []):
-    print(f"queued: {item.get(\"episode_id\")} ({item.get(\"kind\", \"process\")})")
-for item in s.get("refused", []):
-    print(f"refused: {item.get(\"episode_id\")} — {item.get(\"reason\")}")
+    ok = "ok" if last.get("ok") else "failed exit=%s" % last.get("exit_code")
+    err = last.get("error")
+    print("last: %s %s%s" % (last.get("episode_id"), ok, " - %s" % err if err else ""))
+for item in queue:
+    print("queued: %s (%s)" % (item.get("episode_id"), item.get("kind", "process")))
+for item in s.get("refused") or []:
+    print("refused: %s - %s" % (item.get("episode_id"), item.get("reason")))
 if s.get("request_error"):
-    print(f"request_error: {s[\"request_error\"]}")
-for lane in s.get("cloud_lifecycle", []):
-    print(f"cloud {lane.get(\"lane\")}: {lane.get(\"state\", lane.get(\"reason\"))}"
-          + (f" request={lane[\"request_id\"]}" if lane.get("request_id") else ""))
+    print("request_error: %s" % s["request_error"])
+for lane in s.get("cloud_lifecycle") or []:
+    rid = lane.get("request_id")
+    state = lane.get("state", lane.get("reason"))
+    print("cloud %s: %s%s" % (lane.get("lane"), state, " request=%s" % rid if rid else ""))
 '
 
 FMT_LIST='
 import json, sys
 p = json.load(sys.stdin)
-entries = p.get("episodes", p.get("entries", p if isinstance(p, list) else []))
+entries = p if isinstance(p, list) else (p.get("episodes") or p.get("entries") or [])
 if not entries:
     print("no recorded episodes in the index")
 for e in entries:
-    flags = " ".join(f"{k}={v}" for k, v in e.items()
+    flags = " ".join("%s=%s" % (k, v) for k, v in e.items()
                      if k != "episode_id" and isinstance(v, (bool, int, str)))
-    print(f"{e.get(\"episode_id\")}  {flags}")
+    print("%s  %s" % (e.get("episode_id"), flags))
 '
 
 # The detail topic is latched: it still carries the last episode somebody

@@ -30,18 +30,20 @@ Usage: ./scripts/run/release.sh <status|list|show|verify> [options]
 USAGE
 }
 
+# Formatters run under the processor's own python (3.10 in the Humble image),
+# so no quotes inside f-string expressions: %-formatting with plain names.
 FMT_STATUS='
 import json, sys
 s = json.load(sys.stdin)
-print(f"state: {s.get(\"state\")}  queued: {len(s.get(\"queue\") or [])}")
+print("state: %s  queued: %d" % (s.get("state"), len(s.get("queue") or [])))
 for key in ("current", "last"):
     job = s.get(key)
     if job:
-        print(f"{key}: " + " ".join(f"{k}={v}" for k, v in job.items() if isinstance(v, (bool, int, str))))
+        print("%s: %s" % (key, " ".join("%s=%s" % (k, v) for k, v in job.items() if isinstance(v, (bool, int, str)))))
 caps = s.get("capabilities") or {}
 print("capabilities: " + ", ".join(k for k, v in sorted(caps.items()) if v))
 if s.get("issue_code"):
-    print(f"issue: {s[\"issue_code\"]} — {s.get(\"message\", \"\")}")
+    print("issue: %s - %s" % (s["issue_code"], s.get("message", "")))
 '
 
 FMT_LIST='
@@ -50,9 +52,10 @@ p = json.load(sys.stdin)
 cands = p.get("candidates") or []
 packs = p.get("packs") or []
 for c in cands:
-    print(f"candidate {c.get(\"candidate_id\")}  {c.get(\"mode\", \"\")} {c.get(\"inventory_state\", \"\")} {c.get(\"approval_state\", \"\")}")
+    print("candidate %s  %s %s %s" % (c.get("candidate_id"), c.get("mode", ""), c.get("inventory_state", ""), c.get("approval_state", "")))
 for k in packs:
-    print(f"pack {k.get(\"pack_id\")}  " + " ".join(f"{a}={b}" for a, b in k.items() if a != "pack_id" and isinstance(b, (bool, int, str))))
+    flags = " ".join("%s=%s" % (a, b) for a, b in k.items() if a != "pack_id" and isinstance(b, (bool, int, str)))
+    print("pack %s  %s" % (k.get("pack_id"), flags))
 if not cands and not packs:
     print("no candidates or packs under the release root")
 '
