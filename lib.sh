@@ -23,8 +23,39 @@ item() { echo "$1"; }
 # An empty fallback is refused rather than returned: HOME is unset in a systemd
 # unit that does not set it, and an empty root would silently place the role's
 # directories at the filesystem root instead of failing where it can be seen.
+#: Where fm-setup writes this machine's identity card. Read, never written here.
+FM_MACHINE_FILE="${FM_MACHINE_FILE:-/etc/fm/machine.json}"
+
+# The workspace this machine's card declares, or empty when there is no card to
+# read. jq is not assumed: the processor image carries it, a bare host may not,
+# and a missing tool has to read as "no card" rather than as an error.
+fm_card_workspace() {
+  [ -r "$FM_MACHINE_FILE" ] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  jq -r '.workspace // empty' "$FM_MACHINE_FILE" 2>/dev/null || true
+}
+
 fm_data_root() {  # checkout  [fallback]
-  local parent root fallback
+  local workspace parent root fallback
+  # The card first, because it is the only answer that is the same for every
+  # process on the machine. Deriving the root from the checkout's own location
+  # looked equivalent and is not: on fm-ws-01 the workspace card says /opt/fm
+  # while the checkout sits at /home/fm/fm, so the derivation returned
+  # /home/fm/fm/data, found nothing there, and fell back to HOME — the exact
+  # split into "two paths that both look correct" that one data root exists to
+  # prevent. Recordings are the one thing on a rig nobody can re-make.
+  workspace="$(fm_card_workspace)"
+  if [ -n "$workspace" ]; then
+    root="${workspace%/}/data"
+    if [ -d "$root" ] && [ -w "$root" ]; then
+      printf '%s\n' "$root"
+      return 0
+    fi
+  fi
+  # No card, or a card naming a root this process cannot use: fall back to the
+  # directory beside the checkout. Inside the processor container that is the
+  # answer rather than a guess — the checkout is mounted at /ws and the root at
+  # /data, so the parent of /ws resolves to exactly the root that is mounted.
   parent="$(cd "${1:-.}/.." 2>/dev/null && pwd)" || parent=
   root="${parent%/}/data"
   if [ -n "$parent" ] && [ -d "$root" ] && [ -w "$root" ]; then
