@@ -70,6 +70,70 @@ fm_supervisor_publish() {
   fi
 }
 
+# fm_supervisor_request <command-topic> <payload> <status-topic> <id...>
+# Publish one request and print the first status message that answers it —
+# one naming any <id> (in its queue, current job, refusals, or last outcome)
+# or carrying a request error. A one-shot latched read cannot do this: the
+# supervisor republishes status on every cloud-lifecycle tick, so the message
+# that carried the refusal is gone before a reader that started late sees it.
+# Subscribes first, publishes second, all inside the processor's runtime.
+# Exit 3 when nothing answered within the timeout; the last status seen is
+# still printed so the caller has something honest to show.
+fm_supervisor_request() {
+  local cmd_topic="$1" payload="$2" status_topic="$3"
+  shift 3
+  local yaml="{data: \"${payload//\"/\\\"}\"}"
+  fm_supervisor_exec bash -c "$FM_SUPERVISOR_REQUEST_SCRIPT" _ \
+    "$cmd_topic" "$yaml" "$status_topic" "$FM_SUPERVISOR_TIMEOUT" "$@"
+}
+
+# shellcheck disable=SC2016  # runs in the processor's runtime, not expanded here
+FM_SUPERVISOR_REQUEST_SCRIPT='
+set -u
+cmd_topic=$1 yaml=$2 status_topic=$3 timeout=$4
+shift 4
+log=$(mktemp)
+trap "rm -f $log" EXIT
+ros2 topic echo --field data "$status_topic" >"$log" 2>/dev/null &
+echo_pid=$!
+sleep 1
+if ! timeout "$timeout" ros2 topic pub -1 -w 1 "$cmd_topic" std_msgs/msg/String "$yaml" >/dev/null 2>&1; then
+  kill "$echo_pid" 2>/dev/null
+  echo "error: no subscriber on $cmd_topic within ${timeout}s — is fm-processor.service running?" >&2
+  exit 1
+fi
+python3 - "$log" "$timeout" "$@" <<"PY"
+import json, sys, time
+log, timeout, ids = sys.argv[1], float(sys.argv[2]), sys.argv[3:]
+deadline = time.time() + timeout
+last = None
+def answers(text, s):
+    return bool(s.get("request_error") or s.get("issue_code")) or any(json.dumps(i) in text for i in ids)
+while time.time() < deadline:
+    with open(log) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line == "---":
+                continue
+            try:
+                s = json.loads(line)
+            except ValueError:
+                continue
+            last = line
+            if answers(line, s):
+                print(line)
+                sys.exit(0)
+    time.sleep(0.5)
+if last is not None:
+    print(last)
+print("error: no status answered the request within %ss; showing the last one seen" % int(timeout), file=sys.stderr)
+sys.exit(3)
+PY
+rc=$?
+kill "$echo_pid" 2>/dev/null
+exit $rc
+'
+
 # fm_supervisor_format <python-source>
 # Pretty-print the JSON on stdin with a small formatter, run in the processor's
 # runtime rather than the host's — the same reason dataset.sh parses the

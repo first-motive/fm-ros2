@@ -172,12 +172,16 @@ main() {
         [[ -n "$target" ]] && request+=", \"target\": \"$target\""
       fi
       request+="}"
-      echo ">> requesting $action for ${#episodes[@]} episode(s)"
-      fm_supervisor_publish "/process/$action" "$request"
-      # ponytail: the status republish after a request is not correlated to it;
-      # one second is enough on the appliance, and the summary says what it saw.
-      sleep 1
-      print_status "$json"
+      echo ">> requesting $action for $count episode(s)"
+      local outcome rc=0
+      outcome=$(fm_supervisor_request "/process/$action" "$request" /process/status "${episodes[@]}") || rc=$?
+      [[ -n "$outcome" ]] || return "$rc"
+      if [[ "$json" == true ]]; then
+        printf '%s\n' "$outcome"
+      else
+        printf '%s\n' "$outcome" | fm_supervisor_format "$FMT_STATUS"
+      fi
+      return "$rc"
       ;;
   esac
 }

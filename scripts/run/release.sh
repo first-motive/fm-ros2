@@ -60,9 +60,9 @@ if not cands and not packs:
     print("no candidates or packs under the release root")
 '
 
-request() { # operation target_id options-json
+request() { # operation target_id options-json [request_id]
   printf '{"contract_version": 1, "operation": "%s", "options": %s, "request_id": "%s", "target_id": "%s"}' \
-    "$1" "$3" "$(fm_supervisor_request_id)" "$2"
+    "$1" "$3" "${4:-$(fm_supervisor_request_id)}" "$2"
 }
 
 # The detail topic is latched: it still carries the last target somebody
@@ -150,12 +150,19 @@ main() {
       show_target "$target" "$json"
       ;;
     verify)
-      echo ">> requesting verify of pack $target (strict=$strict)"
-      fm_supervisor_publish /release/verify "$(request verify "$target" "{\"strict\": $strict}")"
-      # ponytail: same uncorrelated status read as process.sh; the request id
-      # is in the payload so `release status --json` can be matched by hand.
-      sleep 1
-      print_status "$json"
+      local request_id outcome rc=0
+      request_id=$(fm_supervisor_request_id)
+      echo ">> requesting verify of pack $target (strict=$strict, request $request_id)"
+      outcome=$(fm_supervisor_request /release/verify \
+        "$(request verify "$target" "{\"strict\": $strict}" "$request_id")" \
+        /release/status "$request_id" "$target") || rc=$?
+      [[ -n "$outcome" ]] || return "$rc"
+      if [[ "$json" == true ]]; then
+        printf '%s\n' "$outcome"
+      else
+        printf '%s\n' "$outcome" | fm_supervisor_format "$FMT_STATUS"
+      fi
+      return "$rc"
       ;;
   esac
 }
