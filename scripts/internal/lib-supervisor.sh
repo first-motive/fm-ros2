@@ -6,8 +6,10 @@
 # (/process/*, /release/*). These helpers publish the same requests and read
 # the same latched answers, inside the processor's own runtime, so a verb sees
 # exactly what Desktop sees and nothing else. No engine logic lives here.
+# Sourced with stdout sent to stderr: the comms profile announces itself on
+# stdout, and `--json` promises a payload there and nothing else.
 # shellcheck source=lib-processor.sh disable=SC1091
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-processor.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-processor.sh" >&2
 
 FM_SUPERVISOR_TIMEOUT="${FM_SUPERVISOR_TIMEOUT:-20}" # seconds per topic read or publish
 
