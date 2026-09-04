@@ -21,7 +21,7 @@
       "script": "scripts/run/process.sh",
       "help": "inspect the process supervisor and queue processing or annotation"
     },
-    "release": {
+    "dataset-release": {
       "script": "scripts/run/release.sh",
       "help": "inspect release candidates and packs, and verify a pack"
     },

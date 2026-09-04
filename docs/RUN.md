@@ -67,7 +67,7 @@ and the one a script can drive — the workspace mounts these verbs onto `fm`:
 | `fm episode record` / `stop` / `list` | a take against the running stack |
 | `fm dataset process` / `verify` | the fm_data engine over what was recorded, then graded |
 | `fm process status` / `list` / `show` / `run` / `annotate` | the processor's supervisor: its queue, each episode's state, and new work through it |
-| `fm release status` / `list` / `show` / `verify` | the release supervisor's candidates and packs, and a read-only pack verify |
+| `fm dataset-release status` / `list` / `show` / `verify` | the release supervisor's candidates and packs, and a read-only pack verify |
 | `fm sim` | one robot in a sim backend, in the foreground |
 
 Chained, those are the whole data path: [ONBOARDING.md](ONBOARDING.md).
