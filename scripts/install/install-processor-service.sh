@@ -323,6 +323,53 @@ _migrate_processor_env() {
   return 0
 }
 
+# Copy immutable attempt receipts from the retired tree into the configured
+# root. The old copy stays in place as recovery evidence. A different receipt
+# at the same episode/attempt identity stops the install instead of choosing
+# one history silently.
+_migrate_processor_attempt_evidence() {
+  [ -f "$ENVFILE" ] || return 0
+  local new_root old_root source relative episode attempt destination copied=0
+  new_root="$(_envfile_value "$ENVFILE" FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR)"
+  case "$new_root" in
+    */annotations/runs/attempts) ;;
+    *) return 0 ;;
+  esac
+  old_root="${new_root%/annotations/runs/attempts}/fm-data-runs/annotation-attempts"
+  [ -d "$old_root" ] || return 0
+
+  while IFS= read -r -d '' source; do
+    relative="${source#"$old_root"/}"
+    case "$relative" in
+      */*/ATTEMPT.json) ;;
+      *) echo "ERROR: unexpected legacy attempt path: $source" >&2; return 1 ;;
+    esac
+    episode="${relative%%/*}"
+    attempt="${relative#*/}"
+    attempt="${attempt%%/*}"
+    destination="$new_root/$episode/$attempt/ATTEMPT.json"
+
+    if [ -e "$destination" ]; then
+      if ! sudo cmp -s "$source" "$destination"; then
+        echo "ERROR: legacy attempt conflicts with $destination" >&2
+        return 1
+      fi
+      continue
+    fi
+
+    sudo mkdir -p "$new_root/$episode"
+    sudo cp -a "${source%/ATTEMPT.json}" "$new_root/$episode/"
+    sudo cmp -s "$source" "$destination" || {
+      echo "ERROR: copied attempt did not verify: $destination" >&2
+      return 1
+    }
+    copied=$((copied + 1))
+  done < <(sudo find "$old_root" -mindepth 3 -maxdepth 3 -type f -name ATTEMPT.json -print0)
+
+  [ "$copied" -gt 0 ] && item "copied and verified $copied legacy annotation attempt receipt(s)"
+  return 0
+}
+
 do_install() {
   _require_linux_systemd || return 0
   if [ ! -f "$WRAPPER" ]; then
@@ -497,6 +544,7 @@ EOF
       sudo rm -f "${ENVFILE}.bak"
     fi
   fi
+  _migrate_processor_attempt_evidence || return 1
   _write_aws_service_env || return 1
 
   item "enabling + starting fm-processor.service ..."

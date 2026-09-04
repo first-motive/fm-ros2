@@ -301,4 +301,43 @@ bash "$INSTALLER" install >/dev/null 2>&1 || true
 [ "$(hash_file "$moved")" = "$settled" ] || fail "a second install moved the paths again"
 pass "the move is idempotent"
 
+# The path cutover must also preserve receipts written before the env value
+# moved. Copy into the canonical tree, verify the bytes, keep the recovery
+# source, and make the operation safe to repeat.
+migration_root="$TMP_DIR/migration-data"
+legacy_attempt="$migration_root/fm-data-runs/annotation-attempts/episode-a/attempt-a/ATTEMPT.json"
+current_attempt="$migration_root/annotations/runs/attempts/episode-a/attempt-a/ATTEMPT.json"
+mkdir -p "$(dirname "$legacy_attempt")"
+printf '%s\n' '{"attempt_id":"attempt-a","episode_id":"episode-a"}' >"$legacy_attempt"
+replace_line "$moved" 'FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=' \
+  "FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=$migration_root/fm-data-runs/annotation-attempts"
+
+bash "$INSTALLER" install >/dev/null 2>&1 || fail "legacy attempt migration failed"
+assert_same "$legacy_attempt" "$current_attempt" "legacy attempt bytes changed during migration"
+[ -f "$legacy_attempt" ] || fail "legacy recovery receipt was removed"
+grep -Fxq "FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR=$migration_root/annotations/runs/attempts" "$moved" \
+  || fail "the migrated attempt root was not persisted"
+pass "legacy attempt receipts are copied and verified in the current root"
+
+attempt_before="$(hash_file "$current_attempt")"
+bash "$INSTALLER" install >/dev/null 2>&1 || fail "repeat attempt migration failed"
+[ "$(hash_file "$current_attempt")" = "$attempt_before" ] \
+  || fail "repeat attempt migration changed the receipt"
+pass "attempt evidence migration is idempotent"
+
+conflict_legacy="$migration_root/fm-data-runs/annotation-attempts/episode-b/attempt-b/ATTEMPT.json"
+conflict_current="$migration_root/annotations/runs/attempts/episode-b/attempt-b/ATTEMPT.json"
+mkdir -p "$(dirname "$conflict_legacy")" "$(dirname "$conflict_current")"
+printf '%s\n' '{"state":"failed"}' >"$conflict_legacy"
+printf '%s\n' '{"state":"generated"}' >"$conflict_current"
+systemctl_before="$(systemctl_count)"
+if bash "$INSTALLER" install >"$TMP_DIR/attempt-conflict.out" 2>"$TMP_DIR/attempt-conflict.err"; then
+  fail "conflicting attempt receipts were accepted"
+fi
+grep -q 'legacy attempt conflicts' "$TMP_DIR/attempt-conflict.err" \
+  || fail "attempt conflict did not name the problem"
+[ "$(systemctl_count)" = "$systemctl_before" ] \
+  || fail "attempt conflict restarted systemd"
+pass "conflicting attempt identities stop before service restart"
+
 echo "processor service config behavior: all checks passed"

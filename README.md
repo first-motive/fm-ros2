@@ -199,6 +199,10 @@ downloads and verifies content identities. The processor service retains each
 real-model attempt, including failed and GPU-blocked runs, under
 `<workspace>/data/annotations/runs/attempts`; override that durable root with
 `FM_PROCESSOR_ANNOTATION_ATTEMPTS_DIR` in `/etc/fm-processor.env`.
+On service convergence, receipts from the retired
+`fm-data-runs/annotation-attempts` tree are copied and verified in this current
+root. The retired copy stays as recovery evidence, and conflicting bytes stop
+the service install.
 Human review receipts, corrected outputs, and learning records persist beside
 it under `data/annotations/runs/{reviews,corrections,learning}`. Their
 `FM_PROCESSOR_ANNOTATION_*_DIR` settings are kept in the same environment file,
