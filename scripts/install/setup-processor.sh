@@ -105,6 +105,28 @@ install_services() {
     # is configured (single-box setups need no transfer; see recordings-sync.sh).
     item "installing the recordings-sync timer (fm-sync.timer) ..."
     ./scripts/install/install-sync-timer.sh
+
+    # A tower reserves 8765 for Axol and keeps the First Motive bridge on a
+    # different persisted port. Same contract as the recorder: opt-in on first
+    # provisioning (FM_INSTALL_FOXGLOVE_SERVICE=1), then self-preserving —
+    # every later updater run sees FM_BRIDGE_OWNER=standalone and reinstalls it.
+    # Without this the processor updater rewrites every other unit and silently
+    # leaves the desktop with no bridge to talk to.
+    #
+    # Deliberately after the update timer: the installer refuses to start over an
+    # existing listener, and this script runs under `set -e` from the updater. If
+    # a refusal ran before the timer install, a port collision would also stop the
+    # appliance reinstalling its own updater and strand the box. Ordered here the
+    # run still fails loudly — a failed fm-update-processor unit is visible to
+    # `systemctl --failed` — while self-update survives to carry the fix.
+    if [ "$FM_BRIDGE_OWNER" = standalone ] || [ "${FM_INSTALL_FOXGLOVE_SERVICE:-0}" = 1 ]; then
+      item "installing the standalone Foxglove bridge (fm-foxglove.service) ..."
+      ./scripts/install/install-foxglove-service.sh --port "$FM_BRIDGE_PORT"
+      # Reload the file in case the standalone installer created it on this run,
+      # so the mDNS advert below announces the port the bridge actually uses.
+      # shellcheck disable=SC1091
+      . "$ROOT/scripts/env/bridge.sh"
+    fi
     # Make the box discoverable: advertise the processor role over mDNS so the
     # desktop app's Settings offers this rig instead of a typed IP.
     item "advertising the processor on the local network (mDNS) ..."
