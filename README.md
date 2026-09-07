@@ -301,7 +301,7 @@ and leaves B2 credentials on the processor. The host must have `fm` on PATH.
 Without a host, commands inspect local state. A machine without archive service
 configuration reports a deferred preflight, rather than a healthy processor.
 Doctor consumes the same preflight through `fm.json`; it checks service state,
-configured derived roots, and the provider key scopes supplied by `fm-data`.
+configured derived roots, and the provider key scopes supplied by the data package.
 
 The optional LeRobot source uses the same processor-owned service. Set
 `FM_ARCHIVE_LEROBOT_CATALOGUE_FILE` in `/etc/fm-archive.env` to a closed local
