@@ -54,6 +54,10 @@ case "${FM_ARCHIVE_UPLOADER_DRY_RUN:-false}" in
   true|false) ;;
   *) echo "archive-uploader-boot: FM_ARCHIVE_UPLOADER_DRY_RUN must be true or false" >&2; exit 2 ;;
 esac
+case "${FM_ARCHIVE_UPLOADER_DERIVED_ENABLED:-false}" in
+  true|false) ;;
+  *) echo "archive-uploader-boot: FM_ARCHIVE_UPLOADER_DERIVED_ENABLED must be true or false" >&2; exit 2 ;;
+esac
 
 if [ "${FM_ARCHIVE_UPLOADER_DRY_RUN:-false}" != true ]; then
   if [ -z "${BACKBLAZE_B2_FMREC_KEY_ID:-}" ] ||
@@ -91,6 +95,10 @@ RECORDINGS_DIR="${FM_ARCHIVE_UPLOADER_RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordi
 # The uploader's queue and receipts are archive state, so they sit beside the
 # archive's other stage directories rather than in the recording root it reads.
 STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-$ARCHIVE_DATA_ROOT/staged/archive-uploader}"
+# Derived sets (manifests, annotation records) come from the processor's own
+# output roots. Same defaults as install-processor-service.sh.
+PROCESSED_DIR="${FM_ARCHIVE_UPLOADER_PROCESSED_DIR:-$ARCHIVE_DATA_ROOT/processed}"
+ANNOTATIONS_DIR="${FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR:-$ARCHIVE_DATA_ROOT/annotations}"
 
 echo "archive-uploader-boot: starting the uploader"
 # These are bridge contract topics, shared with Desktop. They are deliberately
@@ -104,6 +112,9 @@ fi
 exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p recordings_dir:="$RECORDINGS_DIR" \
   -p state_dir:="$STATE_DIR" \
+  -p processed_dir:="$PROCESSED_DIR" \
+  -p annotations_dir:="$ANNOTATIONS_DIR" \
+  -p derived_upload_enabled:="${FM_ARCHIVE_UPLOADER_DERIVED_ENABLED:-false}" \
   -p upload_enabled:=true \
   -p deletion_enabled:="${FM_ARCHIVE_UPLOADER_DELETE_ENABLED:-false}" \
   -p dry_run:="${FM_ARCHIVE_UPLOADER_DRY_RUN:-false}" \
@@ -115,4 +126,5 @@ exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p status_topic:=/archive/storage/status \
   -p retry_topic:=/archive/upload/retry \
   -p verify_topic:=/archive/retention/verify \
-  -p delete_topic:=/archive/retention/delete
+  -p delete_topic:=/archive/retention/delete \
+  -p derived_index_topic:=/archive/derived/index

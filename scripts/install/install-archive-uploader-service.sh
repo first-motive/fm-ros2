@@ -61,6 +61,7 @@ do_install() {
   local runtime exec_start exec_stop="" requires=""
   local uploader_data_root processor_recordings
   local uploader_recordings uploader_state existing_recordings
+  local processor_output processor_annotations uploader_processed uploader_annotations
   runtime="$(fm_processor_runtime)" || return 1
   if [ "$runtime" = container ]; then
     exec_start="/bin/bash $ROOT/scripts/service/container-exec.sh scripts/service/archive-uploader-boot.sh"
@@ -78,6 +79,17 @@ do_install() {
   processor_recordings="$(FM_PROCESSOR_ENV_FILE="$PROCESSOR_ENVFILE" \
     fm_processor_env FM_PROCESSOR_RECORDINGS_DIR)"
   uploader_recordings="${processor_recordings:-$uploader_data_root/recordings}"
+  # Results ride beside the takes: the processor's output and annotation roots
+  # are the uploader's derived-set roots, read from the same env the processor
+  # runs with so the two services never disagree about where a bundle lives.
+  processor_output="$(FM_PROCESSOR_ENV_FILE="$PROCESSOR_ENVFILE" \
+    fm_processor_env FM_PROCESSOR_OUTPUT_DIR)"
+  processor_annotations="$(FM_PROCESSOR_ENV_FILE="$PROCESSOR_ENVFILE" \
+    fm_processor_env FM_PROCESSOR_ANNOTATIONS_DIR)"
+  # Fall back beside the recording root, as the state directory does, so a
+  # relocated data root keeps every uploader input on the same volume.
+  uploader_processed="${processor_output:-${uploader_recordings%/*}/processed}"
+  uploader_annotations="${processor_annotations:-${uploader_recordings%/*}/annotations}"
   # The uploader's queue and receipts are archive state, so they belong beside
   # the archive's other staging trees. Derived from the recording root rather
   # than the local default, so a host with a relocated data root keeps both
@@ -87,6 +99,7 @@ do_install() {
   if [ "$dry_run" = true ]; then
     item "would write $UNIT (User=$SERVICE_USER, workspace=$ROOT, runtime=$runtime)"
     item "would preserve or create mode-600 $ENVFILE"
+    item "would add the derived-set roots to $ENVFILE if absent"
     item "would enable + restart fm-archive-uploader.service"
     return 0
   fi
@@ -138,6 +151,15 @@ BACKBLAZE_B2_FMREC_APPLICATION_KEY=
 FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=$uploader_recordings
 FM_ARCHIVE_UPLOADER_STATE_DIR=$uploader_state
 
+# Results archive. Processing manifests and annotation records (bundles,
+# reviews, corrections, adjudications, revocations, learning snapshots) are
+# archived under derived/ beside the raw takes, with the same receipts. The
+# roots mirror /etc/fm-processor.env; the flag is separate so a host can
+# archive takes before it archives results.
+FM_ARCHIVE_UPLOADER_PROCESSED_DIR=$uploader_processed
+FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR=$uploader_annotations
+FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=true
+
 # Safe first-release policy. Do not lower the retention or eligibility floors.
 FM_ARCHIVE_UPLOADER_DRY_RUN=false
 FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS=30
@@ -167,6 +189,20 @@ EOF
       "s#^FM_ARCHIVE_UPLOADER_STATE_DIR=~/fm-data-runs/archive-uploader\$#FM_ARCHIVE_UPLOADER_STATE_DIR=$uploader_state#" \
       "$ENVFILE"
     sudo rm -f "${ENVFILE}.bak"
+  fi
+  # A host installed before the results archive existed carries no derived
+  # keys. Append them with the install-time defaults so the uploader converges
+  # on the same contract; an operator's later edit is left alone.
+  if ! sudo grep -q '^FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=' "$ENVFILE"; then
+    item "adding derived-set roots to $ENVFILE ..."
+    sudo tee -a "$ENVFILE" >/dev/null <<EOF
+
+# Results archive (added by install): manifests and annotation records ride
+# beside the raw takes under derived/. Roots mirror /etc/fm-processor.env.
+FM_ARCHIVE_UPLOADER_PROCESSED_DIR=$uploader_processed
+FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR=$uploader_annotations
+FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=true
+EOF
   fi
   # Re-apply private mode on every install. The file contains a write authority.
   sudo chmod 600 "$ENVFILE"

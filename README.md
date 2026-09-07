@@ -264,6 +264,17 @@ disabled in the first release. Its closed command topics are
 remote delete). On a container-runtime processor, both services require the
 already-running `fm-processor` container and cannot recreate or stop it.
 
+The uploader also archives results. With `FM_ARCHIVE_UPLOADER_DERIVED_ENABLED`
+(the install default) it discovers finished processing manifests under the
+processor's output root and annotation records (bundles, reviews, corrections,
+adjudications, revocations, learning snapshots) under the annotations root, and
+uploads each as one content-addressed set under `derived/` with the same
+receipt and state machine as a take. Rows publish on `/archive/derived/index`
+and a `derived` block joins `/archive/storage/status`. The roots are
+`FM_ARCHIVE_UPLOADER_PROCESSED_DIR` and `FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR`,
+written from `/etc/fm-processor.env` at install time. The layout contract is
+`src/fm_data/fm_data_archive/ARCHIVE_LAYOUT.md`.
+
 Use the person-run archive workflow for status, checks, recovery, or an
 idempotent install:
 
@@ -273,6 +284,10 @@ fm archive preflight --json
 fm archive reconcile --dry-run
 fm archive install --dry-run
 ```
+
+The bucket's own verbs (`list`, `catalogue`, `adopt`, `verify`, `restore`) are
+owned by fm-data and reached as `fm data-archive <verb>`; `fm archive <verb>`
+delegates to the same script.
 
 The optional LeRobot source uses the same processor-owned service. Set
 `FM_ARCHIVE_LEROBOT_CATALOGUE_FILE` in `/etc/fm-archive.env` to a closed local
