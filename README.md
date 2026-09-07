@@ -286,7 +286,7 @@ fm archive install --dry-run
 ```
 
 The bucket's own verbs (`list`, `catalogue`, `adopt`, `verify`, `restore`) are
-owned by fm-data and reached as `fm data-archive <verb>`; `fm archive <verb>`
+owned by the data package at `src/fm_data` and reached as `fm data-archive <verb>`; `fm archive <verb>`
 delegates to the same script.
 
 The optional LeRobot source uses the same processor-owned service. Set

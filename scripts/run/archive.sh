@@ -27,7 +27,7 @@ Usage: ./scripts/run/archive.sh <status|preflight|reconcile|install> [options]
   reconcile    restart installed services so the uploader replays its queue
   install      install both default-off services (idempotent)
 
-  Every other verb is the bucket itself and is owned by fm-data; it is
+  Every other verb is the bucket itself and is owned by the data package; it is
   delegated to src/fm_data/scripts/archive.sh (`fm data-archive`).
 
   --json       emit one machine-readable JSON object
@@ -282,7 +282,7 @@ main() {
         if [ -x "$ROOT/src/fm_data/scripts/archive.sh" ]; then
           exec "$ROOT/src/fm_data/scripts/archive.sh" "$@"
         fi
-        echo "error: '$1' needs fm-data at src/fm_data (run fm update)" >&2
+        echo "error: '$1' needs the data package at src/fm_data (run fm update)" >&2
         return 2
         ;;
       *) echo "error: unknown argument '$1'" >&2; usage >&2; return 2 ;;
