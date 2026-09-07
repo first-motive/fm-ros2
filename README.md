@@ -161,6 +161,14 @@ and the `hf` CLI into the processor service. Hugging Face authentication and
 the approved private `owner/name` destination remain operator actions; the
 installer does not request or store a token.
 
+Because that login is the one part of the processor no tag carries, and because
+an expired token looks exactly like a valid one on disk, report the chain the
+Desktop dataset viewer walks with:
+
+```bash
+bash scripts/service/processor-check.sh
+```
+
 All three need access to the private `first-motive` org: the Linux roles clone
 private repos over git auth, and the app installer fetches its release through
 `gh`.
