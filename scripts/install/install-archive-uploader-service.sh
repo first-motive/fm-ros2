@@ -158,7 +158,7 @@ FM_ARCHIVE_UPLOADER_STATE_DIR=$uploader_state
 # archive takes before it archives results.
 FM_ARCHIVE_UPLOADER_PROCESSED_DIR=$uploader_processed
 FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR=$uploader_annotations
-FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=true
+FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=false
 
 # Safe first-release policy. Do not lower the retention or eligibility floors.
 FM_ARCHIVE_UPLOADER_DRY_RUN=false
@@ -190,20 +190,18 @@ EOF
       "$ENVFILE"
     sudo rm -f "${ENVFILE}.bak"
   fi
-  # A host installed before the results archive existed carries no derived
-  # keys. Append them with the install-time defaults so the uploader converges
-  # on the same contract; an operator's later edit is left alone.
-  if ! sudo grep -q '^FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=' "$ENVFILE"; then
-    item "adding derived-set roots to $ENVFILE ..."
-    sudo tee -a "$ENVFILE" >/dev/null <<EOF
-
-# Results archive (added by install): manifests and annotation records ride
-# beside the raw takes under derived/. Roots mirror /etc/fm-processor.env.
-FM_ARCHIVE_UPLOADER_PROCESSED_DIR=$uploader_processed
-FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR=$uploader_annotations
-FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=true
-EOF
-  fi
+  # Add missing settings without enabling a new writer or replacing an
+  # operator's selected roots. Repeated installs preserve every existing value.
+  local setting key
+  for setting in \
+    "FM_ARCHIVE_UPLOADER_PROCESSED_DIR=$uploader_processed" \
+    "FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR=$uploader_annotations" \
+    "FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=false"; do
+    key="${setting%%=*}"
+    if ! sudo grep -q "^${key}=" "$ENVFILE"; then
+      printf '\n%s\n' "$setting" | sudo tee -a "$ENVFILE" >/dev/null
+    fi
+  done
   # Re-apply private mode on every install. The file contains a write authority.
   sudo chmod 600 "$ENVFILE"
 

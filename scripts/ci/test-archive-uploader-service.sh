@@ -108,6 +108,7 @@ TEST_ENV="$TMP_DIR/etc/fm-archive-uploader.env"
 bash "$INSTALLER" install >/dev/null
 [ -f "$TEST_UNIT" ] || fail "first install did not write unit"
 [ -f "$TEST_ENV" ] || fail "first install did not write env"
+grep -qx 'FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=false' "$TEST_ENV" || fail "first install enabled derived uploads"
 grep -q "FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=$TMP_DIR/data/recordings" "$TEST_ENV" || \
   fail "uploader did not inherit the processor recording root"
 grep -q "FM_ARCHIVE_UPLOADER_PROCESSED_DIR=$TMP_DIR/data/processed" "$TEST_ENV" || \
@@ -124,6 +125,14 @@ bash "$INSTALLER" install >/dev/null
 cmp -s "$TEST_UNIT" "$TMP_DIR/unit.snapshot" || fail "repeat install changed unit"
 cmp -s "$TEST_ENV" "$TMP_DIR/env.snapshot" || fail "repeat install changed env"
 pass "first and repeat installs converge without clobbering env"
+
+# An old host gains the roots but no new write authority on migration.
+sed '/^FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=/d' "$TEST_ENV" >"$TMP_DIR/legacy.env"
+cp "$TMP_DIR/legacy.env" "$TEST_ENV"
+bash "$INSTALLER" install >/dev/null
+grep -qx 'FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=false' "$TEST_ENV" || fail "migration enabled derived uploads"
+cp "$TEST_ENV" "$TMP_DIR/env.snapshot"
+pass "migration preserves the approval boundary for derived uploads"
 
 chmod 000 "$TEST_ENV"
 bash "$INSTALLER" install >/dev/null

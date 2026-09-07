@@ -27,6 +27,7 @@
     },
     "archive": {
       "script": "scripts/run/archive.sh",
+      "healthcheck": ["preflight", "--json"],
       "help": "inspect, preflight, reconcile, or install archive services"
     },
     "teleop": {

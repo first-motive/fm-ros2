@@ -264,8 +264,8 @@ disabled in the first release. Its closed command topics are
 remote delete). On a container-runtime processor, both services require the
 already-running `fm-processor` container and cannot recreate or stop it.
 
-The uploader also archives results. With `FM_ARCHIVE_UPLOADER_DERIVED_ENABLED`
-(the install default) it discovers finished processing manifests under the
+The uploader also archives results. With `FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=true`
+it discovers finished processing manifests under the
 processor's output root and annotation records (bundles, reviews, corrections,
 adjudications, revocations, learning snapshots) under the annotations root, and
 uploads each as one content-addressed set under `derived/` with the same
@@ -275,6 +275,11 @@ and a `derived` block joins `/archive/storage/status`. The roots are
 written from `/etc/fm-processor.env` at install time. The layout contract is
 `src/fm_data/fm_data_archive/ARCHIVE_LAYOUT.md`.
 
+Derived uploads are disabled on first install and when migrating an older
+environment. Existing settings are preserved. Approve retention and key scopes,
+run the provider preflight, then explicitly enable the derived writer through
+the host-change workflow. Installing a release grants no write approval.
+
 Use the person-run archive workflow for status, checks, recovery, or an
 idempotent install:
 
@@ -283,11 +288,20 @@ fm archive status
 fm archive preflight --json
 fm archive reconcile --dry-run
 fm archive install --dry-run
+fm archive --host <processor-ssh-alias> list --json
+fm archive --host <processor-ssh-alias> preflight --json
 ```
 
 The bucket's own verbs (`list`, `catalogue`, `adopt`, `verify`, `restore`) are
 owned by the data package at `src/fm_data` and reached as `fm data-archive <verb>`; `fm archive <verb>`
 delegates to the same script.
+
+`--host` forwards the command over SSH, preserves its arguments and exit code,
+and leaves B2 credentials on the processor. The host must have `fm` on PATH.
+Without a host, commands inspect local state. A machine without archive service
+configuration reports a deferred preflight, rather than a healthy processor.
+Doctor consumes the same preflight through `fm.json`; it checks service state,
+configured derived roots, and the provider key scopes supplied by `fm-data`.
 
 The optional LeRobot source uses the same processor-owned service. Set
 `FM_ARCHIVE_LEROBOT_CATALOGUE_FILE` in `/etc/fm-archive.env` to a closed local

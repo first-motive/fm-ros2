@@ -126,10 +126,10 @@ set -euo pipefail
 exit 0
 EOF
 chmod +x "$TMP_DIR/bin/uname" "$TMP_DIR/bin/systemctl"
-dry_install="$(PATH="$TMP_DIR/bin:$PATH" FM_PROCESSOR_RUNTIME=native \
+dry_install="$(PATH="$TMP_DIR/bin:$PATH" FM_PROCESSOR_RUNTIME=native FM_TRANSPORT=none \
   FM_ARCHIVE_SERVICE_TEST_MODE=1 FM_ARCHIVE_SERVICE_TEST_ROOT="$TMP_DIR" \
   FM_ARCHIVE_UPLOADER_SERVICE_TEST_MODE=1 FM_ARCHIVE_UPLOADER_SERVICE_TEST_ROOT="$TMP_DIR" \
-  "$VERB" install --dry-run --json 2>/dev/null)"
+  "$VERB" install --dry-run --json)"
 grep -q '"action":"install"' <<<"$dry_install" || fail "install dry-run omitted action"
 grep -q '"result":"planned"' <<<"$dry_install" || fail "install dry-run was not planned"
 [ ! -e "$TMP_DIR/systemd/fm-archive.service" ] || fail "install dry-run wrote archive unit"
@@ -140,5 +140,33 @@ if "$VERB" unsupported >/dev/null 2>&1; then
   fail "unsupported archive action was accepted"
 fi
 pass "unsupported archive action returns a usage failure"
+
+cat >"$TMP_DIR/bin/ssh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[ "$1" = -o ] && [ "$2" = BatchMode=yes ] && [ "$3" = -o ] && [ "$4" = ConnectTimeout=10 ]
+[ "$5" = -- ] && [ "$6" = tower-test ] || exit 9
+exec sh -c "$7"
+EOF
+cat >"$TMP_DIR/bin/fm" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$@" >"$FM_TEST_ARGS"
+exit "${FM_TEST_REMOTE_EXIT:-0}"
+EOF
+chmod +x "$TMP_DIR/bin/ssh" "$TMP_DIR/bin/fm"
+export FM_TEST_ARGS="$TMP_DIR/remote-args"
+literal="odd' \$(touch $TMP_DIR/injected)"
+PATH="$TMP_DIR/bin:$PATH" "$VERB" --host tower-test list --kind "$literal" --json
+printf '%s\n' archive list --kind "$literal" --json >"$TMP_DIR/expected-args"
+cmp "$TMP_DIR/expected-args" "$FM_TEST_ARGS" || fail "remote arguments changed"
+[ ! -e "$TMP_DIR/injected" ] || fail "remote arguments executed as shell code"
+remote_rc=0
+PATH="$TMP_DIR/bin:$PATH" FM_TEST_REMOTE_EXIT=7 "$VERB" status --host tower-test --json || remote_rc=$?
+[ "$remote_rc" = 7 ] || fail "remote failure was hidden"
+if PATH="$TMP_DIR/bin:$PATH" "$VERB" --host -oProxyCommand=bad status; then
+  fail "SSH option injection accepted"
+fi
+pass "remote archive preserves literal arguments and failure status"
 
 echo "test-archive-workflow: passed"
