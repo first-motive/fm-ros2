@@ -62,4 +62,28 @@ grep -q 'needs a newer recorder package' "$ROOT/scripts/service/recorder-boot.sh
 grep -Fq 'EnvironmentFile=-$RECORDER_ENV' "$ROOT/scripts/install/install-foxglove-service.sh"
 grep -q 'TimeoutStopSec=15' "$ROOT/scripts/install/install-foxglove-service.sh"
 
+# Every appliance role that persists FM_BRIDGE_OWNER=standalone must reinstall
+# the bridge on each updater run. The processor role lacked this, so a routine
+# fm-update-processor run rewrote all its other units and left the desktop with
+# no bridge (fm-ws-01, 7 September 2026).
+for role in recorder processor; do
+  setup="$ROOT/scripts/install/setup-$role.sh"
+  grep -Fq 'install-foxglove-service.sh --port "$FM_BRIDGE_PORT"' "$setup" ||
+    { echo "setup-$role.sh never reinstalls the standalone Foxglove bridge" >&2; exit 1; }
+  grep -Fq '"$FM_BRIDGE_OWNER" = standalone' "$setup" ||
+    { echo "setup-$role.sh does not treat FM_BRIDGE_OWNER=standalone as self-preserving" >&2; exit 1; }
+done
+
+# The processor installs its bridge AFTER the update timer on purpose: the
+# installer refuses an occupied port, and this runs under `set -e` from the
+# updater. Reversed, a port collision would also stop the appliance reinstalling
+# its own updater and strand the box with no way to carry a fix.
+processor_setup="$ROOT/scripts/install/setup-processor.sh"
+timer_line="$(grep -n 'install-update-timer.sh processor' "$processor_setup" | head -1 | cut -d: -f1)"
+bridge_line="$(grep -n 'install-foxglove-service.sh' "$processor_setup" | head -1 | cut -d: -f1)"
+[ -n "$timer_line" ] && [ -n "$bridge_line" ] ||
+  { echo "setup-processor.sh is missing the update timer or the bridge install" >&2; exit 1; }
+[ "$bridge_line" -gt "$timer_line" ] ||
+  { echo "setup-processor.sh installs the bridge before the update timer; a port collision would strand the appliance" >&2; exit 1; }
+
 echo "test-bridge-config: passed"
