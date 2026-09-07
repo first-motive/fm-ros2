@@ -110,6 +110,10 @@ bash "$INSTALLER" install >/dev/null
 [ -f "$TEST_ENV" ] || fail "first install did not write env"
 grep -q "FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=$TMP_DIR/data/recordings" "$TEST_ENV" || \
   fail "uploader did not inherit the processor recording root"
+grep -q "FM_ARCHIVE_UPLOADER_PROCESSED_DIR=$TMP_DIR/data/processed" "$TEST_ENV" || \
+  fail "installer did not derive the processed root"
+grep -q "FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR=$TMP_DIR/data/annotations" "$TEST_ENV" || \
+  fail "installer did not derive the annotations root"
 grep -q "FM_ARCHIVE_UPLOADER_STATE_DIR=$TMP_DIR/data/staged/archive-uploader" "$TEST_ENV" || \
   fail "uploader state does not share the processor persistent root"
 env_mode="$(stat -c '%a' "$TEST_ENV" 2>/dev/null || stat -f '%Lp' "$TEST_ENV")"
