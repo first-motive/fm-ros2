@@ -32,12 +32,22 @@ Usage: ./scripts/run/archive.sh <status|preflight|reconcile|install> [options]
 
   --json       emit one machine-readable JSON object
   --dry-run    print changes for reconcile/install without applying them
+  --host HOST  run the command on an explicit SSH host; credentials stay there
   -h, --help   show this help
 
 Provider Object Lock and default retention are never inferred from an env file.
 The uploader's provider preflight owns that live check; this front door reports
 whether the local service is configured to perform it.
 EOF
+}
+
+data_archive() {
+  if [ -x "$ROOT/src/fm_data/scripts/archive.sh" ]; then
+    "$ROOT/src/fm_data/scripts/archive.sh" "$@"
+  else
+    # fm-tools resolves an existing sibling clone on a development workspace.
+    fm data-archive "$@"
+  fi
 }
 
 env_value() { # file key
@@ -125,6 +135,14 @@ preflight() {
   local reader_enabled uploader_enabled delete_enabled min_retention eligibility_window max_concurrent bandwidth
   local reader_key reader_secret uploader_key uploader_secret
   local checks=()
+  if [ ! -e "$ARCHIVE_ENV" ] && [ ! -e "$UPLOADER_ENV" ]; then
+    if [ "$json" = true ]; then
+      printf '{"contract_version":1,"failures":0,"warnings":1,"checks":{"archive_not_configured":"deferred"}}\n'
+    else
+      printf 'archive not configured here; use fm archive --host HOST preflight\n'
+    fi
+    return 0
+  fi
   reader_enabled="$(env_value "$ARCHIVE_ENV" FM_ARCHIVE_ENABLED)"
   uploader_enabled="$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_ENABLED)"
   delete_enabled="$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_DELETE_ENABLED)"
@@ -182,6 +200,43 @@ preflight() {
   check single_concurrent concurrency_is_valid "$max_concurrent"
   check bandwidth_ceiling floor_is_valid "$bandwidth" 1
   check no_remote_delete_api no_delete_api
+
+  if [ "$reader_enabled" = true ]; then
+    check reader_service_active systemctl is-active --quiet "$ARCHIVE_UNIT"
+  fi
+  if [ "$uploader_enabled" = true ]; then
+    check uploader_service_active systemctl is-active --quiet "$UPLOADER_UNIT"
+  fi
+
+  local scope_payload scope_row scope_role=both scope_rc=0 derived_enabled root_key root_path
+  derived_enabled="$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_DERIVED_ENABLED)"
+  check derived_gate_valid gate_is_valid "${derived_enabled:-false}"
+  if [ "$derived_enabled" = true ]; then
+    for root_key in FM_ARCHIVE_UPLOADER_PROCESSED_DIR FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR; do
+      root_path="$(env_value "$UPLOADER_ENV" "$root_key")"
+      check "$root_key" test -d "$root_path"
+    done
+  else
+    checks+=("derived_upload_disabled:deferred"); warnings=$((warnings + 1))
+  fi
+  if [ "$reader_enabled" = true ] || [ "$uploader_enabled" = true ]; then
+    [ "$reader_enabled" = true ] || scope_role=writer
+    [ "$uploader_enabled" = true ] || scope_role=reader
+    scope_payload="$(data_archive preflight --role "$scope_role" --json 2>/dev/null)" || scope_rc=$?
+    if command -v jq >/dev/null 2>&1 && printf '%s' "$scope_payload" | jq -e '
+      .contract_version == 1 and (.checks | type == "object" and length > 0)
+      and ([.checks[] | . == "pass" or . == "fail"] | all)' >/dev/null 2>&1; then
+      while IFS= read -r scope_row; do
+        checks+=("$scope_row")
+        case "$scope_row" in *:fail) failures=$((failures + 1)) ;; esac
+      done < <(printf '%s' "$scope_payload" | jq -r '.checks | to_entries[] | "\(.key):\(.value)"')
+      if [ "$scope_rc" -ne 0 ] && ! printf '%s' "$scope_payload" | jq -e '.checks | any(. == "fail")' >/dev/null; then
+        checks+=("provider_scope_command:fail"); failures=$((failures + 1))
+      fi
+    else
+      checks+=("provider_scope_unavailable:fail"); failures=$((failures + 1))
+    fi
+  fi
 
   if command -v ros2 >/dev/null 2>&1; then
     if ros2 pkg prefix fm_data_archive >/dev/null 2>&1; then
@@ -269,7 +324,28 @@ run_reconcile() {
 }
 
 main() {
+  local host="" argument remote_command="exec fm archive" quoted replacement="'\\''"
+  local forwarded=()
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --host ]; then
+      if [ "$#" -lt 2 ] || [ -n "$host" ] || [[ ! "$2" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.@:-]*$ ]]; then
+        echo 'error: --host needs one SSH host or alias' >&2; return 2
+      fi
+      host="$2"; shift 2
+    else
+      forwarded+=("$1"); shift
+    fi
+  done
+  set -- "${forwarded[@]}"
+  if [ -n "$host" ]; then
+    for argument in "$@"; do
+      quoted="${argument//\'/$replacement}"
+      remote_command+=" '$quoted'"
+    done
+    exec ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$remote_command"
+  fi
   local action="" json=false dry_run=false
+  local original=("$@")
   while [ "$#" -gt 0 ]; do
     case "$1" in
       status|preflight|reconcile|install) action="$1"; shift ;;
@@ -279,11 +355,8 @@ main() {
       list|catalogue|adopt|verify|restore)
         # The bucket's own verbs live with the data authority. Delegate, never
         # duplicate: one implementation answers on the Mac and on the tower.
-        if [ -x "$ROOT/src/fm_data/scripts/archive.sh" ]; then
-          exec "$ROOT/src/fm_data/scripts/archive.sh" "$@"
-        fi
-        echo "error: '$1' needs the data package at src/fm_data (run fm update)" >&2
-        return 2
+        data_archive "${original[@]}"
+        return $?
         ;;
       *) echo "error: unknown argument '$1'" >&2; usage >&2; return 2 ;;
     esac
