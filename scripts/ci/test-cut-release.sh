@@ -94,9 +94,10 @@ if [ "$1" = repo ]; then
 elif [[ "$2" == "repos/${FM_TEST_ARCHIVED:-none}" ]]; then
   echo false
 elif [[ "$2" == */check-runs ]]; then
-  [[ " $* " == *' --slurp '* ]] || exit 1
-  # Two pages must produce one verdict, as the real API does with --slurp.
-  printf '%s\n' '[{"check_runs":[{"status":"completed","conclusion":"success"}]},{"check_runs":[{"status":"completed","conclusion":"skipped"}]}]' | jq -r "${@: -1}"
+  [[ " $* " == *' --paginate '* ]] || exit 1
+  [[ " $* " != *' --jq '* && " $* " != *' --slurp '* ]] || exit 1
+  # The real API emits one JSON object per page. jq combines them separately.
+  printf '%s\n' '{"check_runs":[{"status":"completed","conclusion":"success"}]}' '{"check_runs":[{"status":"completed","conclusion":"skipped"}]}'
 else
   echo true
 fi
