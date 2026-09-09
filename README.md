@@ -237,8 +237,10 @@ and the split is live on the next tick.
 The processor build also includes `fm_data_archive`. With `--service`, it gets
 an independent `fm-archive.service` for the Desktop archive surface. The
 service is disabled in `/etc/fm-archive.env` until an operator installs a
-read-only B2 application key. Local staging is a second, default-off setting in
-that file. Restart `fm-archive.service` after enabling or changing the file.
+read-only B2 application key that is restricted to the archive bucket and has
+no object-name prefix restriction. Local staging is a second, default-off
+setting in that file. Restart `fm-archive.service` after enabling or changing
+the file.
 The service passes only archive topics over the existing local DDS
 and Foxglove boundary; Desktop never receives a credential, object key, or
 local path. The browser keeps its catalogue on `/archive/index` and
