@@ -245,6 +245,13 @@ fm_processor_exec() {
   esac
 }
 
+# The fm-data CLI runs on the host even when the ROS processor runs in its
+# container. Keep its provider dependency on both sides of that boundary.
+fm_processor_install_archive_cli_runtime() {
+  item "installing the archive CLI provider runtime ..."
+  sudo apt-get update -qq && sudo apt-get install -y python3-boto3
+}
+
 # The supervisors' node-facing Python deps, healed by asking the question the
 # launch asks rather than by keeping a list.
 #
