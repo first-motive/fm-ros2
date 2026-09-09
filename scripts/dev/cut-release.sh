@@ -216,7 +216,7 @@ main() {
     slug="$(cd "$dir" && gh repo view --json nameWithOwner --jq .nameWithOwner)" || return 1
     check="$(gh api "repos/$slug" --jq '(.archived == false) and (.permissions.push == true)')" || return 1
     [ "$check" = true ] || { item "ERROR $name — archived or not writable"; return 1; }
-    check="$(gh api "repos/$slug/commits/$tip/check-runs" --paginate --slurp --jq '[.[].check_runs[]] | length > 0 and all(.status == "completed" and (.conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped"))')" || return 1
+    check="$(gh api "repos/$slug/commits/$tip/check-runs" --paginate | jq -sr '[.[].check_runs[]] | length > 0 and all(.status == "completed" and (.conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped"))')" || return 1
     [ "$check" = true ] || { item "ERROR $name — release checks are not green"; return 1; }
     if git -C "$dir" cat-file -e "$tip:scripts/check-release.sh" 2>/dev/null; then
       snapshot="$(mktemp -d)"
