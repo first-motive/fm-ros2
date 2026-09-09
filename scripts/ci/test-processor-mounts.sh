@@ -58,9 +58,25 @@ FM_PROCESSOR_HOME_DIR=$HOME/processed
 FM_PROCESSOR_RELATIVE_DIR=not-a-path
 ENV
 export FM_PROCESSOR_ENV_FILE="$WORK/env"
+export FM_ARCHIVE_UPLOADER_ENV_FILE="$WORK/uploader-env"
+printf 'FM_ARCHIVE_UPLOADER_STATE_DIR=/data/fm-data-runs/archive-uploader\n' > "$FM_ARCHIVE_UPLOADER_ENV_FILE"
 
 fm_processor_mounts_overlay "$WORK" >/dev/null
 rendered="$WORK/.fm-processor-mounts.yaml"
+if grep -q -- '- /data/fm-data-runs/archive-uploader:/data/fm-data-runs/archive-uploader' "$rendered"; then
+  pass "uploader state uses a host bind mount"
+else
+  fail "uploader state would remain in the container writable layer"
+fi
+
+printf 'FM_ARCHIVE_UPLOADER_STATE_DIR=relative-state\n' > "$FM_ARCHIVE_UPLOADER_ENV_FILE"
+if fm_processor_mounts_overlay "$WORK" >/dev/null 2>&1; then
+  fail "a relative uploader state path was accepted"
+else
+  pass "an invalid uploader state path prevents a container launch"
+fi
+printf 'FM_ARCHIVE_UPLOADER_STATE_DIR=/data/fm-data-runs/archive-uploader\n' > "$FM_ARCHIVE_UPLOADER_ENV_FILE"
+fm_processor_mounts_overlay "$WORK" >/dev/null
 
 if [[ -f "$rendered" ]]; then
   pass "a rig with configured directories gets an overlay"
@@ -122,6 +138,7 @@ else
 fi
 
 echo "== a rig on the defaults gets nothing extra =="
+rm "$FM_ARCHIVE_UPLOADER_ENV_FILE"
 printf 'FM_PROCESSOR_RECORDINGS_DIR=%s/recordings\n' "$HOME" > "$WORK/env"
 fm_processor_mounts_overlay "$WORK" >/dev/null
 if [[ -f "$rendered" ]]; then

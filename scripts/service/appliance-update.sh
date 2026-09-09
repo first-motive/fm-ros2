@@ -330,10 +330,13 @@ main() {
   local -a repos=("$ROOT" "$ROOT/src/fm_data")
   [ "$role" = recorder ] && repos+=("$ROOT/src/fm_teleop")
 
-  local dir state updated=0
+  local dir state updated=0 pending="$ROOT/.git/fm-install-$role.pending"
+  local retry_safe=1 retry=0
+  if [ -f "$pending" ]; then updated=1; retry=1; fi
   for dir in "${repos[@]}"; do
     [ -d "$dir/.git" ] || continue
     state="$(_repo_state "$dir")"
+    case "$state" in current|behind\ *) ;; *) retry_safe=0 ;; esac
     if [ "$check" = 1 ]; then
       item "check $(basename "$dir"): $state"
       continue
@@ -341,6 +344,7 @@ main() {
     case "$state" in
       behind\ *)
         item "updating $(basename "$dir") -> ${state#behind } ..."
+        touch "$pending"
         git -C "$dir" -c advice.detachedHead=false checkout -q "${state#behind }"
         updated=1
         ;;
@@ -374,19 +378,23 @@ main() {
   # card, which is why nothing here maps recorder -> jetson. A timer that
   # hardcoded `install.sh --jetson` would be a second place a machine's role is
   # written down, and the card exists to delete those.
-  local fm_setup setup_updated=0
+  local fm_setup setup_updated=0 setup_pending="" setup_safe=1
   fm_setup="$(_machine_setup_dir)" || {
     item "WARNING: invalid or unreadable machine workspace — machine layer held"
     fm_setup=""
   }
   if [ -n "$fm_setup" ] && [ -d "$fm_setup/.git" ]; then
+    setup_pending="$fm_setup/.git/fm-install.pending"
+    [ ! -f "$setup_pending" ] || setup_updated=1
     state="$(_repo_state "$fm_setup")"
+    case "$state" in current|behind\ *) ;; *) setup_safe=0 ;; esac
     if [ "$check" = 1 ]; then
       item "check fm-setup: $state"
     else
     case "$state" in
       behind\ *)
         item "updating fm-setup -> ${state#behind } ..."
+        touch "$setup_pending"
         git -C "$fm_setup" -c advice.detachedHead=false checkout -q "${state#behind }"
         setup_updated=1
         ;;
@@ -419,6 +427,10 @@ main() {
 
   if [ "$check" = 1 ]; then
     item "release resolution complete — no checkout, build, or service change made"
+    if [ "$updated" = 1 ] || [ "$setup_updated" = 1 ]; then
+      item "installation pending — a previous install did not complete"
+      return 1
+    fi
     return 0
   fi
 
@@ -426,17 +438,26 @@ main() {
   # itself, so a workspace rebuild that follows builds against what this just
   # installed rather than against what was there before.
   if [ "$setup_updated" = 1 ]; then
+    [ "$setup_safe" = 1 ] || { item "machine installation pending — checkout held"; return 1; }
     if [ -x "$fm_setup/scripts/update.sh" ]; then
       item "machine layer moved — converging fm-setup ..."
       "$fm_setup/scripts/update.sh"
+      rm -f "$setup_pending"
     else
       item "WARNING: fm-setup moved but has no executable scripts/update.sh — machine layer not converged"
+      return 1
     fi
   fi
 
   if [ "$updated" = 0 ]; then
     [ "$setup_updated" = 1 ] || item "up to date"
     return 0
+  fi
+
+  # A retry must not install an operator's pinned or modified checkout.
+  if [ "$retry" = 1 ] && [ "$retry_safe" != 1 ]; then
+    item "installation pending — a workspace checkout is held"
+    return 1
   fi
 
   # Something moved: the role installer is the one converge path — idempotent
@@ -448,6 +469,7 @@ main() {
     FM_BRIDGE_PORT="$FM_BRIDGE_PORT" \
     FM_BRIDGE_OWNER="$FM_BRIDGE_OWNER" \
     "./scripts/install/setup-$role.sh"
+  rm -f "$pending"
   item "appliance updated ($role)"
 }
 
