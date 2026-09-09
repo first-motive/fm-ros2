@@ -28,7 +28,8 @@ fi
 
 grep -q 'src/fm_data/fm_data_archive' scripts/install/setup-processor.sh
 grep -q 'fm_data_archive' scripts/install/setup-processor.sh
-grep -q 'python3-boto3' scripts/install/setup-processor.sh
+grep -q 'fm_processor_install_archive_cli_runtime' scripts/install/setup-processor.sh
+grep -q 'python3-boto3' scripts/internal/lib-processor.sh
 grep -q "EnvironmentFile=-\$ENVFILE" scripts/install/install-archive-service.sh
 if grep -q 'EnvironmentFile=-/etc/fm-processor.env' \
   scripts/install/install-archive-service.sh; then

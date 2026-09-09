@@ -119,8 +119,8 @@ EOF
     item "writing disabled archive configuration at $ENVFILE ..."
     sudo tee "$ENVFILE" >/dev/null <<'EOF'
 # Enable only after the read-only processor-archive B2 application key is
-# installed here. This key is separate from the uploader key and is scoped to
-# the episodes/ prefix; it cannot write or delete objects.
+# installed here. Use a read-only key restricted to the archive bucket, with no
+# object-name prefix restriction.
 FM_ARCHIVE_ENABLED=false
 BACKBLAZE_B2_PROCARCH_KEY_ID=
 BACKBLAZE_B2_PROCARCH_APPLICATION_KEY=

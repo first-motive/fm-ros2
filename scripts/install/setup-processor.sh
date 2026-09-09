@@ -183,6 +183,7 @@ fi
 
 if [ "$FM_PROCESSOR_RUNTIME" = container ] && ! in_container; then
   item "no native ROS 2 Humble on this host — the processor runs in the Humble container"
+  fm_processor_install_archive_cli_runtime
   clone_data_engine
   if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
     pin_release src/fm_data
@@ -234,10 +235,10 @@ set +u; source /opt/ros/humble/setup.bash; set -u
 #    so no camera drivers and no rosbag2 plugins are needed for this role. python3-venv is
 #    NOT in stock Ubuntu 22.04 and the engine venv below needs it (hit live, 2026-07-23).
 item "installing apt packages (colcon, rosdep, pip, venv) ..."
-sudo apt-get update -qq
+fm_processor_install_archive_cli_runtime
 sudo apt-get install -y \
   python3-colcon-common-extensions python3-rosdep python3-pip python3-venv \
-  python3-boto3 git curl ffmpeg
+  git curl ffmpeg
 
 # 2. Data engine — clone the private data-engine repo (the dataset engine + the recorder's
 #    ROS-free session-index core live there) into src/fm_data if absent. Needs first-motive

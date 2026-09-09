@@ -32,6 +32,37 @@ else
 fi
 FM_PROCESSOR_RUNTIME=container check "an explicit pin wins" container
 
+# The archive CLI remains host-side when the processor itself runs in the
+# container. Its provider package must land before that setup branch returns,
+# and a failed package install must stop convergence.
+(
+  fixture="$(mktemp -d)"
+  trap 'rm -rf "$fixture"' EXIT
+  mkdir -p "$fixture/bin"
+  cat > "$fixture/bin/sudo" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_TEST_SUDO_LOG"
+case "$*" in
+  "apt-get update -qq") exit 0 ;;
+  "apt-get install -y python3-boto3") exit 42 ;;
+  *) exit 99 ;;
+esac
+EOF
+  chmod +x "$fixture/bin/sudo"
+  export FM_TEST_SUDO_LOG="$fixture/sudo.log"
+  set +e
+  PATH="$fixture/bin:$PATH" FM_PROCESSOR_RUNTIME=container FM_INSTALL_SERVICE=0 \
+    bash scripts/install/setup-processor.sh >"$fixture/output" 2>&1
+  status=$?
+  set -e
+  if [ "$status" -ne 42 ]; then
+    echo "FAIL: processor setup returned $status, want the host package failure 42" >&2
+    exit 1
+  fi
+  grep -qx 'apt-get install -y python3-boto3' "$FM_TEST_SUDO_LOG"
+  echo "PASS: container setup requires the host archive CLI runtime"
+)
+
 # Simulate the protected service-user parent even when CI itself runs as root.
 # Only the exact read-only probe is permitted; no real sudo or key is needed.
 (
