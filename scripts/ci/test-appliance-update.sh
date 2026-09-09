@@ -391,6 +391,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT/lib.sh"
 pin_release "$ROOT/src/fm_data"
+[ "${FM_TEST_INSTALL_FAIL:-0}" != 1 ] || exit 42
 : > "$FM_TEST_INSTALL_MARKER"
 EOF
 chmod +x "$MIXED_ROOT_SEED/scripts/install/setup-processor.sh"
@@ -454,6 +455,30 @@ if ! grep -q "fm_data is ahead of v0.1.0" <<< "$output"; then
   printf 'mixed-state hold was not reported; got: %s\n' "$output" >&2
   exit 1
 fi
+
+# A failed install must be retried even after Git has reached the release tag.
+git -C "$MIXED_ROOT" checkout -q v0.1.0
+git -C "$MIXED_ROOT/src/fm_data" checkout -q v0.1.0
+rm "$MIXED_MARKER"
+if FM_TEST_INSTALL_FAIL=1 FM_TEST_INSTALL_MARKER="$MIXED_MARKER" \
+  PATH="$MIXED_BIN:$PATH" "$MIXED_ROOT/scripts/service/appliance-update.sh" processor > "$TMP_DIR/retry-output" 2>&1; then
+  echo "failed installation reported success" >&2
+  exit 1
+fi
+[ -f "$MIXED_ROOT/.git/fm-install-processor.pending" ] || { echo "failed install lost its pending state" >&2; exit 1; }
+if "$MIXED_ROOT/scripts/service/appliance-update.sh" --check processor > "$TMP_DIR/retry-output" 2>&1; then
+  echo "release check hid a pending installation" >&2
+  exit 1
+fi
+grep -q 'installation pending' "$TMP_DIR/retry-output"
+FM_TEST_INSTALL_MARKER="$MIXED_MARKER" PATH="$MIXED_BIN:$PATH" \
+  "$MIXED_ROOT/scripts/service/appliance-update.sh" processor > "$TMP_DIR/retry-output"
+[ -f "$MIXED_MARKER" ] || { echo "current refs did not retry the failed install" >&2; exit 1; }
+[ ! -f "$MIXED_ROOT/.git/fm-install-processor.pending" ] || { echo "successful install stayed pending" >&2; exit 1; }
+rm "$MIXED_MARKER"
+FM_TEST_INSTALL_MARKER="$MIXED_MARKER" PATH="$MIXED_BIN:$PATH" \
+  "$MIXED_ROOT/scripts/service/appliance-update.sh" processor > "$TMP_DIR/retry-output"
+[ ! -f "$MIXED_MARKER" ] || { echo "a completed install ran again" >&2; exit 1; }
 
 touch "$TMP_DIR/recordings/tactile-raw/continuous.tactile.csv"
 output="$(

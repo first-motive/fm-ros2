@@ -60,11 +60,14 @@ EOF
 # The repos this workspace assembles, one path per line. Ordered root-first so the
 # plan reads the way the workspace does.
 _workspace_repos() {
-  local dir
-  for dir in "$ROOT" "$ROOT"/docker "$ROOT"/comms "$ROOT"/src/*/; do
-    [ -d "${dir%/}/.git" ] || continue
-    printf '%s\n' "${dir%/}"
-  done
+  local path
+  printf '%s\n' "$ROOT"
+  while IFS= read -r path; do
+    case "$path" in external/*|'') continue ;; esac
+    printf '%s/%s\n' "$ROOT" "$path"
+  done <<EOF
+$(_manifest_repo_paths | sort -u)
+EOF
 }
 
 # The paths the manifests assemble, one per line: every key under
@@ -86,7 +89,7 @@ _manifest_repo_paths() {
 _missing_manifest_repos() {
   local path
   while IFS= read -r path; do
-    [ -n "$path" ] || continue
+    case "$path" in external/*|'') continue ;; esac
     [ -d "$ROOT/$path/.git" ] || printf '%s\n' "$path"
   done <<EOF
 $(_manifest_repo_paths)
@@ -159,7 +162,8 @@ main() {
     return 2
   fi
 
-  local dir name branch current next tip tagged planned=0
+  local dir name branch current next tip tagged planned=0 slug check snapshot
+  local -a release_dirs=() release_tags=() release_tips=()
   while IFS= read -r dir; do
     name="$(basename "$dir")"
 
@@ -167,22 +171,24 @@ main() {
     # reading either. A fetch that fails is almost always missing access to a
     # private repo; skip that repo loudly rather than releasing a partial set in
     # silence.
-    if ! git -C "$dir" fetch -q --force origin '+refs/tags/*:refs/tags/*' 2>/dev/null; then
-      item "SKIP $name — could not fetch tags (check org access)"
-      continue
+    if ! git -C "$dir" fetch -q origin 'refs/tags/*:refs/tags/*' 2>/dev/null; then
+      item "ERROR $name — could not fetch tags (check access and tag conflicts)"
+      return 1
     fi
     branch="$(_default_branch "$dir")"
     if [ -z "$branch" ]; then
-      item "SKIP $name — could not read the remote's default branch"
-      continue
+      item "ERROR $name — could not read the remote's default branch"
+      return 1
     fi
-    git -C "$dir" fetch -q origin "$branch" 2>/dev/null || true
+    git -C "$dir" fetch -q origin "$branch" 2>/dev/null || return 1
     tip="$(git -C "$dir" rev-parse "origin/$branch" 2>/dev/null)" || {
       item "SKIP $name — no origin/$branch to release from"
-      continue
+      return 1
     }
 
-    current="$(latest_release_tag "$dir")"
+    # A local tag can remain after an interrupted push. Only published tags
+    # determine the current release; a rerun must finish that push.
+    current="$(git -C "$dir" ls-remote --tags --refs --sort=-v:refname origin 'v[0-9]*' | awk '$2 ~ /^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+$/ && !found { sub("refs/tags/", "", $2); print $2; found=1 }')" || return 1
     if [ "$only_untagged" = 1 ] && [ -n "$current" ]; then
       continue
     fi
@@ -199,15 +205,34 @@ main() {
     fi
 
     next="$(_next_version "$current" "$part")"
-    planned=$((planned + 1))
-    if [ "$apply" = 0 ]; then
-      item "plan $name — ${current:-no tag} -> $next at $branch ${tip:0:7}"
-      continue
+    if git -C "$dir" show-ref --verify --quiet "refs/tags/$next"; then
+      [ "$(git -C "$dir" rev-parse "$next^{commit}")" = "$tip" ] || {
+        item "ERROR $name — local $next points to a different commit"
+        return 1
+      }
     fi
-
-    item "tagging $name $next at $branch ${tip:0:7} ..."
-    git -C "$dir" tag -a "$next" "$tip" -m "$next"
-    git -C "$dir" push -q origin "$next"
+    # Check every proposed release before the first tag is created. The package
+    # owns its metadata check; run the hook from the exact proposed commit.
+    slug="$(cd "$dir" && gh repo view --json nameWithOwner --jq .nameWithOwner)" || return 1
+    check="$(gh api "repos/$slug" --jq '(.archived == false) and (.permissions.push == true)')" || return 1
+    [ "$check" = true ] || { item "ERROR $name — archived or not writable"; return 1; }
+    check="$(gh api "repos/$slug/commits/$tip/check-runs" --paginate --slurp --jq '[.[].check_runs[]] | length > 0 and all(.status == "completed" and (.conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped"))')" || return 1
+    [ "$check" = true ] || { item "ERROR $name — release checks are not green"; return 1; }
+    if git -C "$dir" cat-file -e "$tip:scripts/check-release.sh" 2>/dev/null; then
+      snapshot="$(mktemp -d)"
+      if ! git -C "$dir" archive "$tip" | tar -x -C "$snapshot"; then
+        rm -rf "$snapshot"
+        return 1
+      fi
+      if ! (cd "$snapshot" && bash scripts/check-release.sh "$next"); then
+        rm -rf "$snapshot"
+        return 1
+      fi
+      rm -rf "$snapshot"
+    fi
+    release_dirs+=("$dir"); release_tags+=("$next"); release_tips+=("$tip")
+    planned=$((planned + 1))
+    item "plan $name — ${current:-no tag} -> $next at $branch ${tip:0:7}"
   done <<EOF
 $(_workspace_repos)
 EOF
@@ -220,6 +245,17 @@ EOF
     item "$planned repos would be tagged — re-run with --apply to cut them"
     return 0
   fi
+  # GitHub has no transaction across repositories. All checks above complete
+  # first; a network failure while pushing can still require a safe rerun.
+  local index
+  for ((index=0; index<planned; index++)); do
+    dir="${release_dirs[$index]}"; next="${release_tags[$index]}"; tip="${release_tips[$index]}"
+    item "tagging $(basename "$dir") $next at ${tip:0:7} ..."
+    if ! git -C "$dir" show-ref --verify --quiet "refs/tags/$next"; then
+      git -C "$dir" tag -a "$next" "$tip" -m "$next"
+    fi
+    git -C "$dir" push -q origin "$next"
+  done
   # The rigs pick this up on their own: each fm-update-<role>.timer fires about
   # every 15 minutes, so no push to a fleet is needed or wanted here.
   item "$planned repos tagged — appliances converge within one timer tick (~15 min)"

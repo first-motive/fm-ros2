@@ -130,7 +130,7 @@ fm_processor_compose() {
   # Whatever directories this role is actually configured with, on top of the
   # $HOME set the base overlay carries. Empty on a rig using the defaults.
   local mounts
-  mounts="$(fm_processor_mounts_overlay "$root" || true)"
+  mounts="$(fm_processor_mounts_overlay "$root")" || return 1
   [ -n "$mounts" ] && FM_COMPOSE+=(-f "$mounts")
   return 0
 }
@@ -156,7 +156,7 @@ fm_processor_prepare_mounts() {  # [workspace-root]
   # mount time is owned by root, and the role then cannot write to it.
   while IFS= read -r key; do
     [ -n "$key" ] || continue
-    dir="$(fm_processor_env "$key")"
+    dir="$(fm_processor_env "$key")" || return 1
     case "$dir" in
       /*)
         mkdir -p "$dir" 2>/dev/null && [ -d "$dir" ] && [ -w "$dir" ] || {
@@ -346,7 +346,15 @@ fm_processor_heal_imports() {  # workspace-root
 # anything, and sourcing it would import all of it into the verb's shell.
 fm_processor_env() {  # key
   local key="${1:?env key}" file="${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}"
+  if [ "$key" = FM_ARCHIVE_UPLOADER_STATE_DIR ]; then
+    file="${FM_ARCHIVE_UPLOADER_ENV_FILE:-/etc/fm-archive-uploader.env}"
+  fi
   [ -f "$file" ] || return 0
+  if [ ! -r "$file" ]; then
+    # Read only the requested field. The uploader file also holds credentials.
+    sudo -n sed -n "s/^${key}=//p" "$file" || return 1
+    return 0
+  fi
   sed -n "s/^${key}=//p" "$file" | tail -1
 }
 
@@ -403,16 +411,28 @@ fm_processor_mounts_overlay() {  # workspace-root
   # live under. Sorting also renders deterministically, so an unchanged configuration
   # is never itself a reason to recreate the container.
   dirs="$(mktemp)"
-  fm_processor_mount_keys "$root" | while IFS= read -r key; do
+  # shellcheck disable=SC2094 # The error branch removes the output; it does not read it.
+  while IFS= read -r key; do
     [ -n "$key" ] || continue
-    dir="$(fm_processor_env "$key")"
+    dir="$(fm_processor_env "$key")" || { rm -f "$dirs"; return 1; }
+    if [ "$key" = FM_ARCHIVE_UPLOADER_STATE_DIR ]; then
+      case "$dir" in
+        /*) ;;
+        *) echo "ERROR: uploader state must have an absolute host path" >&2; rm -f "$dirs"; return 1 ;;
+      esac
+      printf '%s\n' "$dir"
+      continue
+    fi
     # Only an absolute path outside $HOME needs adding: the base overlay already
     # carries the $HOME set, and a relative value is not a mount at all.
     case "$dir" in
       "$HOME"/*) continue ;;
       /*) printf '%s\n' "$dir" ;;
     esac
-  done | sort -u > "$dirs"
+  done > "$dirs" <<EOF
+$(fm_processor_mount_keys "$root")
+EOF
+  sort -u "$dirs" -o "$dirs"
 
   while IFS= read -r dir; do
     [ -n "$dir" ] || continue
@@ -444,6 +464,9 @@ fm_processor_mounts_overlay() {  # workspace-root
 # mounting eight children of it.
 fm_processor_mount_keys() {  # workspace-root
   local file="${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}"
+  if [ -f "${FM_ARCHIVE_UPLOADER_ENV_FILE:-/etc/fm-archive-uploader.env}" ]; then
+    printf '%s\n' FM_ARCHIVE_UPLOADER_STATE_DIR
+  fi
   [ -f "$file" ] || return 0
   # grep -E, not sed: BSD sed has no alternation in a basic regex, so a sed form
   # matched on the rigs and silently produced nothing on a Mac.

@@ -41,15 +41,18 @@ From a workspace checkout with every repo imported:
 ./scripts/dev/cut-release.sh --minor --apply  # cut and push the minor bump
 ```
 
-The script finds the repos rather than listing them: the workspace root,
-`docker/`, `comms/`, and each `src/<repo>`. A repo added to a manifest is
-released without editing anything, and the run refuses to plan until every
-path the manifests name is a checkout — a bare or half-assembled clone would
-otherwise tag a partial set. `external/` is skipped, since those are
-vendored upstreams pinned by commit.
+The script selects the workspace root and the repos in `fm-ros2.repos` and
+`private-overlay.repos`. It excludes `external/` and old checkouts that are no
+longer in those manifests. Each selected path must have a checkout.
 
-Each repo bumps from its own newest tag, so repos on different versions stay on
-different versions. This is a release train, not a shared version number — the
+Before it creates the first tag, the script checks access and completed CI
+checks for every proposed release. An archived repo, a fetch failure, or a
+failed check stops the run. If a repo has `scripts/check-release.sh`, the script
+runs that package-owned check from the proposed commit with the new tag as its
+first argument. The hook must refuse invalid release metadata.
+
+Each repo bumps from its own newest published tag, so repos on different
+versions stay on different versions. This is a release train, not a shared version number — the
 set moves together, the numbers do not have to match. A repo with no tag yet is
 seeded at `v0.1.0`; `--only-untagged` restricts a run to exactly those, which is
 the pass to use when a new repo joins the workspace.
@@ -59,6 +62,10 @@ maintainer's half-finished branch or an appliance-test detached checkout cannot
 leak into a release. A repo whose newest tag already points at that tip is
 reported and skipped: re-cutting a tag would move a ref the fleet may already be
 sitting on.
+
+GitHub cannot publish tags across repos in one transaction. If a push fails,
+run the command again. A matching local tag that was not published is reused;
+an existing tag is never moved.
 
 Two things the script deliberately leaves to you:
 
@@ -96,5 +103,7 @@ out source, building, or changing a service. A checkout ahead of the latest tag
 is held until a new release is cut; the updater never rolls it back. Then run
 the updater once by hand rather than waiting for the timer. It converges the
 repos that moved, re-runs the role installer, and restarts the services. A
-second `--check` reports each repo as `current`; that proves the release set was
-complete.
+second `--check` reports each repo as `current`. A failed install remains
+pending even when Git is current. In that case `--check` exits with failure,
+and the next update retries the installer after the normal safety checks.
+Verify the installed package version and service health as well as Git state.
