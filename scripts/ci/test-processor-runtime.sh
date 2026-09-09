@@ -32,7 +32,7 @@ else
 fi
 FM_PROCESSOR_RUNTIME=container check "an explicit pin wins" container
 
-# The fm-data CLI remains host-side when the processor itself runs in the
+# The archive CLI remains host-side when the processor itself runs in the
 # container. Its provider package must land before that setup branch returns,
 # and a failed package install must stop convergence.
 (
