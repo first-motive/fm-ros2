@@ -71,6 +71,7 @@ if [ -f "$PROBE" ] && command -v python3 >/dev/null 2>&1 && command -v systemctl
     # Retry, verify, and delete are closed command channels; delete is a local
     # confirmation request only, never a remote B2 delete API.
     topics+=(/archive/storage/index /archive/storage/status /archive/upload/retry /archive/retention/verify /archive/retention/delete)
+    topics+=(/archive/derived/index /archive/derived/restore)
   fi
   if timeout 40 python3 "$PROBE" "${topics[@]}" >/dev/null 2>&1; then
     ok "the Desktop bridge advertises the archive topics"

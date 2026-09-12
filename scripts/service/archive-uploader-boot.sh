@@ -127,4 +127,5 @@ exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p retry_topic:=/archive/upload/retry \
   -p verify_topic:=/archive/retention/verify \
   -p delete_topic:=/archive/retention/delete \
-  -p derived_index_topic:=/archive/derived/index
+  -p derived_index_topic:=/archive/derived/index \
+  -p derived_restore_topic:=/archive/derived/restore

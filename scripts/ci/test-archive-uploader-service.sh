@@ -31,8 +31,10 @@ grep -q 'FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1' "$INSTALLER" || fail "uploade
 grep -q 'archive-uploader-boot.sh' "$INSTALLER" || fail "uploader unit lacks boot wrapper"
 grep -q 'archive_uploader' "$BOOT" || fail "uploader entrypoint missing"
 for topic in /archive/storage/index /archive/storage/status /archive/upload/retry \
-  /archive/retention/verify /archive/retention/delete; do
+  /archive/retention/verify /archive/retention/delete \
+  /archive/derived/index /archive/derived/restore; do
   grep -q -- "$topic" "$BOOT" || fail "uploader topic missing: $topic"
+  grep -q -- "$topic" "$ROOT/scripts/service/archive-check.sh" || fail "health topic missing: $topic"
 done
 if grep -qE 'FM_ARCHIVE_UPLOADER_(INDEX|STATUS|RETRY|VERIFY|DELETE)_TOPIC|INDEX_TOPIC|STATUS_TOPIC|RETRY_TOPIC|VERIFY_TOPIC|DELETE_TOPIC' \
   "$BOOT" "$INSTALLER"; then
