@@ -31,8 +31,11 @@ grep -q 'FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1' "$INSTALLER" || fail "uploade
 grep -q 'archive-uploader-boot.sh' "$INSTALLER" || fail "uploader unit lacks boot wrapper"
 grep -q 'archive_uploader' "$BOOT" || fail "uploader entrypoint missing"
 for topic in /archive/storage/index /archive/storage/status /archive/upload/retry \
-  /archive/retention/verify /archive/retention/delete; do
+  /archive/retention/verify /archive/retention/delete \
+  /archive/derived/index /archive/derived/restore \
+  /archive/review-pin/begin /archive/review-pin/end; do
   grep -q -- "$topic" "$BOOT" || fail "uploader topic missing: $topic"
+  grep -q -- "$topic" "$ROOT/scripts/service/archive-check.sh" || fail "health topic missing: $topic"
 done
 if grep -qE 'FM_ARCHIVE_UPLOADER_(INDEX|STATUS|RETRY|VERIFY|DELETE)_TOPIC|INDEX_TOPIC|STATUS_TOPIC|RETRY_TOPIC|VERIFY_TOPIC|DELETE_TOPIC' \
   "$BOOT" "$INSTALLER"; then
@@ -51,7 +54,12 @@ grep -q 'FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15' "$INSTALLER" || fail
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1' "$INSTALLER" || fail "concurrency default drifted"
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=8388608' "$INSTALLER" || fail "bandwidth ceiling drifted"
 grep -q 'fm_processor_env FM_PROCESSOR_RECORDINGS_DIR' "$INSTALLER" || fail "uploader ignores the processor recording root"
-grep -q 'ARCHIVE_DATA_ROOT/staged/archive-uploader' "$BOOT" || fail "uploader state is not on persistent data storage"
+grep -q 'fm_data_annotate.data_use import default_service_state_dir' "$BOOT" || \
+  fail "uploader does not use the shared persistent state resolver"
+grep -q 'fm_data_annotate.data_use import default_service_state_dir' \
+  "$ROOT/scripts/service/processor-boot.sh" || fail "processor state resolver differs"
+grep -Fq "state_dir:=\"\$DATA_USE_STATE_DIR\"" "$ROOT/scripts/service/processor-boot.sh" || \
+  fail "processor launch does not receive the shared state root"
 grep -q -- 'recordings:/data/recordings' "$ROOT/compose.processor.yaml" || fail "processor container does not mount the authoritative recording root"
 grep -q 'archive_preflight' "$BOOT" || fail "live provider preflight gate is absent"
 # The live provider preflight above is the upload gate. The account storage cap

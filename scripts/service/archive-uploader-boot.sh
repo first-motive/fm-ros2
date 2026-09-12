@@ -94,7 +94,11 @@ ARCHIVE_DATA_ROOT="$(fm_data_root "$ROOT")"
 RECORDINGS_DIR="${FM_ARCHIVE_UPLOADER_RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordings}"
 # The uploader's queue and receipts are archive state, so they sit beside the
 # archive's other stage directories rather than in the recording root it reads.
-STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-$ARCHIVE_DATA_ROOT/staged/archive-uploader}"
+STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-}"
+if [ -z "$STATE_DIR" ]; then
+  STATE_DIR="$(python3 -c 'from fm_data_annotate.data_use import default_service_state_dir; print(default_service_state_dir())')" || exit 1
+fi
+export FM_ARCHIVE_UPLOADER_STATE_DIR="$STATE_DIR"
 # Derived sets (manifests, annotation records) come from the processor's own
 # output roots. Same defaults as install-processor-service.sh.
 PROCESSED_DIR="${FM_ARCHIVE_UPLOADER_PROCESSED_DIR:-$ARCHIVE_DATA_ROOT/processed}"
@@ -127,4 +131,7 @@ exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p retry_topic:=/archive/upload/retry \
   -p verify_topic:=/archive/retention/verify \
   -p delete_topic:=/archive/retention/delete \
-  -p derived_index_topic:=/archive/derived/index
+  -p derived_index_topic:=/archive/derived/index \
+  -p derived_restore_topic:=/archive/derived/restore \
+  -p review_pin_begin_topic:=/archive/review-pin/begin \
+  -p review_pin_end_topic:=/archive/review-pin/end
