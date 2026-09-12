@@ -233,7 +233,7 @@ fi
 # Every managed consumer and archive deletion uses the same machine-owned lock.
 DATA_USE_STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-}"
 if [ -z "$DATA_USE_STATE_DIR" ]; then
-  DATA_USE_STATE_DIR="$(python3 -c 'from pathlib import Path; from fm_data_annotate.data_use import DEFAULT_SERVICE_STATE_DIR; print(Path(DEFAULT_SERVICE_STATE_DIR).expanduser())')" || exit 1
+  DATA_USE_STATE_DIR="$(python3 -c 'from fm_data_annotate.data_use import default_service_state_dir; print(default_service_state_dir())')" || exit 1
 fi
 export FM_ARCHIVE_UPLOADER_STATE_DIR="$DATA_USE_STATE_DIR"
 

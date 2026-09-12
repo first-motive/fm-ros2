@@ -96,7 +96,7 @@ RECORDINGS_DIR="${FM_ARCHIVE_UPLOADER_RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordi
 # archive's other stage directories rather than in the recording root it reads.
 STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-}"
 if [ -z "$STATE_DIR" ]; then
-  STATE_DIR="$(python3 -c 'from pathlib import Path; from fm_data_annotate.data_use import DEFAULT_SERVICE_STATE_DIR; print(Path(DEFAULT_SERVICE_STATE_DIR).expanduser())')" || exit 1
+  STATE_DIR="$(python3 -c 'from fm_data_annotate.data_use import default_service_state_dir; print(default_service_state_dir())')" || exit 1
 fi
 export FM_ARCHIVE_UPLOADER_STATE_DIR="$STATE_DIR"
 # Derived sets (manifests, annotation records) come from the processor's own

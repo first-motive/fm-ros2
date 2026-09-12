@@ -54,9 +54,9 @@ grep -q 'FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15' "$INSTALLER" || fail
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1' "$INSTALLER" || fail "concurrency default drifted"
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=8388608' "$INSTALLER" || fail "bandwidth ceiling drifted"
 grep -q 'fm_processor_env FM_PROCESSOR_RECORDINGS_DIR' "$INSTALLER" || fail "uploader ignores the processor recording root"
-grep -q 'fm_data_annotate.data_use import DEFAULT_SERVICE_STATE_DIR' "$BOOT" || \
+grep -q 'fm_data_annotate.data_use import default_service_state_dir' "$BOOT" || \
   fail "uploader does not use the shared persistent state resolver"
-grep -q 'fm_data_annotate.data_use import DEFAULT_SERVICE_STATE_DIR' \
+grep -q 'fm_data_annotate.data_use import default_service_state_dir' \
   "$ROOT/scripts/service/processor-boot.sh" || fail "processor state resolver differs"
 grep -Fq "state_dir:=\"\$DATA_USE_STATE_DIR\"" "$ROOT/scripts/service/processor-boot.sh" || \
   fail "processor launch does not receive the shared state root"
