@@ -57,6 +57,11 @@ for gates in 'false false false' 'false true false' 'true false false' 'true tru
   grep -q "\"derived_delete_enabled\":$expected" <<<"$status" || \
     fail "status differs from effective deletion policy for gates: $raw $derived"
 done
+printf '%s\n' 'FM_ARCHIVE_UPLOADER_DRY_RUN=true' >>"$TMP_DIR/etc/uploader.env"
+status="$(FM_ARCHIVE_ENVFILE="$TMP_DIR/etc/archive.env" \
+  FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" "$VERB" status --json)"
+grep -q '"derived_delete_enabled":false' <<<"$status" || fail "dry-run status permits derived deletion"
+printf '%s\n' 'FM_ARCHIVE_UPLOADER_DRY_RUN=false' >>"$TMP_DIR/etc/uploader.env"
 printf '%s\n' 'FM_ARCHIVE_UPLOADER_DELETE_ENABLED=false' \
   'FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=invalid' >>"$TMP_DIR/etc/uploader.env"
 if FM_ARCHIVE_ENVFILE="$TMP_DIR/etc/archive.env" \
