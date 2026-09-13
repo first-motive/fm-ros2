@@ -262,8 +262,13 @@ uploader allows one concurrent upload and requires 30 days of local
 retention, and gives deletion eligibility a 15-minute window. Local deletion is
 disabled in the first release. Its closed command topics are
 `/archive/upload/retry`, `/archive/retention/verify`, and
-`/archive/retention/delete` (the last is a confirmation request only, never a
-remote delete). On a container-runtime processor, both services require the
+`/archive/retention/delete`, and `/archive/retention/delete-derived`. The delete
+topics accept local confirmation requests and never delete remote objects.
+Derived deletion requires both `FM_ARCHIVE_UPLOADER_DELETE_ENABLED=true` and
+`FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=true`. The derived deletion setting
+is false on first install and on migration. An install preserves existing
+settings. Enable deletion only after policy approval through the host-change
+workflow. On a container-runtime processor, both services require the
 already-running `fm-processor` container and cannot recreate or stop it.
 
 The uploader also archives results. With `FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=true`

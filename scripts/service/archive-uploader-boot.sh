@@ -22,6 +22,15 @@ case "${FM_ARCHIVE_UPLOADER_DELETE_ENABLED:-false}" in
   *) echo "archive-uploader-boot: FM_ARCHIVE_UPLOADER_DELETE_ENABLED must be true or false" >&2; exit 2 ;;
 esac
 
+case "${FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED:-false}" in
+  true|false) ;;
+  *) echo "archive-uploader-boot: FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED must be true or false" >&2; exit 2 ;;
+esac
+DERIVED_DELETE_ENABLED=false
+if [ "${FM_ARCHIVE_UPLOADER_DELETE_ENABLED:-false}" = true ]; then
+  DERIVED_DELETE_ENABLED="${FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED:-false}"
+fi
+
 _positive_integer() {
   local name="$1" value="${!1:-}"
   if [ -z "$value" ] || ! [[ "$value" =~ ^[1-9][0-9]*$ ]]; then
@@ -94,7 +103,11 @@ ARCHIVE_DATA_ROOT="$(fm_data_root "$ROOT")"
 RECORDINGS_DIR="${FM_ARCHIVE_UPLOADER_RECORDINGS_DIR:-$ARCHIVE_DATA_ROOT/recordings}"
 # The uploader's queue and receipts are archive state, so they sit beside the
 # archive's other stage directories rather than in the recording root it reads.
-STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-$ARCHIVE_DATA_ROOT/staged/archive-uploader}"
+STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-}"
+if [ -z "$STATE_DIR" ]; then
+  STATE_DIR="$(python3 -c 'from fm_data_annotate.data_use import default_service_state_dir; print(default_service_state_dir())')" || exit 1
+fi
+export FM_ARCHIVE_UPLOADER_STATE_DIR="$STATE_DIR"
 # Derived sets (manifests, annotation records) come from the processor's own
 # output roots. Same defaults as install-processor-service.sh.
 PROCESSED_DIR="${FM_ARCHIVE_UPLOADER_PROCESSED_DIR:-$ARCHIVE_DATA_ROOT/processed}"
@@ -117,6 +130,7 @@ exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p derived_upload_enabled:="${FM_ARCHIVE_UPLOADER_DERIVED_ENABLED:-false}" \
   -p upload_enabled:=true \
   -p deletion_enabled:="${FM_ARCHIVE_UPLOADER_DELETE_ENABLED:-false}" \
+  -p derived_deletion_enabled:="$DERIVED_DELETE_ENABLED" \
   -p dry_run:="${FM_ARCHIVE_UPLOADER_DRY_RUN:-false}" \
   -p min_retention_days:="${FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS:-30}" \
   -p eligibility_window_minutes:="${FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES:-15}" \
@@ -127,4 +141,8 @@ exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p retry_topic:=/archive/upload/retry \
   -p verify_topic:=/archive/retention/verify \
   -p delete_topic:=/archive/retention/delete \
-  -p derived_index_topic:=/archive/derived/index
+  -p derived_delete_topic:=/archive/retention/delete-derived \
+  -p derived_index_topic:=/archive/derived/index \
+  -p derived_restore_topic:=/archive/derived/restore \
+  -p review_pin_begin_topic:=/archive/review-pin/begin \
+  -p review_pin_end_topic:=/archive/review-pin/end

@@ -93,7 +93,7 @@ json_bool() {
 
 status_json() {
   local reader_enabled uploader_enabled reader_active uploader_active delete_enabled bandwidth
-  local derived_enabled
+  local derived_enabled derived_delete_enabled
   local reader_enabled_state uploader_enabled_state
   reader_enabled="$(env_value "$ARCHIVE_ENV" FM_ARCHIVE_ENABLED)"
   uploader_enabled="$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_ENABLED)"
@@ -102,16 +102,21 @@ status_json() {
   reader_enabled_state="$(service_state "$ARCHIVE_UNIT" is-enabled)"
   uploader_enabled_state="$(service_state "$UPLOADER_UNIT" is-enabled)"
   delete_enabled="$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_DELETE_ENABLED)"
+  derived_delete_enabled=false
+  if [ "$delete_enabled" = true ] &&
+     [ "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_DRY_RUN)" != true ]; then
+    derived_delete_enabled="$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED)"
+  fi
   bandwidth="$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S)"
   derived_enabled="$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_DERIVED_ENABLED)"
   if ! [[ "${bandwidth:-0}" =~ ^[0-9]+$ ]]; then
     printf '{"contract_version":1,"error_code":"invalid_policy","error":"upload bandwidth is not a non-negative integer"}\n'
     return 1
   fi
-  printf '{"contract_version":1,"reader":{"enabled":%s,"active":"%s","unit_enabled":"%s","env_mode":"%s"},"uploader":{"enabled":%s,"active":"%s","unit_enabled":"%s","env_mode":"%s","delete_enabled":%s,"derived_enabled":%s,"max_concurrent_uploads":1,"max_bandwidth_bytes_s":%s,"min_retention_days":30,"eligibility_window_minutes":15}}\n' \
+  printf '{"contract_version":1,"reader":{"enabled":%s,"active":"%s","unit_enabled":"%s","env_mode":"%s"},"uploader":{"enabled":%s,"active":"%s","unit_enabled":"%s","env_mode":"%s","delete_enabled":%s,"derived_delete_enabled":%s,"derived_enabled":%s,"max_concurrent_uploads":1,"max_bandwidth_bytes_s":%s,"min_retention_days":30,"eligibility_window_minutes":15}}\n' \
     "$(json_bool "$reader_enabled")" "$reader_active" "$reader_enabled_state" "$(file_mode "$ARCHIVE_ENV")" \
     "$(json_bool "$uploader_enabled")" "$uploader_active" "$uploader_enabled_state" "$(file_mode "$UPLOADER_ENV")" \
-    "$(json_bool "$delete_enabled")" "$(json_bool "$derived_enabled")" "${bandwidth:-0}"
+    "$(json_bool "$delete_enabled")" "$(json_bool "$derived_delete_enabled")" "$(json_bool "$derived_enabled")" "${bandwidth:-0}"
 }
 
 status_human() {
@@ -127,7 +132,7 @@ status_human() {
   printf 'policy: delete_enabled=%s min_retention_days=30 eligibility_window_minutes=15 max_concurrent_uploads=1 max_bandwidth_bytes_s=%s\n' \
     "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_DELETE_ENABLED)" \
     "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S)"
-  printf 'topics: /archive/storage/index /archive/storage/status /archive/upload/retry /archive/retention/verify /archive/retention/delete\n'
+  printf 'topics: /archive/storage/index /archive/storage/status /archive/upload/retry /archive/retention/verify /archive/retention/delete /archive/retention/delete-derived\n'
 }
 
 preflight() {
@@ -195,6 +200,7 @@ preflight() {
   check uploader_credential_name credential_is_ready "$uploader_key" "${uploader_enabled:-false}"
   check uploader_application_key credential_is_ready "$uploader_secret" "${uploader_enabled:-false}"
   check delete_gate_valid gate_is_valid "${delete_enabled:-false}"
+  check derived_delete_gate_valid gate_is_valid "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED)"
   check minimum_retention floor_is_valid "$min_retention" 30
   check eligibility_window floor_is_valid "$eligibility_window" 15
   check single_concurrent concurrency_is_valid "$max_concurrent"

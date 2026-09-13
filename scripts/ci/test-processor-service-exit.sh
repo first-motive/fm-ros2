@@ -33,6 +33,7 @@ assert_exit() {
   # FM_LAN_IP short-circuits the wrapper's bounded wait for a LAN address, which
   # a CI guest may never satisfy.
   STUB_EXIT="$stub" FM_LAN_IP=127.0.0.1 PATH="$stub_dir:$PATH" \
+    FM_ARCHIVE_UPLOADER_STATE_DIR="$stub_dir/state" \
     bash "$WRAPPER" >/dev/null 2>&1
   got=$?
   if [[ "$got" == "$expected" ]]; then

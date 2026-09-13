@@ -230,11 +230,19 @@ if ! fm_processor_heal_imports "$ROOT"; then
   echo "         will fail, and the error above says what is missing." >&2
 fi
 
+# Every managed consumer and archive deletion uses the same machine-owned lock.
+DATA_USE_STATE_DIR="${FM_ARCHIVE_UPLOADER_STATE_DIR:-}"
+if [ -z "$DATA_USE_STATE_DIR" ]; then
+  DATA_USE_STATE_DIR="$(python3 -c 'from fm_data_annotate.data_use import default_service_state_dir; print(default_service_state_dir())')" || exit 1
+fi
+export FM_ARCHIVE_UPLOADER_STATE_DIR="$DATA_USE_STATE_DIR"
+
 # ros2 launch rejects an empty-valued argument ("malformed launch argument
 # 'config:='"), so optional overrides are appended only when actually set —
 # absent, the launch file's empty defaults hold. Hit live on the first
 # processor host, 2026-07-22.
 LAUNCH_ARGS=(recordings_dir:="$RECORDINGS_DIR" output_dir:="$OUTPUT_DIR")
+LAUNCH_ARGS+=(state_dir:="$DATA_USE_STATE_DIR")
 LAUNCH_ARGS+=(lerobot_imports_dir:="$LEROBOT_IMPORTS_DIR")
 LAUNCH_ARGS+=(annotation_attempts_dir:="$ANNOTATION_ATTEMPTS_DIR")
 LAUNCH_ARGS+=(annotation_reviews_dir:="$ANNOTATION_REVIEWS_DIR")
