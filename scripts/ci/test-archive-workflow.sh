@@ -48,6 +48,24 @@ grep -q '"failures":0' <<<"$preflight_output" || {
 }
 pass "default-off local preflight passes without credentials"
 
+for gates in 'false false false' 'false true false' 'true false false' 'true true true'; do
+  read -r raw derived expected <<<"$gates"
+  printf '%s\n' "FM_ARCHIVE_UPLOADER_DELETE_ENABLED=$raw" \
+    "FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=$derived" >>"$TMP_DIR/etc/uploader.env"
+  status="$(FM_ARCHIVE_ENVFILE="$TMP_DIR/etc/archive.env" \
+    FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" "$VERB" status --json)"
+  grep -q "\"derived_delete_enabled\":$expected" <<<"$status" || \
+    fail "status differs from effective deletion policy for gates: $raw $derived"
+done
+printf '%s\n' 'FM_ARCHIVE_UPLOADER_DELETE_ENABLED=false' \
+  'FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=invalid' >>"$TMP_DIR/etc/uploader.env"
+if FM_ARCHIVE_ENVFILE="$TMP_DIR/etc/archive.env" \
+  FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" "$VERB" preflight --json >/dev/null; then
+  fail "preflight accepted an invalid derived deletion policy"
+fi
+printf '%s\n' 'FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=false' >>"$TMP_DIR/etc/uploader.env"
+pass "status reports effective derived deletion and preflight refuses invalid policy"
+
 mkdir -p "$TMP_DIR/bin"
 cat >"$TMP_DIR/bin/sudo" <<'EOF'
 #!/usr/bin/env bash

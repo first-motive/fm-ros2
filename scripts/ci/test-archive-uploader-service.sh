@@ -31,7 +31,7 @@ grep -q 'FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1' "$INSTALLER" || fail "uploade
 grep -q 'archive-uploader-boot.sh' "$INSTALLER" || fail "uploader unit lacks boot wrapper"
 grep -q 'archive_uploader' "$BOOT" || fail "uploader entrypoint missing"
 for topic in /archive/storage/index /archive/storage/status /archive/upload/retry \
-  /archive/retention/verify /archive/retention/delete \
+  /archive/retention/verify /archive/retention/delete /archive/retention/delete-derived \
   /archive/derived/index /archive/derived/restore \
   /archive/review-pin/begin /archive/review-pin/end; do
   grep -q -- "$topic" "$BOOT" || fail "uploader topic missing: $topic"
@@ -41,7 +41,7 @@ if grep -qE 'FM_ARCHIVE_UPLOADER_(INDEX|STATUS|RETRY|VERIFY|DELETE)_TOPIC|INDEX_
   "$BOOT" "$INSTALLER"; then
   fail "uploader allows a topic override outside the Desktop contract"
 fi
-for param in recordings_dir state_dir upload_enabled deletion_enabled dry_run min_retention_days \
+for param in recordings_dir state_dir upload_enabled deletion_enabled derived_deletion_enabled derived_delete_topic dry_run min_retention_days \
   eligibility_window_minutes max_concurrent_uploads max_bandwidth_bytes_s; do
   grep -q -- "-p $param:" "$BOOT" || fail "uploader parameter missing: $param"
 done
@@ -49,6 +49,7 @@ if grep -E -- '-p (AWS_|BACKBLAZE_|bucket|key|prefix)' "$BOOT"; then
   fail "uploader credentials or provider selectors entered node arguments"
 fi
 grep -q 'FM_ARCHIVE_UPLOADER_DELETE_ENABLED=false' "$INSTALLER" || fail "delete is not disabled by default"
+grep -q 'FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=false' "$INSTALLER" || fail "derived delete is not disabled by default"
 grep -q 'FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS=30' "$INSTALLER" || fail "retention floor drifted"
 grep -q 'FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15' "$INSTALLER" || fail "eligibility floor drifted"
 grep -q 'FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1' "$INSTALLER" || fail "concurrency default drifted"
@@ -117,6 +118,7 @@ bash "$INSTALLER" install >/dev/null
 [ -f "$TEST_UNIT" ] || fail "first install did not write unit"
 [ -f "$TEST_ENV" ] || fail "first install did not write env"
 grep -qx 'FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=false' "$TEST_ENV" || fail "first install enabled derived uploads"
+grep -qx 'FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=false' "$TEST_ENV" || fail "first install enabled derived deletion"
 grep -q "FM_ARCHIVE_UPLOADER_RECORDINGS_DIR=$TMP_DIR/data/recordings" "$TEST_ENV" || \
   fail "uploader did not inherit the processor recording root"
 grep -q "FM_ARCHIVE_UPLOADER_PROCESSED_DIR=$TMP_DIR/data/processed" "$TEST_ENV" || \
@@ -135,12 +137,21 @@ cmp -s "$TEST_ENV" "$TMP_DIR/env.snapshot" || fail "repeat install changed env"
 pass "first and repeat installs converge without clobbering env"
 
 # An old host gains the roots but no new write authority on migration.
-sed '/^FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=/d' "$TEST_ENV" >"$TMP_DIR/legacy.env"
+sed '/^FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=/d; /^FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=/d' "$TEST_ENV" >"$TMP_DIR/legacy.env"
 cp "$TMP_DIR/legacy.env" "$TEST_ENV"
 bash "$INSTALLER" install >/dev/null
 grep -qx 'FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=false' "$TEST_ENV" || fail "migration enabled derived uploads"
+grep -qx 'FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=false' "$TEST_ENV" || fail "migration enabled derived deletion"
 cp "$TEST_ENV" "$TMP_DIR/env.snapshot"
 pass "migration preserves the approval boundary for derived uploads"
+
+sed 's/^FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=false$/FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=true/' \
+  "$TEST_ENV" >"$TMP_DIR/approved.env"
+cp "$TMP_DIR/approved.env" "$TEST_ENV"
+bash "$INSTALLER" install >/dev/null
+cmp -s "$TEST_ENV" "$TMP_DIR/approved.env" || fail "repeat install changed selected derived deletion policy"
+cp "$TEST_ENV" "$TMP_DIR/env.snapshot"
+pass "repeat install preserves selected derived deletion policy"
 
 chmod 000 "$TEST_ENV"
 bash "$INSTALLER" install >/dev/null
@@ -195,8 +206,36 @@ if grep -q 'write-scoped B2 credentials are absent' <<<"$dry_output"; then
 fi
 pass "dry-run bypasses provider credentials before the assembled ROS workspace check"
 
+# Exercise the boot arguments without ROS or provider writes.
+cat >"$TMP_DIR/bin/ros2" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >"$FM_TEST_ROS_ARGS"
+EOF
+chmod +x "$TMP_DIR/bin/ros2"
+export FM_TEST_ROS_ARGS="$TMP_DIR/ros-args"
+for gates in 'false false false' 'false true false' 'true false false' 'true true true'; do
+  read -r raw derived expected <<<"$gates"
+  FM_ARCHIVE_UPLOADER_ENABLED=true \
+    FM_ARCHIVE_UPLOADER_DRY_RUN=true \
+    FM_ARCHIVE_UPLOADER_DELETE_ENABLED="$raw" \
+    FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED="$derived" \
+    FM_ARCHIVE_UPLOADER_STATE_DIR="$TMP_DIR/state" \
+    FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS=30 \
+    FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15 \
+    FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1 \
+    FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=8388608 \
+    bash "$BOOT" >/dev/null 2>&1 || fail "boot failed for deletion gates: $raw $derived"
+  grep -qx "derived_deletion_enabled:=$expected" "$FM_TEST_ROS_ARGS" || \
+    fail "effective derived deletion differs for gates: $raw $derived"
+  grep -qx 'derived_delete_topic:=/archive/retention/delete-derived' "$FM_TEST_ROS_ARGS" || \
+    fail "boot did not pass the Desktop derived-delete topic"
+done
+pass "boot requires both deletion gates and passes the canonical derived-delete topic"
+
 for invalid in \
   'FM_ARCHIVE_UPLOADER_ENABLED=invalid' \
+  'FM_ARCHIVE_UPLOADER_DELETE_ENABLED=invalid' \
+  'FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=invalid' \
   'FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS=29' \
   'FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=14' \
   'FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=0' \

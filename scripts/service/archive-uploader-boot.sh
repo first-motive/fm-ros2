@@ -22,6 +22,15 @@ case "${FM_ARCHIVE_UPLOADER_DELETE_ENABLED:-false}" in
   *) echo "archive-uploader-boot: FM_ARCHIVE_UPLOADER_DELETE_ENABLED must be true or false" >&2; exit 2 ;;
 esac
 
+case "${FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED:-false}" in
+  true|false) ;;
+  *) echo "archive-uploader-boot: FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED must be true or false" >&2; exit 2 ;;
+esac
+DERIVED_DELETE_ENABLED=false
+if [ "${FM_ARCHIVE_UPLOADER_DELETE_ENABLED:-false}" = true ]; then
+  DERIVED_DELETE_ENABLED="${FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED:-false}"
+fi
+
 _positive_integer() {
   local name="$1" value="${!1:-}"
   if [ -z "$value" ] || ! [[ "$value" =~ ^[1-9][0-9]*$ ]]; then
@@ -121,6 +130,7 @@ exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p derived_upload_enabled:="${FM_ARCHIVE_UPLOADER_DERIVED_ENABLED:-false}" \
   -p upload_enabled:=true \
   -p deletion_enabled:="${FM_ARCHIVE_UPLOADER_DELETE_ENABLED:-false}" \
+  -p derived_deletion_enabled:="$DERIVED_DELETE_ENABLED" \
   -p dry_run:="${FM_ARCHIVE_UPLOADER_DRY_RUN:-false}" \
   -p min_retention_days:="${FM_ARCHIVE_UPLOADER_MIN_RETENTION_DAYS:-30}" \
   -p eligibility_window_minutes:="${FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES:-15}" \
@@ -131,6 +141,7 @@ exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p retry_topic:=/archive/upload/retry \
   -p verify_topic:=/archive/retention/verify \
   -p delete_topic:=/archive/retention/delete \
+  -p derived_delete_topic:=/archive/retention/delete-derived \
   -p derived_index_topic:=/archive/derived/index \
   -p derived_restore_topic:=/archive/derived/restore \
   -p review_pin_begin_topic:=/archive/review-pin/begin \

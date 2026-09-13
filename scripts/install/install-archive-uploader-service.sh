@@ -167,6 +167,7 @@ FM_ARCHIVE_UPLOADER_ELIGIBILITY_WINDOW_MINUTES=15
 FM_ARCHIVE_UPLOADER_MAX_CONCURRENT_UPLOADS=1
 FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S=8388608
 FM_ARCHIVE_UPLOADER_DELETE_ENABLED=false
+FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=false
 EOF
   fi
   # The env file is root-owned and mode 0600 because it carries the uploader's
@@ -196,7 +197,8 @@ EOF
   for setting in \
     "FM_ARCHIVE_UPLOADER_PROCESSED_DIR=$uploader_processed" \
     "FM_ARCHIVE_UPLOADER_ANNOTATIONS_DIR=$uploader_annotations" \
-    "FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=false"; do
+    "FM_ARCHIVE_UPLOADER_DERIVED_ENABLED=false" \
+    "FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=false"; do
     key="${setting%%=*}"
     if ! sudo grep -q "^${key}=" "$ENVFILE"; then
       printf '\n%s\n' "$setting" | sudo tee -a "$ENVFILE" >/dev/null
