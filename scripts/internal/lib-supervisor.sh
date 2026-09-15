@@ -339,15 +339,9 @@ def terminal(status):
     if has_matching(status.get("refused")):
         return 3
     result, has_results = request_result(status)
-    if has_results:
-        # New supervisors retain a bounded request aggregate. If this id was
-        # evicted, do not infer success from an unrelated ``last`` episode.
+    if result is not None:
+        # A matching aggregate is authoritative for the whole request.
         return aggregate_terminal(result)
-    last = status.get("last")
-    if matching(last) and last.get("ok") is not True:
-        # A failure is safe to report from the legacy per-episode result. A
-        # successful batch still needs its request aggregate.
-        return 3
     for item in status.get("cloud_lifecycle") or []:
         if matching(item):
             state = item.get("state", item.get("reason", item.get("reason_code")))
@@ -358,6 +352,15 @@ def terminal(status):
             }:
                 return 3
             return None
+    if has_results:
+        # The request aggregate field is present, but this id was evicted. Do
+        # not fall back to a single legacy ``last`` episode.
+        return None
+    last = status.get("last")
+    if matching(last) and last.get("ok") is not True:
+        # A failure is safe to report from the legacy per-episode result. A
+        # successful batch still needs its request aggregate.
+        return 3
     return None
 while time.time() < deadline:
     with open(log) as f:
@@ -377,7 +380,9 @@ while time.time() < deadline:
             if has_matching(status.get("refused")):
                 failure_seen = True
             aggregate, has_results = request_result(status)
-            if not has_results and matching(status.get("last")):
+            if (has_results and aggregate is None) or (
+                not has_results and matching(status.get("last"))
+            ):
                 history_missing = True
             if aggregate is not None and any(
                 isinstance(item, dict) and item.get("state") == "refused"
