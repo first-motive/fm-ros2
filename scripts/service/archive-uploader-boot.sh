@@ -141,8 +141,8 @@ exec ros2 run fm_data_archive archive_uploader --ros-args \
   -p retry_topic:=/archive/upload/retry \
   -p verify_topic:=/archive/retention/verify \
   -p delete_topic:=/archive/retention/delete \
-  -p derived_delete_topic:=/archive/retention/delete-derived \
+  -p derived_delete_topic:=/archive/retention/delete_derived \
   -p derived_index_topic:=/archive/derived/index \
   -p derived_restore_topic:=/archive/derived/restore \
-  -p review_pin_begin_topic:=/archive/review-pin/begin \
-  -p review_pin_end_topic:=/archive/review-pin/end
+  -p review_pin_begin_topic:=/archive/review_pin/begin \
+  -p review_pin_end_topic:=/archive/review_pin/end

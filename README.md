@@ -262,7 +262,7 @@ uploader allows one concurrent upload and requires 30 days of local
 retention, and gives deletion eligibility a 15-minute window. Local deletion is
 disabled in the first release. Its closed command topics are
 `/archive/upload/retry`, `/archive/retention/verify`, and
-`/archive/retention/delete`, and `/archive/retention/delete-derived`. The delete
+`/archive/retention/delete`, and `/archive/retention/delete_derived`. The delete
 topics accept local confirmation requests and never delete remote objects.
 Derived deletion requires both `FM_ARCHIVE_UPLOADER_DELETE_ENABLED=true` and
 `FM_ARCHIVE_UPLOADER_DERIVED_DELETE_ENABLED=true`. The derived deletion setting

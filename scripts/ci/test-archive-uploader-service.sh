@@ -31,9 +31,10 @@ grep -q 'FM_PROCESSOR_CONTAINER_REQUIRE_RUNNING=1' "$INSTALLER" || fail "uploade
 grep -q 'archive-uploader-boot.sh' "$INSTALLER" || fail "uploader unit lacks boot wrapper"
 grep -q 'archive_uploader' "$BOOT" || fail "uploader entrypoint missing"
 for topic in /archive/storage/index /archive/storage/status /archive/upload/retry \
-  /archive/retention/verify /archive/retention/delete /archive/retention/delete-derived \
+  /archive/retention/verify /archive/retention/delete /archive/retention/delete_derived \
   /archive/derived/index /archive/derived/restore \
-  /archive/review-pin/begin /archive/review-pin/end; do
+  /archive/review_pin/begin /archive/review_pin/end; do
+  [[ "$topic" =~ ^(/[a-zA-Z_][a-zA-Z0-9_]*)+$ ]] || fail "invalid ROS topic: $topic"
   grep -q -- "$topic" "$BOOT" || fail "uploader topic missing: $topic"
   grep -q -- "$topic" "$ROOT/scripts/service/archive-check.sh" || fail "health topic missing: $topic"
 done
@@ -227,7 +228,7 @@ for gates in 'false false false' 'false true false' 'true false false' 'true tru
     bash "$BOOT" >/dev/null 2>&1 || fail "boot failed for deletion gates: $raw $derived"
   grep -qx "derived_deletion_enabled:=$expected" "$FM_TEST_ROS_ARGS" || \
     fail "effective derived deletion differs for gates: $raw $derived"
-  grep -qx 'derived_delete_topic:=/archive/retention/delete-derived' "$FM_TEST_ROS_ARGS" || \
+  grep -qx 'derived_delete_topic:=/archive/retention/delete_derived' "$FM_TEST_ROS_ARGS" || \
     fail "boot did not pass the Desktop derived-delete topic"
 done
 pass "boot requires both deletion gates and passes the canonical derived-delete topic"
