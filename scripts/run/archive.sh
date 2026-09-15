@@ -70,11 +70,19 @@ storage_status() (
   [ "$json" = false ] || args+=(--json)
   # fm_processor_exec only enters an existing container; it cannot start one.
   # shellcheck disable=SC2016 # Arguments expand inside the selected runtime.
-  payload="$(fm_processor_exec "$ROOT" bash -c '
-    [ -d "$1" ] || { echo "archive storage status: configured state directory is unavailable" >&2; exit 2; }
-    shift
-    exec ros2 run fm_data_archive archive_cli "$@"
-  ' archive-status "$state_dir" "${args[@]}")" || rc=$?
+  payload="$(
+    if [ "$(fm_processor_runtime)" = native ]; then
+      # The ROS-free host front door also works in a shell without an overlay.
+      [ -d "$state_dir" ] || { echo 'archive storage status: configured state directory is unavailable' >&2; exit 2; }
+      data_archive "${args[@]}"
+    else
+      fm_processor_exec "$ROOT" bash -c '
+        [ -d "$1" ] || { echo "archive storage status: configured state directory is unavailable" >&2; exit 2; }
+        shift
+        exec ros2 run fm_data_archive archive_cli "$@"
+      ' archive-status "$state_dir" "${args[@]}"
+    fi
+  )" || rc=$?
   if [ -n "$payload" ]; then
     printf '%s\n' "$payload"
   else
