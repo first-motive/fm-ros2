@@ -179,7 +179,7 @@ status_human() {
   printf 'policy: delete_enabled=%s min_retention_days=30 eligibility_window_minutes=15 max_concurrent_uploads=1 max_bandwidth_bytes_s=%s\n' \
     "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_DELETE_ENABLED)" \
     "$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_MAX_BANDWIDTH_BYTES_S)"
-  printf 'topics: /archive/storage/index /archive/storage/status /archive/upload/retry /archive/retention/verify /archive/retention/delete /archive/retention/delete-derived\n'
+  printf 'topics: /archive/storage/index /archive/storage/status /archive/upload/retry /archive/retention/verify /archive/retention/delete /archive/retention/delete_derived\n'
 }
 
 preflight() {
