@@ -31,6 +31,7 @@ Usage: ./scripts/run/archive.sh <status|preflight|reconcile|install> [options]
   delegated to src/fm_data/scripts/archive.sh (`fm data-archive`).
 
   --json       emit one machine-readable JSON object
+  --storage    with status, read uploader ledgers in the processor runtime
   --dry-run    print changes for reconcile/install without applying them
   --host HOST  run the command on an explicit SSH host; credentials stay there
   -h, --help   show this help
@@ -49,6 +50,52 @@ data_archive() {
     fm data-archive "$@"
   fi
 }
+
+storage_status() (
+  local json="$1" state_dir rc=0 payload
+  export FM_ARCHIVE_UPLOADER_ENV_FILE="$UPLOADER_ENV"
+  # The uploader writes private ledgers in this runtime. Reading them on the
+  # host can fail when the container owns them; keep their permissions intact.
+  # shellcheck source=../internal/lib-processor.sh disable=SC1091
+  . "$ROOT/scripts/internal/lib-processor.sh" >&2
+  state_dir="$(env_value "$UPLOADER_ENV" FM_ARCHIVE_UPLOADER_STATE_DIR)"
+  if ! fm_processor_installed || [[ "$state_dir" != /* ]]; then
+    if [ "$json" = true ]; then
+      printf '{"contract_version":1,"ok":false,"error_code":"storage_unavailable","error":"processor role and absolute uploader state directory are required"}\n'
+    else
+      echo 'archive storage status: processor role and absolute uploader state directory are required' >&2
+    fi
+    return 2
+  fi
+  local args=(status --state-dir "$state_dir")
+  [ "$json" = false ] || args+=(--json)
+  # fm_processor_exec only enters an existing container; it cannot start one.
+  # shellcheck disable=SC2016 # Arguments expand inside the selected runtime.
+  payload="$(
+    if [ "$(fm_processor_runtime)" = native ]; then
+      # The ROS-free host front door also works in a shell without an overlay.
+      [ -d "$state_dir" ] || { echo 'archive storage status: configured state directory is unavailable' >&2; exit 2; }
+      data_archive "${args[@]}"
+    else
+      fm_processor_exec "$ROOT" bash -c '
+        [ -d "$1" ] || { echo "archive storage status: configured state directory is unavailable" >&2; exit 2; }
+        shift
+        exec ros2 run fm_data_archive archive_cli "$@"
+      ' archive-status "$state_dir" "${args[@]}"
+    fi
+  )" || rc=$?
+  if [ -n "$payload" ]; then
+    printf '%s\n' "$payload"
+  else
+    if [ "$json" = true ]; then
+      printf '{"contract_version":1,"ok":false,"error_code":"storage_unavailable","error":"processor runtime returned no archive status"}\n'
+    else
+      echo 'archive storage status: processor runtime returned no archive status' >&2
+    fi
+    [ "$rc" -ne 0 ] || rc=2
+  fi
+  return "$rc"
+)
 
 env_value() { # file key
   local file="$1" key="$2" line
@@ -350,13 +397,14 @@ main() {
     done
     exec ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$remote_command"
   fi
-  local action="" json=false dry_run=false
+  local action="" json=false dry_run=false storage=false
   local original=("$@")
   while [ "$#" -gt 0 ]; do
     case "$1" in
       status|preflight|reconcile|install) action="$1"; shift ;;
       --json) json=true; shift ;;
       --dry-run) dry_run=true; shift ;;
+      --storage) storage=true; shift ;;
       -h|--help) usage; return 0 ;;
       list|catalogue|adopt|verify|restore)
         # The bucket's own verbs live with the data authority. Delegate, never
@@ -368,6 +416,10 @@ main() {
     esac
   done
   [ -n "$action" ] || { usage >&2; return 2; }
+  if [ "$storage" = true ] && { [ "$action" != status ] || [ "$dry_run" = true ]; }; then
+    echo 'error: --storage requires status and does not accept --dry-run' >&2
+    return 2
+  fi
 
   if [ -n "${FM_SELFTEST:-}" ]; then
     printf 'selftest ok: archive %s resolved (json=%s dry_run=%s)\n' "$action" "$json" "$dry_run"
@@ -376,7 +428,8 @@ main() {
 
   case "$action" in
     status)
-      if [ "$json" = true ]; then status_json; else status_human; fi
+      if [ "$storage" = true ]; then storage_status "$json"
+      elif [ "$json" = true ]; then status_json; else status_human; fi
       ;;
     preflight) preflight "$json" ;;
     install)

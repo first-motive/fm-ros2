@@ -63,9 +63,14 @@ fi
 # shellcheck disable=SC2034  # read by fm_processor_runtime, through the library
 FM_PROCESSOR_RUNTIME=container
 # shellcheck disable=SC2329  # invoked by the library, which resolves it as a command
-docker() { printf '%s\n' "$*"; }
+docker() {
+  if [ -n "${FM_ARCHIVE_UPLOADER_ENVFILE:-}" ]; then
+    [ "${FM_ARCHIVE_UPLOADER_ENV_FILE:-}" = "$FM_ARCHIVE_UPLOADER_ENVFILE" ] || return 9
+  fi
+  printf '%s\n' "$*"
+  return "${FM_TEST_DOCKER_EXIT:-0}"
+}
 got="$(fm_processor_exec /workspace echo landed-container)"
-unset -f docker
 
 case "$got" in
   *"-p fm-processor"*) pass "the processor container is addressed, not the sim stack's" ;;
@@ -79,6 +84,29 @@ case "$got" in
   *"/ros_entrypoint.sh echo landed-container"*) pass "the command routes through the image entrypoint" ;;
   *) fail "the command bypasses the entrypoint: $got" ;;
 esac
+
+# The archive ledger query uses the same existing-only runtime boundary.
+printf 'FM_ARCHIVE_UPLOADER_STATE_DIR=/data/private archive\n' >"$WORK/fm-processor.env"
+export -f docker
+got="$(FM_PROCESSOR_RUNTIME=container FM_PROCESSOR_ENV_FILE="$WORK/fm-processor.env" \
+  FM_ARCHIVE_UPLOADER_ENVFILE="$WORK/fm-processor.env" FM_TRANSPORT=none \
+  bash scripts/run/archive.sh status --storage --json)"
+case "$got" in
+  *"-p fm-processor"*"exec -T fm /ros_entrypoint.sh bash -c"*'exec ros2 run fm_data_archive archive_cli "$@"'*"archive-status /data/private archive status --state-dir /data/private archive --json")
+    pass "archive storage status reads the configured ledger in the processor runtime" ;;
+  *) fail "archive storage status used the wrong runtime or state directory: $got" ;;
+esac
+archive_rc=0
+FM_TEST_DOCKER_EXIT=7 FM_PROCESSOR_RUNTIME=container \
+  FM_PROCESSOR_ENV_FILE="$WORK/fm-processor.env" \
+  FM_ARCHIVE_UPLOADER_ENVFILE="$WORK/fm-processor.env" FM_TRANSPORT=none \
+  bash scripts/run/archive.sh status --storage --json >/dev/null || archive_rc=$?
+if [[ "$archive_rc" == 7 ]]; then
+  pass "archive storage status preserves runtime failure"
+else
+  fail "archive storage status hid runtime failure: $archive_rc"
+fi
+unset -f docker
 
 echo "== the verb itself routes, not only the library =="
 # The checks above exercise the library. This one exercises dataset.sh, so a

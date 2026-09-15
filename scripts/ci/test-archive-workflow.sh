@@ -164,6 +164,30 @@ if "$VERB" unsupported >/dev/null 2>&1; then
 fi
 pass "unsupported archive action returns a usage failure"
 
+storage_rc=0
+storage_output="$(FM_PROCESSOR_ENV_FILE="$TMP_DIR/missing.env" FM_TRANSPORT=none \
+  FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" \
+  "$VERB" status --storage --json)" || storage_rc=$?
+[ "$storage_rc" = 2 ] || fail "storage status accepted missing processor configuration"
+grep -q '"error_code":"storage_unavailable"' <<<"$storage_output" || \
+  fail "storage status omitted its structured refusal"
+for args in 'install --storage' 'reconcile --storage' 'status --storage --dry-run'; do
+  read -r -a storage_args <<<"$args"
+  if "$VERB" "${storage_args[@]}" >/dev/null 2>&1; then
+    fail "storage status accepted incompatible options: $args"
+  fi
+done
+pass "storage status refuses missing configuration and incompatible actions"
+printf 'FM_ARCHIVE_UPLOADER_STATE_DIR=%s\n' "$TMP_DIR/missing-state" >>"$TMP_DIR/etc/uploader.env"
+storage_rc=0
+storage_output="$(FM_PROCESSOR_ENV_FILE="$TMP_DIR/etc/uploader.env" FM_PROCESSOR_RUNTIME=native \
+  FM_TRANSPORT=none FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" \
+  "$VERB" status --storage --json)" || storage_rc=$?
+[ "$storage_rc" = 2 ] || fail "storage status accepted an absent runtime state directory"
+grep -q '"error_code":"storage_unavailable"' <<<"$storage_output" || \
+  fail "absent runtime state directory omitted its structured refusal"
+pass "storage status does not report empty success for an absent runtime state directory"
+
 cat >"$TMP_DIR/bin/ssh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -175,18 +199,35 @@ cat >"$TMP_DIR/bin/fm" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$@" >"$FM_TEST_ARGS"
+case "$1" in
+  data-archive|run) printf '{"contract_version":1,"ok":true,"verb":"status"}\n' ;;
+esac
 exit "${FM_TEST_REMOTE_EXIT:-0}"
 EOF
 chmod +x "$TMP_DIR/bin/ssh" "$TMP_DIR/bin/fm"
+# The same external-command stub covers a mounted data checkout's uv entry.
+cp "$TMP_DIR/bin/fm" "$TMP_DIR/bin/uv"
 export FM_TEST_ARGS="$TMP_DIR/remote-args"
+printf 'FM_ARCHIVE_UPLOADER_STATE_DIR=%s\n' "$TMP_DIR/etc" >>"$TMP_DIR/etc/uploader.env"
+native_output="$(PATH="$TMP_DIR/bin:$PATH" FM_PROCESSOR_RUNTIME=native FM_TRANSPORT=none \
+  FM_PROCESSOR_ENV_FILE="$TMP_DIR/etc/uploader.env" \
+  FM_ARCHIVE_UPLOADER_ENVFILE="$TMP_DIR/etc/uploader.env" \
+  "$VERB" status --storage --json)"
+printf '%s\n' status --state-dir "$TMP_DIR/etc" --json >"$TMP_DIR/expected-args"
+tail -4 "$FM_TEST_ARGS" | cmp "$TMP_DIR/expected-args" - || fail "native storage status changed the data CLI arguments"
+[ "$native_output" = '{"contract_version":1,"ok":true,"verb":"status"}' ] || \
+  fail "native storage status changed the data CLI payload"
+pass "native storage status uses the ROS-free data front door"
 literal="odd' \$(touch $TMP_DIR/injected)"
 PATH="$TMP_DIR/bin:$PATH" "$VERB" --host tower-test list --kind "$literal" --json
 printf '%s\n' archive list --kind "$literal" --json >"$TMP_DIR/expected-args"
 cmp "$TMP_DIR/expected-args" "$FM_TEST_ARGS" || fail "remote arguments changed"
 [ ! -e "$TMP_DIR/injected" ] || fail "remote arguments executed as shell code"
 remote_rc=0
-PATH="$TMP_DIR/bin:$PATH" FM_TEST_REMOTE_EXIT=7 "$VERB" status --host tower-test --json || remote_rc=$?
+PATH="$TMP_DIR/bin:$PATH" FM_TEST_REMOTE_EXIT=7 "$VERB" status --storage --host tower-test --json || remote_rc=$?
 [ "$remote_rc" = 7 ] || fail "remote failure was hidden"
+printf '%s\n' archive status --storage --json >"$TMP_DIR/expected-args"
+cmp "$TMP_DIR/expected-args" "$FM_TEST_ARGS" || fail "remote storage status arguments changed"
 if PATH="$TMP_DIR/bin:$PATH" "$VERB" --host -oProxyCommand=bad status; then
   fail "SSH option injection accepted"
 fi
