@@ -169,7 +169,13 @@ do_install() {
 # CH340 — fine for a single-glove host, but re-run the installer with the board
 # in its permanent port before a second CH340 device ever shares this host.
 # Moving the board to another port needs this rule regenerated the same way.
-SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*", ATTRS{idVendor}=="$USB_VENDOR", ATTRS{idProduct}=="$USB_PRODUCT"$match_port, SYMLINK+="${DEVICE_LINK#/dev/}", GROUP="dialout", MODE="0660"
+#
+# TAG+="systemd" plus SYSTEMD_WANTS start the receiver when the board is plugged in
+# after boot. BindsTo= alone only ties the unit's lifetime downwards: it stops the service
+# when the device goes away, and never starts it when the device appears. Without
+# this, a glove plugged in after boot leaves the unit dead on a failed device
+# dependency until someone starts it by hand.
+SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*", ATTRS{idVendor}=="$USB_VENDOR", ATTRS{idProduct}=="$USB_PRODUCT"$match_port, SYMLINK+="${DEVICE_LINK#/dev/}", GROUP="dialout", MODE="0660", TAG+="systemd", ENV{SYSTEMD_WANTS}="fm-tactile.service"
 EOF
 
   # 2. brltty grabs any CH340 as a Braille display within a second of plug-in, before
