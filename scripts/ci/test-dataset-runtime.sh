@@ -64,6 +64,9 @@ fi
 FM_PROCESSOR_RUNTIME=container
 # shellcheck disable=SC2329  # invoked by the library, which resolves it as a command
 docker() {
+  if [ -n "${FM_ARCHIVE_UPLOADER_ENVFILE:-}" ]; then
+    [ "${FM_ARCHIVE_UPLOADER_ENV_FILE:-}" = "$FM_ARCHIVE_UPLOADER_ENVFILE" ] || return 9
+  fi
   printf '%s\n' "$*"
   return "${FM_TEST_DOCKER_EXIT:-0}"
 }

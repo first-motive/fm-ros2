@@ -53,6 +53,7 @@ data_archive() {
 
 storage_status() (
   local json="$1" state_dir rc=0 payload
+  export FM_ARCHIVE_UPLOADER_ENV_FILE="$UPLOADER_ENV"
   # The uploader writes private ledgers in this runtime. Reading them on the
   # host can fail when the container owns them; keep their permissions intact.
   # shellcheck source=../internal/lib-processor.sh disable=SC1091
