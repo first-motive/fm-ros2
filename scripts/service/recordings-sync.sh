@@ -158,6 +158,15 @@ main() {
     if [ -n "$rhost" ]; then ssh -o BatchMode=yes "$rhost" "$*"; else bash -c "$*"; fi
   }
 
+  # Every later read swallows its own failure so an empty index reads as "no
+  # takes yet". An unreachable or unauthorized recorder must not hide behind
+  # that wording — it did, for a whole first deployment — so it is asked once,
+  # up front, and named.
+  if [ -n "$rhost" ] && ! ssh -o BatchMode=yes -o ConnectTimeout=15 "$rhost" true 2>/dev/null; then
+    echo "cannot reach $rhost over key-auth ssh — install this host's public key on the recorder" >&2
+    return 1
+  fi
+
   # Busy gate: a take in progress writes constantly — never compete with it.
   if [ -n "$(_run "find $rpath -mmin -$QUIET_MIN -type f 2>/dev/null | head -1")" ]; then
     item "recorder busy (recent writes at source) — skipping this tick"
