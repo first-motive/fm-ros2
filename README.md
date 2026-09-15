@@ -292,12 +292,21 @@ idempotent install:
 
 ```bash
 fm archive status
+fm archive status --storage --json
 fm archive preflight --json
 fm archive reconcile --dry-run
 fm archive install --dry-run
 fm archive --host <processor-ssh-alias> list --json
 fm archive --host <processor-ssh-alias> preflight --json
+fm archive --host <processor-ssh-alias> status --storage --json
 ```
+
+`status` reports service and policy state. `status --storage` reads the raw and
+derived uploader ledgers through the installed processor runtime. Use this route
+when container-owned ledgers are private to the service account. It requires the
+configured uploader state directory and an available runtime; it does not start
+a container or change file permissions. The lower-level `fm data-archive status`
+reads files as the current host account and can refuse protected service state.
 
 The bucket's own verbs (`list`, `catalogue`, `adopt`, `verify`, `restore`) are
 owned by the data package at `src/fm_data` and reached as `fm data-archive <verb>`; `fm archive <verb>`
