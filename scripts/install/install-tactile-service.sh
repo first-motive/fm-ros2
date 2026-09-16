@@ -343,7 +343,11 @@ do_install() {  # side
   item "enabling + starting fm-tactile@$side.service ..."
   sudo systemctl daemon-reload
   sudo systemctl enable "fm-tactile@$side.service"
-  sudo systemctl restart "fm-tactile@$side.service"
+  # With the board unplugged the device unit does not exist, so the restart's
+  # dependency job fails. That is the normal state on an appliance converge with
+  # the glove off the rig; the udev rule starts the instance at plug-in.
+  sudo systemctl restart "fm-tactile@$side.service" 2>/dev/null || \
+    item "  /dev/fm-tactile-$side is not present — fm-tactile@$side starts when the glove is plugged in"
 
   cat <<EOF
 

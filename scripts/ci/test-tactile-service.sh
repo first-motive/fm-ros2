@@ -15,9 +15,12 @@ cat > "$TMP_DIR/bin/sudo" <<'EOF'
 [ "$1" = -u ] && shift 2
 exec "$@"
 EOF
+# `restart` fails like the real one does when the glove's device unit is absent.
 cat > "$TMP_DIR/bin/systemctl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FM_TEST_SYSTEMCTL_LOG"
+[ "$1" = restart ] && [ "${FM_TEST_DEVICE_ABSENT:-0}" = 1 ] && exit 1
+exit 0
 EOF
 cat > "$TMP_DIR/bin/udevadm" <<'EOF'
 #!/usr/bin/env bash
@@ -104,7 +107,10 @@ run uninstall
 [ ! -e "$unit" ]
 [ ! -e "$TMP_DIR/etc/udev/99-fm-tactile-left.rules" ]
 
-# 5. A side that is not a hand is refused.
+# 5. Installing with the glove unplugged is not a failure: the rule starts it at plug-in.
+FM_TEST_DEVICE_ABSENT=1 run install left
+
+# 6. A side that is not a hand is refused.
 if run install middle 2>/dev/null; then
   echo "install must refuse an unknown side" >&2
   exit 1
