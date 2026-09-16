@@ -99,6 +99,11 @@ jobs:
       - name: recorder RealSense udev rule install
         run: bash scripts/ci/test-recorder-udev-rules.sh
 
+      # One receiver instance per hand: the rule, config and unit each side gets,
+      # the legacy single-glove migration, and converge without clobbering.
+      - name: tactile glove receiver install
+        run: bash scripts/ci/test-tactile-service.sh
+
       # The manifests decide what lands under src/, and a kebab checkout path
       # there is a workspace colcon refuses to build. This holds the tracked
       # manifests to the snake spelling and proves the guard that reads the

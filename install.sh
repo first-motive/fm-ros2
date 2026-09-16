@@ -267,7 +267,7 @@ do_uninstall() {  # dry no_desktop no_ai purge
     ./scripts/install/install-recorder-service.sh uninstall || true
   fi
   if [[ "$(uname -s)" == Linux && -x scripts/install/install-tactile-service.sh ]]; then
-    item "removing the tactile glove receiver (fm-tactile.service), if present ..."
+    item "removing the tactile glove receivers (fm-tactile@<side>.service), if present ..."
     ./scripts/install/install-tactile-service.sh uninstall || true
   fi
   if [[ "$(uname -s)" == Linux && -x scripts/install/install-processor-service.sh ]]; then

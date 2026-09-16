@@ -86,22 +86,26 @@ sudo systemctl restart fm-recorder
 ## 4. Plug the Sensors, Reboot
 
 Power off. Plug the RealSense into a USB 3 port, the two wrist cameras, and
-the glove's ESP32 into the port it will keep. Power on — the stack boots
+each glove's ESP32 into the port it will keep. Power on — the stack boots
 armed + idle, and keeps retrying anything not yet present, so plugging after
 installing is fine.
 
-Glove check (the one sensor with a port-pinned udev rule):
+Glove check (the one sensor with a port-pinned udev rule; one rule per hand):
 
 ```bash
-ls -l /dev/fm-tactile-left
+ls -l /dev/fm-tactile-left /dev/fm-tactile-right
+systemctl is-active fm-tactile@left fm-tactile@right
 ```
 
-Missing? The installer ran before the board was plugged, so the rule has no
-port pin yet. Re-run it with the board in place — it detects the CH340's port
-and pins it:
+Missing? The installer ran before that board was plugged, so its rule has no
+port pin yet. Re-run it for that hand with the board in place — it detects the
+CH340's port and pins it. The default install carries only the left hand; add
+the right the same way. The hand is decided by the board's firmware
+(`usb_tactile_glove.ino` is left, `usb_tactile_glove_right.ino` is right), so a
+right board on the left port streams nothing:
 
 ```bash
-cd ~/jetson/fm_ros2 && ./scripts/install/install-tactile-service.sh
+cd ~/jetson/fm_ros2 && ./scripts/install/install-tactile-service.sh install right
 ```
 
 ## 5. Find It in the App
@@ -234,8 +238,11 @@ but two need awareness:
 - **Wrist cameras at half rate**: dim light halves their fps — it is exposure,
   not USB bandwidth.
 - **Glove silent, board healthy**: the port pin no longer matches (the cable
-  moved) — re-run `install-tactile-service.sh` with the board plugged. A
-  charge-only USB cable gives total silence with no kernel log at all.
+  moved) — re-run `install-tactile-service.sh install <side>` with the board
+  plugged. A charge-only USB cable gives total silence with no kernel log at
+  all. A service that is active with no topic means the firmware is not that
+  hand's production sketch: `sudo systemctl stop fm-tactile@<side>`, read the
+  port for a few seconds, and expect `HELLO 1 glove_<side> …` lines.
 - **Stream not reaching the Mac**: boot-time interface auto-detection picked
   the wrong IP — pin `FM_LAN_IP=<lan-ip>` in `/etc/fm-recorder.env`.
 - **Tracker trouble on arm64**: `FM_RECORDER_TRACKER=off` keeps RGB-D + IMU

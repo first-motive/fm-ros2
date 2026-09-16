@@ -126,16 +126,19 @@ FM_BRIDGE_PORT=8766 FM_INSTALL_FOXGLOVE_SERVICE=1 \
   ./install.sh --recorder --service
 ```
 
-The tactile glove is a USB-tethered ESP32 reading five FSRs, published on
-`/glove_left/tactile` at 40 Hz and recorded into every episode. Its ESP32 must
-stay in one physical USB port: the CH340 adapter reports no serial number, so
-the stable `/dev/fm-tactile-left` name is pinned to the port. The installer
+The tactile gloves are USB-tethered ESP32s reading five FSRs each, published on
+`/glove_left/tactile` and `/glove_right/tactile` at 40 Hz and recorded into
+every episode. A glove's firmware decides its hand (`usb_tactile_glove.ino` is
+left, `usb_tactile_glove_right.ino` is right) and a receiver for one hand
+refuses the other. Each hand runs as its own `fm-tactile@<side>.service`
+instance, installed with `install-tactile-service.sh install <side>`. Its ESP32
+must stay in one physical USB port: the CH340 adapter reports no serial number,
+so the stable `/dev/fm-tactile-<side>` name is pinned to the port. The installer
 detects the port from the plugged-in board (set `FM_TACTILE_USB_PORT` to name
 it explicitly); with no board plugged it writes a vendor-only rule and the pin
-is added by re-running `install-tactile-service.sh` once the glove sits in its
-permanent port. The installer also masks `brltty-udev.service`, which
-otherwise claims the adapter as a Braille display before the receiver can open
-it.
+is added by re-running `install <side>` once the glove sits in its permanent
+port. The installer also masks `brltty-udev.service`, which otherwise claims
+the adapter as a Braille display before the receiver can open it.
 
 **Data processor (Linux)** — the dataset engine, the annotation tooling
 (`annotation_run` / `annotation_verify`), the isolated Python 3.12 release
