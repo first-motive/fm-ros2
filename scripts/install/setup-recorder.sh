@@ -279,17 +279,19 @@ if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   # under `set -e` from the auto-updater, and the update TIMER is installed last.
   # So any service install that fails here stops the timer being reinstalled and
   # silently ends convergence — the appliance keeps looking healthy while merged
-  # work never arrives. Observed on fmtower 2026-08-11: a host running the
-  # templated fm-tactile@left / fm-tactile@right instances fails to start the
-  # single-glove fm-tactile.service (the instances already hold the device), and
-  # that one failure had been blocking every update.
+  # work never arrives. Observed on fmtower 2026-08-11: a hand-made templated
+  # install on that host fought the single-glove unit this script used to write,
+  # and that one failure had been blocking every update.
+  #
+  # With no side named the installer converges every hand this host already
+  # carries (left on a fresh host); a second hand is added once by
+  # `install-tactile-service.sh install <side>` and kept from then on.
   #
   # A receiver that will not install is worth a loud warning, not a dead
   # appliance. The already-running instances keep streaming either way.
-  item "installing the tactile glove receiver (fm-tactile.service) ..."
+  item "installing the tactile glove receivers (fm-tactile@<side>.service) ..."
   ./scripts/install/install-tactile-service.sh || \
-    item "WARNING: tactile receiver failed to install — check whether this host \
-runs the fm-tactile@<side> instances instead; convergence continues"
+    item "WARNING: tactile receiver failed to install — convergence continues"
   # The rig monitors get their OWN units, not entries in the recorder launch: a
   # monitor composed into egocentric_record.launch.py shares the recorder's fate,
   # and on 2026-08-11 exactly that took capture down to add health monitoring.
