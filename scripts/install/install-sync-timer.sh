@@ -82,11 +82,11 @@ EOF
 
   sudo tee "$TIMER" >/dev/null <<EOF
 [Unit]
-Description=Run fm-sync every 5 minutes
+Description=Run fm-sync every minute
 
 [Timer]
 OnBootSec=3min
-OnUnitActiveSec=5min
+OnUnitActiveSec=1min
 RandomizedDelaySec=30
 
 [Install]
