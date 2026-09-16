@@ -56,12 +56,13 @@ LEGACY_UNIT="$UNIT_DIR/fm-tactile.service"
 # carries no serial number — but the right port differs per host (3-1 on the first
 # tower, something else on a Jetson), so there is no baked default. Resolution order:
 #   1. FM_TACTILE_USB_PORT (explicit) — always wins.
-#   2. The pin this side's rule already carries, so a converge run keeps it.
-#   3. Exactly one CH340 tty plugged in that no OTHER side's rule already pins — its
-#      port is derived and pinned.
-#   4. Nothing plugged in — the rule matches vendor/product only (fine while the
-#      glove is this host's only CH340); re-run with the board in its permanent
-#      port to pin it, mandatory before a second glove ever shares the host.
+#   2. Exactly one CH340 tty plugged in that no OTHER side's rule already pins — its
+#      port is derived and pinned, so a moved board re-pins on re-run.
+#   3. The pin this side's rule already carries, so a converge with the board
+#      unplugged keeps it.
+#   4. Nothing plugged in and no pin yet — the rule matches vendor/product only
+#      (fine while the glove is this host's only CH340); re-run with the board in
+#      its permanent port to pin it, mandatory before a second glove shares the host.
 USB_PORT="${FM_TACTILE_USB_PORT:-}"
 # CH340 (QinHeng) vendor/product — the adapter on the production glove board.
 USB_VENDOR="${FM_TACTILE_USB_VENDOR:-1a86}"
@@ -270,24 +271,23 @@ _resolve_port() {  # side  -> echoes the port to pin, or nothing
     echo "$USB_PORT"
     return 0
   fi
-  # A pin this side already holds survives a converge run with the board unplugged:
-  # forgetting it would widen the rule back to any CH340 on the next update tick.
-  local kept
-  kept="$(sed -n 's/.*KERNELS=="\([^"]*\)".*/\1/p' "$RULES_DIR/99-fm-tactile-$1.rules" 2>/dev/null || true)"
-  if [ -n "$kept" ]; then
-    echo "$kept"
-    return 0
-  fi
   local -a found=() free=()
-  local p taken
+  local p taken kept
   while IFS= read -r p; do [ -n "$p" ] && found+=("$p"); done < <(_ch340_ports)
   taken="$(_pinned_ports_except "$1")"
   for p in "${found[@]+"${found[@]}"}"; do
     grep -qx "$p" <<<"$taken" || free+=("$p")
   done
+  # A pin this side already holds survives a converge run with the board unplugged:
+  # forgetting it would widen the rule back to any CH340 on the next update tick. A
+  # board plugged in right now outranks it, so moving the glove and re-running
+  # `install <side>` follows the board to its new port.
+  kept="$(sed -n 's/.*KERNELS=="\([^"]*\)".*/\1/p' "$RULES_DIR/99-fm-tactile-$1.rules" 2>/dev/null || true)"
   if [ "${#free[@]}" = 1 ]; then
     item "detected the $1 glove's CH340 on USB port ${free[0]} — pinning the rule to it" >&2
     echo "${free[0]}"
+  elif [ "${#free[@]}" = 0 ] && [ -n "$kept" ]; then
+    echo "$kept"
   elif [ "${#free[@]}" = 0 ]; then
     item "no unpinned CH340 plugged in — writing a vendor/product-only rule for $1 (no port pin)." >&2
     item "  Once the glove sits in its permanent port, re-run to pin it:" >&2
