@@ -106,17 +106,21 @@ lidar="$(sudo -n sed -n 's/^FM_RECORDER_LIDAR=//p' /etc/fm-recorder.env 2>/dev/n
 if [ "$lidar" = on ]; then report lidar warn "expected (FM_RECORDER_LIDAR=on) — see the stream check"
 else report lidar skip "not fitted yet"; fi
 
-# Bus-powered budget: what hangs off each external hub, against one port's 500 mA.
+# Bus-powered budget: what hangs off a hub that draws from one upstream port, against
+# that port's 500 mA. A self-powered hub (bmAttributes bit 6) has its own supply — the
+# Jetson carrier's built-in hub behind its four sockets is one, and warning about it
+# was a false alarm (fm-rec-01, 2026-09-17).
 for hub in /sys/bus/usb/devices/*; do
   [ "$(cat "$hub/bDeviceClass" 2>/dev/null)" = 09 ] || continue
   case "$(basename "$hub")" in usb*) continue ;; esac
   [ "$(cat "$hub/speed")" = 480 ] || continue
+  (( 0x$(cat "$hub/bmAttributes" 2>/dev/null || echo 40) & 0x40 )) && continue
   draw=0
   for child in "$hub"/"$(basename "$hub")".*; do
     [ -f "$child/bMaxPower" ] || continue
     draw=$(( draw + $(tr -dc 0-9 < "$child/bMaxPower") ))
   done
-  [ "$draw" -gt 500 ] && report "usb power $(basename "$hub")" warn "${draw} mA requested through one USB 2 port (budget 500) — use a powered hub"
+  [ "$draw" -gt 500 ] && report "usb power $(basename "$hub")" warn "${draw} mA requested through a bus-powered hub (budget 500) — use a powered hub"
 done
 
 wedged="$(journalctl -k --since -10min --no-pager -o cat 2>/dev/null | grep -cE 'failed to (send|receive) control message: -110|urb stopped')"
