@@ -95,8 +95,13 @@ do_install() {
   sudo tee "$UNIT" >/dev/null <<EOF
 [Unit]
 Description=First Motive egocentric recorder (camera + tracker + recorder)
-After=network-online.target
-Wants=network-online.target
+# A Jetson has no clock battery: it boots in 1970 and NTP steps the clock about a
+# minute later. Started before that, every node stamps 1970 (fm-rec-01 wrote its
+# whole day's health log to watchdog-19700101.jsonl, 2026-09-17). time-sync.target
+# holds the unit until the clock is set; the bounded drop-in below keeps a rig with
+# no network from waiting for ever.
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
 # Never permanently give up: an appliance that boots before the camera is plugged in
 # should keep retrying rather than land in a failed state.
 StartLimitIntervalSec=0
@@ -145,6 +150,14 @@ EOF
   fi
 
   item "enabling + starting fm-recorder.service ..."
+  # time-sync.target only waits for a real sync when this unit is enabled. It has no
+  # timeout of its own, so give it one: ordering (After=) holds for a failed wait too,
+  # so an offline rig starts recording after 90 s with the clock it has.
+  sudo install -d /etc/systemd/system/systemd-time-wait-sync.service.d
+  printf '[Service]\nTimeoutStartSec=90\n' \
+    | sudo tee /etc/systemd/system/systemd-time-wait-sync.service.d/fm-bounded.conf >/dev/null
+  sudo systemctl enable systemd-time-wait-sync.service 2>/dev/null \
+    || item "  systemd-time-wait-sync is not available here — units start without waiting for the clock"
   sudo systemctl daemon-reload
   sudo systemctl enable fm-recorder.service
   sudo systemctl restart fm-recorder.service

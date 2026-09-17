@@ -143,6 +143,9 @@ _write_unit() {
   sudo tee "$UNIT" >/dev/null <<EOF
 [Unit]
 Description=First Motive tactile glove receiver (%i hand, ESP32, 5-channel, 40 Hz)
+# The receiver fits the glove's clock to the host's; a fit started in 1970 is wrong.
+After=time-sync.target
+Wants=time-sync.target
 StartLimitIntervalSec=0
 
 [Service]

@@ -54,8 +54,8 @@ _write_unit() {
 	sudo tee "$unit" >/dev/null <<EOF
 [Unit]
 Description=$description
-After=network-online.target
-Wants=network-online.target
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
 # ORDER after the recorder, but do not DEPEND on it. After= only sequences startup;
 # Requires=/BindsTo= would couple fate, and a monitor must be able to run, fail and
 # restart without touching capture (an absent recorder is itself a finding the
