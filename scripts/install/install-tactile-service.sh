@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install-tactile-service.sh — install (or remove) the systemd unit that runs one
-# five-channel tactile-glove receiver per hand, plus the udev rule that gives each
-# ESP32 a stable device name.
+# five-channel tactile-glove receiver per hand, plus the udev rule that names every
+# glove board so the receivers can find them.
 #
 # A glove is an ESP32 reading five FSRs, tethered to the recorder host by USB. Its
 # firmware burns in which hand it is (usb_tactile_glove.ino says glove_left,
@@ -17,11 +17,12 @@
 # Three things here are not obvious and are load-bearing:
 #
 #   1. The CH340 USB-serial adapter reports no factory serial number, so udev cannot
-#      identify one board from another by identity alone. Each side's rule therefore
-#      also matches the physical port path (FM_TACTILE_USB_PORT). Keep each board in
-#      its port, or set the variable to the port you use. A side installed with no
-#      board plugged gets a vendor-only rule that matches ANY CH340 — fine while it is
-#      the host's only glove, wrong the moment a second one arrives.
+#      tell one board from another — but the board can: its HELLO names its hand. The
+#      rule therefore gives EVERY glove board the shared name /dev/fm-tactile-glove-*,
+#      both receivers read that pattern, and each claims the board announcing its own
+#      hand (fm-tactile >= v0.1.1). Any socket, any cable, any hub. This replaced
+#      per-port pins, which went stale with a cable change (2026-09-17) and crossed
+#      silently when two plugs were swapped (2026-09-16).
 #   2. brltty claims any CH340 as a Braille display before a serial reader can open
 #      it. Its udev unit is masked here. The brltty package itself is left installed.
 #   3. Nothing else may hold the port. An Arduino Serial Monitor or a stray `screen`
@@ -51,54 +52,12 @@ OVERLAY="${FM_TACTILE_OVERLAY:-$ROOT/src/external/fm_tactile}"
 UNIT="$UNIT_DIR/fm-tactile@.service"
 LEGACY_UNIT="$UNIT_DIR/fm-tactile.service"
 
-# Physical USB port the ESP32 lives on, as udev's KERNELS attribute (`udevadm info -a
-# -n /dev/ttyUSB0 | grep KERNELS` on the host reports it). Needed because the CH340
-# carries no serial number — but the right port differs per host (3-1 on the first
-# tower, something else on a Jetson), so there is no baked default. Resolution order:
-#   1. FM_TACTILE_USB_PORT (explicit) — always wins.
-#   2. Exactly one CH340 tty plugged in that no OTHER side's rule already pins — its
-#      port is derived and pinned, so a moved board re-pins on re-run.
-#   3. The pin this side's rule already carries, so a converge with the board
-#      unplugged keeps it.
-#   4. Nothing plugged in and no pin yet — the rule matches vendor/product only
-#      (fine while the glove is this host's only CH340); re-run with the board in
-#      its permanent port to pin it, mandatory before a second glove shares the host.
-USB_PORT="${FM_TACTILE_USB_PORT:-}"
 # CH340 (QinHeng) vendor/product — the adapter on the production glove board.
 USB_VENDOR="${FM_TACTILE_USB_VENDOR:-1a86}"
 USB_PRODUCT="${FM_TACTILE_USB_PRODUCT:-7523}"
-
-# Print the KERNELS-style USB port (e.g. 3-1, 1-2.4) of every CH340 tty present:
-# walk each ttyUSB device's sysfs chain up past the interface (the `:`-suffixed
-# dir) to the USB device node, whose basename is exactly what KERNELS matches.
-_ch340_ports() {
-  local dev p base
-  for dev in /dev/ttyUSB*; do
-    [ -e "$dev" ] || continue
-    p="$(udevadm info -q property -n "$dev" 2>/dev/null)" || continue
-    grep -q "^ID_VENDOR_ID=$USB_VENDOR$" <<<"$p" || continue
-    grep -q "^ID_MODEL_ID=$USB_PRODUCT$" <<<"$p" || continue
-    p="$(readlink -f "/sys/class/tty/${dev#/dev/}/device")"
-    while [ -n "$p" ] && [ "$p" != / ]; do
-      base="$(basename "$p")"
-      case "$base" in
-        *:*) ;;
-        [0-9]*-*) echo "$base"; break ;;
-      esac
-      p="$(dirname "$p")"
-    done
-  done
-}
-
-# Ports already pinned by the rules of every side except the one being installed.
-_pinned_ports_except() {  # side
-  local f
-  for f in "$RULES_DIR"/99-fm-tactile-*.rules; do
-    [ -e "$f" ] || continue
-    [ "$f" = "$RULES_DIR/99-fm-tactile-$1.rules" ] && continue
-    sed -n 's/.*KERNELS=="\([^"]*\)".*/\1/p' "$f"
-  done
-}
+# The name every glove board gets, and the pattern both receivers read.
+GLOVE_LINK="fm-tactile-glove"
+GLOVE_PATTERN="/dev/$GLOVE_LINK-*"
 
 # Sides this host already carries, read back from the rule files it wrote — the
 # machine state is the record, so a converge run needs no env to know what to keep.
@@ -130,10 +89,6 @@ install-tactile-service.sh — install/remove the fm-tactile glove receivers (Li
   -h, --help         show this help
 
 Environment:
-  FM_TACTILE_USB_PORT      physical USB port for this side's ESP32 (udev KERNELS).
-                           Unset: auto-detected from a plugged-in CH340 no other
-                           side pins; with none plugged, the rule matches
-                           vendor/product only
   FM_TACTILE_USB_VENDOR    USB idVendor,  default 1a86 (CH340)
   FM_TACTILE_USB_PRODUCT   USB idProduct, default 7523 (CH340)
 
@@ -141,8 +96,8 @@ Each side publishes /glove_<side>/tactile at 40 Hz and writes a CSV audit log to
 ~/recordings/tactile-raw/glove_<side>. Tune it via
 ~/.config/fm-tactile/receiver-<side>.yaml, then: sudo systemctl restart fm-tactile@<side>.
 The glove's firmware decides its side: flash usb_tactile_glove.ino for the left hand
-and usb_tactile_glove_right.ino for the right — a board on the wrong side's port
-streams nothing.
+and usb_tactile_glove_right.ino for the right. Plug a glove into any USB socket — its
+receiver finds it by the hand it announces.
 EOF
 }
 
@@ -181,15 +136,13 @@ _retire_legacy_unit() {
 }
 
 _write_unit() {
-  # BindsTo/After the device unit ties each instance's lifetime to its USB link, so a
-  # replug restarts it cleanly instead of leaving it spinning on a dead handle. %i is
-  # the side; systemd escapes the dashes in the device unit name, hence \x2d.
+  # The instance runs from boot and outlives any one USB link: with no port to bind
+  # to, the receiver itself walks the glove pattern once a second and reconnects, so a
+  # replug, a new cable, or a different socket needs no unit restart. %i is the side.
   item "writing $UNIT (User=$SERVICE_USER, workspace=$ROOT) ..."
   sudo tee "$UNIT" >/dev/null <<EOF
 [Unit]
 Description=First Motive tactile glove receiver (%i hand, ESP32, 5-channel, 40 Hz)
-After=dev-fm\x2dtactile\x2d%i.device
-BindsTo=dev-fm\x2dtactile\x2d%i.device
 StartLimitIntervalSec=0
 
 [Service]
@@ -199,7 +152,7 @@ Group=$SERVICE_USER
 Environment=HOME=$SERVICE_HOME
 WorkingDirectory=$ROOT
 ExecStart=/bin/bash -lc 'source /opt/ros/humble/setup.bash && source $ROOT/install/setup.bash && source $ROOT/scripts/env/comms.sh && exec ros2 launch fm_tactile_bridge receiver.launch.py config:=$CONFIG_DIR/receiver-%i.yaml node_name:=tactile_receiver_%i'
-Restart=on-failure
+Restart=always
 RestartSec=2
 TimeoutStopSec=10
 
@@ -208,27 +161,18 @@ WantedBy=multi-user.target
 EOF
 }
 
-_write_rule() {  # side port
-  local side="$1" port="$2" match_port="" rule="$RULES_DIR/99-fm-tactile-$1.rules"
-  [ -n "$port" ] && match_port=", KERNELS==\"$port\""
-  item "writing $rule (ESP32 ${port:+on USB port $port }-> /dev/fm-tactile-$side) ..."
+_write_rule() {  # side
+  local side="$1" rule="$RULES_DIR/99-fm-tactile-$1.rules"
+  item "writing $rule (every glove board -> $GLOVE_PATTERN) ..."
   sudo tee "$rule" >/dev/null <<EOF
-# First Motive tactile glove ($side hand) — stable name for the ESP32's USB-serial adapter.
+# First Motive tactile glove ($side hand) — names every glove board for the receivers.
 #
-# The CH340 on this board reports no factory USB serial number, so identity alone
-# cannot tell two boards apart. The installer therefore pins the physical port the
-# board is kept in when it can (a plugged-in board, or FM_TACTILE_USB_PORT); a
-# rule with no KERNELS pin was written with no board present and matches any
-# CH340 — fine for a single-glove host, but re-run the installer with the board
-# in its permanent port before a second CH340 device ever shares this host.
-# Moving the board to another port needs this rule regenerated the same way.
-#
-# TAG+="systemd" plus SYSTEMD_WANTS start the receiver when the board is plugged in
-# after boot. BindsTo= alone only ties the unit's lifetime downwards: it stops the service
-# when the device goes away, and never starts it when the device appears. Without
-# this, a glove plugged in after boot leaves the unit dead on a failed device
-# dependency until someone starts it by hand.
-SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*", ATTRS{idVendor}=="$USB_VENDOR", ATTRS{idProduct}=="$USB_PRODUCT"$match_port, SYMLINK+="fm-tactile-$side", GROUP="dialout", MODE="0660", TAG+="systemd", ENV{SYSTEMD_WANTS}="fm-tactile@$side.service"
+# The CH340 on this board reports no factory USB serial number, so udev cannot tell
+# two boards apart and this rule does not try: it matches ANY glove board and gives it
+# the shared name $GLOVE_LINK-<tty>. The $side receiver reads that pattern and
+# claims the board whose HELLO announces glove_$side. One file per installed hand is
+# this host's record of which sides it carries; the match is the same in each.
+SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*", ATTRS{idVendor}=="$USB_VENDOR", ATTRS{idProduct}=="$USB_PRODUCT", SYMLINK+="$GLOVE_LINK-%k", GROUP="dialout", MODE="0660"
 EOF
 }
 
@@ -237,7 +181,16 @@ _write_config() {  # side
   # Owner-only: the Wi-Fi transport variant carries a token path. The /**: key lets
   # the one file serve whichever node name the unit passes.
   local side="$1" file="$CONFIG_DIR/receiver-$1.yaml"
-  [ -f "$file" ] && return 0
+  if [ -f "$file" ]; then
+    # A tuned config is kept; only the pinned device path it may still carry moves
+    # to the pattern, or the receiver would wait on a name no rule creates any more.
+    if grep -q "serial_device: \"/dev/fm-tactile-$side\"" "$file"; then
+      item "pointing $file at $GLOVE_PATTERN (was a pinned port name) ..."
+      sudo sed -i.bak "s|serial_device: \"/dev/fm-tactile-$side\"|serial_device: \"$GLOVE_PATTERN\"|" "$file"
+      sudo rm -f "$file.bak"
+    fi
+    return 0
+  fi
   item "writing $file (receiver config — edit, then restart the instance) ..."
   sudo -u "$SERVICE_USER" install -d -m 0700 "$CONFIG_DIR"
   sudo -u "$SERVICE_USER" tee "$file" >/dev/null <<EOF
@@ -247,7 +200,8 @@ _write_config() {  # side
     # "serial" for the USB-tethered board; "tcp" for the Wi-Fi variant (which also
     # needs bind_address, port, and a token_file readable only by this user).
     transport: "serial"
-    serial_device: "/dev/fm-tactile-$side"
+    # A pattern, not a port: the receiver claims the board announcing glove_$side.
+    serial_device: "$GLOVE_PATTERN"
     serial_baud: 115200
     device_id: "glove_$side"
     topic: "/glove_$side/tactile"
@@ -266,46 +220,19 @@ EOF
   sudo chown "$SERVICE_USER" "$file"
 }
 
-_resolve_port() {  # side  -> echoes the port to pin, or nothing
-  if [ -n "$USB_PORT" ]; then
-    echo "$USB_PORT"
-    return 0
-  fi
-  local -a found=() free=()
-  local p taken kept
-  while IFS= read -r p; do [ -n "$p" ] && found+=("$p"); done < <(_ch340_ports)
-  taken="$(_pinned_ports_except "$1")"
-  for p in "${found[@]+"${found[@]}"}"; do
-    grep -qx "$p" <<<"$taken" || free+=("$p")
-  done
-  # A pin this side already holds survives a converge run with the board unplugged:
-  # forgetting it would widen the rule back to any CH340 on the next update tick. A
-  # board plugged in right now outranks it, so moving the glove and re-running
-  # `install <side>` follows the board to its new port.
-  kept="$(sed -n 's/.*KERNELS=="\([^"]*\)".*/\1/p' "$RULES_DIR/99-fm-tactile-$1.rules" 2>/dev/null || true)"
-  if [ "${#free[@]}" = 1 ]; then
-    item "detected the $1 glove's CH340 on USB port ${free[0]} — pinning the rule to it" >&2
-    echo "${free[0]}"
-  elif [ "${#free[@]}" = 0 ] && [ -n "$kept" ]; then
-    echo "$kept"
-  elif [ "${#free[@]}" = 0 ]; then
-    item "no unpinned CH340 plugged in — writing a vendor/product-only rule for $1 (no port pin)." >&2
-    item "  Once the glove sits in its permanent port, re-run to pin it:" >&2
-    item "  ./scripts/install/install-tactile-service.sh install $1" >&2
-  else
-    echo "ERROR: ${#free[@]} unpinned CH340 devices present (${free[*]}) — cannot tell which is" >&2
-    echo "       the $1 glove. Re-run with the port named explicitly, e.g.:" >&2
-    echo "       FM_TACTILE_USB_PORT=${free[0]} ./scripts/install/install-tactile-service.sh install $1" >&2
-    return 1
-  fi
-}
-
 do_install() {  # side
-  local side="$1" port
+  local side="$1"
   _require_linux_systemd || return 0
   if [ ! -d "$OVERLAY/ros2_ws/src/fm_tactile_bridge" ]; then
     echo "WARNING: the tactile overlay is not checked out at $OVERLAY — skipping." >&2
     echo "         Run ./install.sh --recorder first (it clones and builds it)." >&2
+    return 0
+  fi
+  # Finding a glove by its HELLO lives in the receiver. An overlay that predates it
+  # cannot read a pattern, so this host's working pinned install is left alone.
+  if ! grep -q "def discovering" "$OVERLAY/ros2_ws/src/fm_tactile_bridge/fm_tactile_bridge/receiver.py" 2>/dev/null; then
+    echo "WARNING: the tactile overlay at $OVERLAY predates glove discovery (needs" >&2
+    echo "         fm-tactile >= v0.1.1) — leaving the existing receiver install as it is." >&2
     return 0
   fi
 
@@ -320,11 +247,8 @@ do_install() {  # side
 
   _retire_legacy_unit
 
-  # 1. Stable device name. Without it the board lands on whichever /dev/ttyUSB* is
-  #    free at boot and the unit points at the wrong device (or a modem, or nothing).
-  #    A wrong baked-in port is the known silent-glove-death trap when the host changes.
-  port="$(_resolve_port "$side")"
-  _write_rule "$side" "$port"
+  # 1. Name every glove board. The receiver, not the socket, decides whose it is.
+  _write_rule "$side"
 
   # 2. brltty grabs any CH340 as a Braille display within a second of plug-in, before
   #    the receiver can open the port. Masking its udev unit is the documented fix and
@@ -343,29 +267,19 @@ do_install() {  # side
   item "enabling + starting fm-tactile@$side.service ..."
   sudo systemctl daemon-reload
   sudo systemctl enable "fm-tactile@$side.service"
-  # With the board unplugged the device unit does not exist, so the restart's
-  # dependency job fails. That is the normal state on an appliance converge with
-  # the glove off the rig; the udev rule starts the instance at plug-in.
-  sudo systemctl restart "fm-tactile@$side.service" 2>/dev/null || \
-    item "  /dev/fm-tactile-$side is not present — fm-tactile@$side starts when the glove is plugged in"
+  sudo systemctl restart "fm-tactile@$side.service"
 
   cat <<EOF
 
 fm-tactile@$side.service installed and started — it now comes up on every boot.
 
   status:  systemctl is-active fm-tactile@$side   |  journalctl -u fm-tactile@$side -f
-  device:  ls -l /dev/fm-tactile-$side             (re-plug the ESP32 if this is missing)
+  device:  ls -l $GLOVE_PATTERN          (one per plugged-in glove, either hand)
   stream:  ros2 topic hz /glove_$side/tactile      (expect 38-42 Hz)
   config:  sudo nano $CONFIG_DIR/receiver-$side.yaml  (then: sudo systemctl restart fm-tactile@$side)
 
-$(if [ -n "$port" ]; then
-  echo "Keep the $side ESP32 in USB port $port — the CH340 has no serial number, so the stable"
-  echo "device name depends on it. Do not open a serial monitor while the service is running."
-else
-  echo "No port pin yet (no board was plugged in) — once the $side glove sits in its permanent"
-  echo "port, re-run 'install $side' to pin it. Do not open a serial monitor while the"
-  echo "service is running."
-fi)
+Plug the $side glove into any USB socket: the receiver finds it by the hand its
+firmware announces. Do not open a serial monitor while the service is running.
 EOF
 }
 
