@@ -162,9 +162,19 @@ main() {
   # takes yet". An unreachable or unauthorized recorder must not hide behind
   # that wording — it did, for a whole first deployment — so it is asked once,
   # up front, and named.
-  if [ -n "$rhost" ] && ! ssh -o BatchMode=yes -o ConnectTimeout=15 "$rhost" true 2>/dev/null; then
-    echo "cannot reach $rhost over key-auth ssh — install this host's public key on the recorder" >&2
-    return 1
+  # A recorder that is switched off is not a fault: rigs are powered down to cool
+  # and overnight, and at one tick a minute a failing unit wrote 759 failures in a
+  # day while blaming a key that was fine (fm-ws-01, 2026-09-17). Only a refusal
+  # from a host that answered is the operator's problem.
+  local probe_err=""
+  if [ -n "$rhost" ] && ! probe_err="$(ssh -o BatchMode=yes -o ConnectTimeout=15 "$rhost" true 2>&1)"; then
+    case "$probe_err" in
+      *"Permission denied"*|*"Host key verification failed"*)
+        echo "$rhost refused key-auth ssh — install this host's public key on the recorder" >&2
+        return 1 ;;
+    esac
+    item "recorder $rhost unreachable (powered off?) — skipping this tick"
+    return 0
   fi
 
   # Busy gate: a take in progress writes constantly — never compete with it.
