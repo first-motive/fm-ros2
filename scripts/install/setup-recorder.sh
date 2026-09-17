@@ -18,7 +18,7 @@ cd "$ROOT"
 MEDIAPIPE_VERSION="0.10.14"
 # Pinned ref for the tactile-glove overlay (fm_tactile_msgs + fm_tactile_bridge).
 # Override with FM_TACTILE_REF to test a branch before it is tagged.
-TACTILE_REF="${FM_TACTILE_REF:-v0.1.0}"
+TACTILE_REF="${FM_TACTILE_REF:-v0.1.1}"
 # Snake-case checkout dir, matching src/fm_data and the external/ vendored sources:
 # the kebab repo slug is private and is never written into the tree in plaintext.
 TACTILE_DIR="src/external/fm_tactile"
@@ -122,6 +122,17 @@ if [ ! -d "$TACTILE_DIR/.git" ]; then
     echo "       that the ref exists, then re-run." >&2
     exit 1
   }
+elif [ "$(git -C "$TACTILE_DIR" describe --tags --exact-match 2>/dev/null || true)" != "$TACTILE_REF" ]; then
+  # The clone above runs once, so a rig kept the receiver it was first given when the
+  # pin moved (fm-rec-01 sat on v0.1.0). Follow the pin, but only a clean checkout:
+  # local work on a bench rig is somebody's, and a failed fetch keeps what runs today.
+  if [ -z "$(git -C "$TACTILE_DIR" status --porcelain)" ] \
+    && git -C "$TACTILE_DIR" fetch --depth 1 origin "$TACTILE_REF" 2>/dev/null \
+    && git -C "$TACTILE_DIR" checkout -q FETCH_HEAD; then
+    item "moved the tactile glove overlay to $TACTILE_REF"
+  else
+    item "WARNING: could not move the tactile glove overlay to $TACTILE_REF — keeping $(git -C "$TACTILE_DIR" describe --tags --always 2>/dev/null)"
+  fi
 fi
 
 # 4d. Appliance release channel (--service): pin the role repos to their newest

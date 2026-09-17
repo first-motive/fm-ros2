@@ -27,7 +27,10 @@
     },
     "archive": {
       "script": "scripts/run/archive.sh",
-      "healthcheck": ["preflight", "--json"],
+      "healthcheck": [
+        "preflight",
+        "--json"
+      ],
       "help": "inspect, preflight, reconcile, or install archive services"
     },
     "teleop": {
@@ -45,6 +48,10 @@
     "view-robot": {
       "script": "scripts/run/view-robot.sh",
       "help": "render a robot urdf in foxglove studio"
+    },
+    "rig-health": {
+      "script": "scripts/run/rig-health.sh",
+      "help": "pass/fail check of every recording fixture, stream, unit and link on a rig (--host <rig>)"
     }
   }
 }
