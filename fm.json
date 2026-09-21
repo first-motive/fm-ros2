@@ -17,6 +17,15 @@
       "script": "scripts/run/dataset.sh",
       "help": "manage catalog membership or process and verify recorded episodes",
       "operations": {
+        "dataset.catalog.show": {
+          "owner": "fm-data",
+          "target": "processor",
+          "inputs": {"dataset_id": "catalog dataset identity"},
+          "effect": "read",
+          "confirmation": "none",
+          "result": "catalog_schema_version 1 detail with exact dataset_id and request_id",
+          "availability": "processor must echo request_id on dataset detail; refusals use status"
+        },
         "dataset.catalog.move": {
           "owner": "fm-data",
           "target": "processor",

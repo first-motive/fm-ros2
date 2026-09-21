@@ -190,6 +190,21 @@ assert dataset["command_topic"] == "/process/datasets/move"
 assert dataset["result_topic"] == "/process/datasets/status"
 assert dataset["request"]["options"] == {"destination_dataset_id": "training", "episode_ids": ["take-1"]}
 assert preview("dataset", "list")["request"] is None
+detail = preview("dataset", "show", "--dataset-id", "training")
+assert detail["command_topic"] == "/process/datasets/select"
+assert detail["result_topic"] == "/process/datasets/detail"
+assert detail["request"]["operation"] == "select"
+assert detail["request"]["dataset_id"] == "training"
+assert match({"dataset_id": "training", "request_id": "old"}, "new",
+             detail_target="training", detail_key="dataset_id") is None
+assert match({"dataset_id": "other", "request_id": "new"}, "new",
+             detail_target="training", detail_key="dataset_id") is None
+assert match({"dataset_id": "training", "request_id": "new", "episode_ids": ["take-1"]}, "new",
+             detail_target="training", detail_key="dataset_id")["episode_ids"] == ["take-1"]
+assert match({"refusal": {"request_id": "new", "issue_code": "dataset_not_found"}}, "new",
+             detail_target="missing", detail_key="dataset_id")["issue_code"] == "dataset_not_found"
+assert match({"refusal": {"request_id": "old", "issue_code": "dataset_not_found"}}, "new",
+             detail_target="missing", detail_key="dataset_id") is None
 profile = preview("profile", "inspect", "--profile-id", "pick-place", "--profile-version", "v1")
 assert profile["command_topic"] == "/process/task_profiles/request"
 assert profile["result_topic"] == "/process/task_profiles/result"

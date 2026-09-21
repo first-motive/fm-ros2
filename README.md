@@ -21,6 +21,7 @@ fm project create --host RECORDER --name "Cup sorting" --description "Studio tak
 fm project assign --host RECORDER --project-id PROJECT --episode-id EPISODE
 fm dataset catalog create --host PROCESSOR --dataset-id cups --name "Cup sorting"
 fm dataset catalog add --host PROCESSOR --dataset-id cups --episode EPISODE
+fm dataset catalog show --host PROCESSOR --dataset-id cups --json
 fm process profiles list --host PROCESSOR --json
 fm process profiles inspect --host PROCESSOR --profile-id PROFILE --profile-version VERSION --json
 fm process profiles validate --host PROCESSOR --request-stdin --json < request.json
@@ -40,6 +41,11 @@ and Ctrl-C do not cancel remote work. Inspect the request before retrying.
 `--dry-run` prints the topics and request without sending it. Project deletion
 requires `--confirm`; it removes the project and membership, not recordings.
 An unavailable selected host never falls back to the local catalogue.
+
+`dataset catalog show` reads current membership, revision, compatibility and
+per-episode readiness. It requires a processor that echoes the request ID in
+dataset detail replies. Missing datasets return the exact refusal from the
+status topic; they do not replace another client's selected detail.
 
 Prepare pinned annotation weights on the selected processor with
 `fm process provision start --model qwen3.5-9b --host PROCESSOR --json`.

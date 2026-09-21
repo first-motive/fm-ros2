@@ -126,11 +126,15 @@ def request_for(args, parser):
             options["episode_ids"] = args.episode
         if args.destination is not None:
             options["destination_dataset_id"] = args.destination
+        if args.action == "show":
+            if options:
+                parser.error("dataset show does not accept write options")
+            request["operation"] = "select"
         request.update(catalog_schema_version=1, dataset_id=args.dataset_id, options=options)
     return request
 
 
-def correlated_result(value, expected_id, *, detail_target=None, inspect_release=False, provision=False):
+def correlated_result(value, expected_id, *, detail_target=None, detail_key="target_id", inspect_release=False, provision=False):
     """Read only the requested outcome; retained evidence must not acknowledge a new write."""
     if not isinstance(value, dict):
         return None
@@ -145,8 +149,13 @@ def correlated_result(value, expected_id, *, detail_target=None, inspect_release
             return None
         return {**snapshot, "ok": snapshot.get("state") != "failed"}
     if detail_target is not None:
-        return value if (value.get("target_id") == detail_target
-                         and value.get("request_id") == expected_id) else None
+        if value.get(detail_key) == detail_target and value.get("request_id") == expected_id:
+            return value
+        refusal = value.get("refusal")
+        if (detail_key == "dataset_id" and isinstance(refusal, dict)
+                and refusal.get("request_id") == expected_id and refusal.get("issue_code")):
+            return refusal
+        return None
     if expected_id is None:
         return value
     candidates = [value, value.get("last"), value.get("refusal")]
@@ -169,7 +178,7 @@ def main():
                "Result lookup reads the service's retained last result; missing history is not success.",
     )
     parser.add_argument("domain", choices=["project", "dataset", "profile", "release", "provision"])
-    parser.add_argument("action", help="project: list/create/rename/describe/delete/assign/unassign/result; dataset: list/status/create/rename/add/remove/move/result; profile: " + "/".join(PROFILE_ACTIONS) + "; release: " + "/".join(sorted(RELEASE_ACTIONS)))
+    parser.add_argument("action", help="project: list/create/rename/describe/delete/assign/unassign/result; dataset: list/show/status/create/rename/add/remove/move/result; profile: " + "/".join(PROFILE_ACTIONS) + "; release: " + "/".join(sorted(RELEASE_ACTIONS)))
     parser.add_argument("--model", choices=["qwen2.5-vl-7b", "qwen3.5-9b"])
     parser.add_argument("--name")
     parser.add_argument("--description")
@@ -195,7 +204,7 @@ def main():
     parser.add_argument("--timeout", type=float, default=20)
     args = parser.parse_args()
     actions = ({"list", "create", "rename", "describe", "delete", "assign", "unassign", "result"}
-               if args.domain == "project" else {"list", "status", "create", "rename", "add", "remove", "move", "result"})
+               if args.domain == "project" else {"list", "show", "status", "create", "rename", "add", "remove", "move", "result"})
     if args.domain == "profile":
         actions = set(PROFILE_ACTIONS)
     if args.domain == "release":
@@ -237,6 +246,9 @@ def main():
     root = "/projects" if args.domain == "project" else "/process/datasets"
     command_topic = root + ("/command" if args.domain == "project" else "/" + args.action)
     result_topic = root + ("/result" if args.domain == "project" else "/status")
+    if args.domain == "dataset" and args.action == "show":
+        command_topic = root + "/select"
+        result_topic = root + "/detail"
     if args.domain == "profile":
         command_topic = "/process/task_profiles/request"
         result_topic = "/process/task_profiles/result"
@@ -271,7 +283,9 @@ def main():
             return
         matched = correlated_result(
             value, expected_id,
-            detail_target=args.target if args.domain == "release" and args.action == "show" else None,
+            detail_target=(args.target if args.domain == "release" else args.dataset_id)
+            if args.action == "show" else None,
+            detail_key="dataset_id" if args.domain == "dataset" else "target_id",
             inspect_release=args.domain == "release" and args.action == "result",
             provision=args.domain == "provision",
         )
@@ -281,6 +295,10 @@ def main():
     qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE,
                      durability=DurabilityPolicy.TRANSIENT_LOCAL)
     subscription = node.create_subscription(String, result_topic, receive, qos)
+    refusal_subscription = (
+        node.create_subscription(String, root + "/status", receive, qos)
+        if args.domain == "dataset" and args.action == "show" else None
+    )
     try:
         deadline = time.monotonic() + args.timeout
         if request is not None:
@@ -306,6 +324,8 @@ def main():
         return 130
     finally:
         node.destroy_subscription(subscription)
+        if refusal_subscription is not None:
+            node.destroy_subscription(refusal_subscription)
         node.destroy_node()
         rclpy.shutdown()
 
