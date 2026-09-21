@@ -11,7 +11,18 @@
     },
     "episode": {
       "script": "scripts/run/episode.sh",
-      "help": "record an episode against the running stack, end one, list them"
+      "help": "inspect a recorder catalogue, record an episode, end one, or list local takes",
+      "operations": {
+        "capture.catalog.show": {
+          "owner": "fm-ros2",
+          "target": "recorder or processor",
+          "inputs": {"episode_id": "recorded session identity"},
+          "effect": "read",
+          "confirmation": "none",
+          "result": "capture detail with exact session and request_id",
+          "availability": "capture browser must accept contract_version 1 selection and echo request_id"
+        }
+      }
     },
     "dataset": {
       "script": "scripts/run/dataset.sh",

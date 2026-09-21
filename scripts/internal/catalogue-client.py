@@ -1,4 +1,4 @@
-"""Project, dataset, profile, model preparation and release requests over their existing ROS topics."""
+"""Capture, project, dataset, profile, model preparation and release requests over their existing ROS topics."""
 
 import argparse
 import json
@@ -96,6 +96,15 @@ def profile_request(args, parser):
 
 def request_for(args, parser):
     """Build inputs only; the selected service owns validation and catalogue changes."""
+    if args.domain == "capture":
+        if args.action != "show":
+            if args.episode_id:
+                parser.error("--episode-id requires capture show")
+            return None
+        if not args.episode_id or not args.episode_id.strip() or len(args.episode_id) > 200:
+            parser.error("capture show requires --episode-id of at most 200 characters")
+        return {"contract_version": 1, "request_id": str(uuid.uuid4()),
+                "episode_id": args.episode_id}
     if args.domain == "provision":
         if args.action != "start":
             if args.model:
@@ -177,8 +186,8 @@ def main():
         epilog="Use --host SSH_ALIAS through fm to select a remote recorder or processor. "
                "Result lookup reads the service's retained last result; missing history is not success.",
     )
-    parser.add_argument("domain", choices=["project", "dataset", "profile", "release", "provision"])
-    parser.add_argument("action", help="project: list/create/rename/describe/delete/assign/unassign/result; dataset: list/show/status/create/rename/add/remove/move/result; profile: " + "/".join(PROFILE_ACTIONS) + "; release: " + "/".join(sorted(RELEASE_ACTIONS)))
+    parser.add_argument("domain", choices=["capture", "project", "dataset", "profile", "release", "provision"])
+    parser.add_argument("action", help="capture: list/show/status; project: list/create/rename/describe/delete/assign/unassign/result; dataset: list/show/status/create/rename/add/remove/move/result; profile: " + "/".join(PROFILE_ACTIONS) + "; release: " + "/".join(sorted(RELEASE_ACTIONS)))
     parser.add_argument("--model", choices=["qwen2.5-vl-7b", "qwen3.5-9b"])
     parser.add_argument("--name")
     parser.add_argument("--description")
@@ -205,6 +214,8 @@ def main():
     args = parser.parse_args()
     actions = ({"list", "create", "rename", "describe", "delete", "assign", "unassign", "result"}
                if args.domain == "project" else {"list", "show", "status", "create", "rename", "add", "remove", "move", "result"})
+    if args.domain == "capture":
+        actions = {"list", "show", "status"}
     if args.domain == "profile":
         actions = set(PROFILE_ACTIONS)
     if args.domain == "release":
@@ -242,6 +253,9 @@ def main():
     if args.domain == "provision" and any((args.name, args.description, args.project_id,
             args.episode_id, args.dataset_id, args.episode, args.destination, args.confirm)):
         parser.error("catalogue options cannot be used for model preparation")
+    if args.domain == "capture" and any((args.name, args.description, args.project_id,
+            args.dataset_id, args.episode, args.destination, args.confirm)):
+        parser.error("capture inspection does not accept write options")
     request = request_for(args, parser)
     root = "/projects" if args.domain == "project" else "/process/datasets"
     command_topic = root + ("/command" if args.domain == "project" else "/" + args.action)
@@ -258,6 +272,10 @@ def main():
         result_topic = root + ("/detail" if args.action == "show" else "/status")
     if request is None and args.action != "result":
         result_topic = root + ("/index" if args.action == "list" else "/status")
+    if args.domain == "capture":
+        command_topic = "/capture/select"
+        result_topic = {"list": "/capture/index", "show": "/capture/detail",
+                        "status": "/fm_data_record/recorder_status"}[args.action]
     if args.domain == "provision":
         command_topic = "/process/provision"
         result_topic = "/process/status"
@@ -283,9 +301,10 @@ def main():
             return
         matched = correlated_result(
             value, expected_id,
-            detail_target=(args.target if args.domain == "release" else args.dataset_id)
+            detail_target=({"release": args.target, "dataset": args.dataset_id,
+                           "capture": args.episode_id}.get(args.domain))
             if args.action == "show" else None,
-            detail_key="dataset_id" if args.domain == "dataset" else "target_id",
+            detail_key={"dataset": "dataset_id", "capture": "session"}.get(args.domain, "target_id"),
             inspect_release=args.domain == "release" and args.action == "result",
             provision=args.domain == "provision",
         )
@@ -314,11 +333,18 @@ def main():
         while result is None and time.monotonic() < deadline:
             rclpy.spin_once(node, timeout_sec=0.1)
         if result is None:
-            print("No result. Inspect the same request before retrying; the outcome is unknown."
-                  if request else "No catalogue received.", file=sys.stderr)
+            if args.domain == "capture":
+                print({
+                    "list": "No capture index received from the selected host.",
+                    "status": "No recorder status received from the selected host.",
+                    "show": "No correlated recording detail received. Check the selected host and capture browser request-ID support.",
+                }[args.action], file=sys.stderr)
+            else:
+                print("No result. Inspect the same request before retrying; the outcome is unknown."
+                      if request else "No catalogue received.", file=sys.stderr)
             return 3
         print(json.dumps(result, indent=None if args.json else 2, sort_keys=True))
-        return 3 if result.get("ok") is False or result.get("issue_code") else 0
+        return 3 if result.get("ok") is False or result.get("issue_code") or result.get("error") else 0
     except KeyboardInterrupt:
         print("Stopped waiting. Remote work was not cancelled.", file=sys.stderr)
         return 130

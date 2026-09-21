@@ -31,6 +31,7 @@ main() {
     esac
   done
   local remote_command="exec fm $domain"
+  [[ "$domain" != capture ]] || remote_command="exec fm episode catalog"
   [[ "$domain" != dataset ]] || remote_command+=" catalog"
   [[ "$domain" != profile ]] || remote_command="exec fm process profiles"
   [[ "$domain" != provision ]] || remote_command="exec fm process provision"
@@ -48,7 +49,7 @@ main() {
     exec uv run --no-project python "$root/scripts/internal/catalogue-client.py" "$domain" "${forwarded[@]}"
   fi
   cd "$root"
-  if [[ "$domain" == project && ! -f "${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}" ]]; then
+  if [[ "$domain" == project || "$domain" == capture ]] && [[ ! -f "${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}" ]]; then
     if [[ ! -f /etc/fm-recorder.env || ! -f /opt/ros/humble/setup.bash || ! -f "$root/install/setup.bash" ]]; then
       echo "error: this host has no supported recorder or processor runtime" >&2
       return 1

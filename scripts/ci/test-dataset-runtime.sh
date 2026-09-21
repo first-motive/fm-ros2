@@ -160,6 +160,7 @@ if [[ "$fails" -gt 0 ]]; then
 fi
 uv run --no-project python - <<'PY' || exit 1
 import json
+import os
 import subprocess
 import runpy
 
@@ -179,6 +180,28 @@ def preview(domain, *args):
          domain, *args, "--dry-run"], capture_output=True, text=True, check=True,
     )
     return json.loads(result.stdout)
+
+capture_cli = subprocess.run(
+    ["bash", "scripts/run/episode.sh", "catalog", "show", "--episode-id", "take-1",
+     "--dry-run", "--json"], env={**os.environ, "FM_TRANSPORT": "none"},
+    capture_output=True, text=True, check=True,
+)
+assert json.loads(capture_cli.stdout)["request"]["episode_id"] == "take-1"
+assert "comms:" not in capture_cli.stdout
+
+capture = preview("capture", "show", "--episode-id", "take-1")
+assert capture["command_topic"] == "/capture/select"
+assert capture["result_topic"] == "/capture/detail"
+assert capture["request"]["episode_id"] == "take-1"
+assert capture["request"]["request_id"]
+assert preview("capture", "list")["result_topic"] == "/capture/index"
+assert preview("capture", "status")["result_topic"] == "/fm_data_record/recorder_status"
+assert match({"session": "take-1", "request_id": "old"}, "new",
+             detail_target="take-1", detail_key="session") is None
+assert match({"session": "take-2", "request_id": "new"}, "new",
+             detail_target="take-1", detail_key="session") is None
+assert match({"session": "take-1", "request_id": "new", "error": "not found"}, "new",
+             detail_target="take-1", detail_key="session")["error"] == "not found"
 
 project = preview("project", "create", "--name", "Cup \"sort\"", "--description", "Two\nlines")
 assert project["command_topic"] == "/projects/command"

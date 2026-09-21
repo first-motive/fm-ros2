@@ -575,3 +575,19 @@ Ten jobs per push and PR; each reproduces locally with the exact CI command
 
 Maintained by First Motive, a Ubundi subsidiary, under the `first-motive` org.
 Licensed under Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+
+### Inspect a recorder catalogue
+
+`fm episode catalog list --host HOST --json` reads the selected host's capture
+index. `show --episode-id ID` reads that exact episode's metadata and any
+recorded thumbnails the browser provides. `status` reads recorder status;
+a processor without a recorder can serve catalogue details but cannot supply
+live recorder status. No command starts a recorder or changes an episode.
+
+These commands use the existing recorder/processor transport. An explicit
+unavailable host never falls back to a local catalogue. `show` needs a capture
+browser that echoes request identity; it accepts only matching session and
+request IDs. A missing episode returns its exact error with exit 3. Use
+`--dry-run` to inspect the request and `--timeout SECONDS` to bound waiting
+(default 20 seconds). Ctrl-C stops waiting only.

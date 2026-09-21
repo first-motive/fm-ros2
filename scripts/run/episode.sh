@@ -19,7 +19,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 # shellcheck source=scripts/internal/lib-stack.sh
-source scripts/internal/lib-stack.sh
+source scripts/internal/lib-stack.sh >&2
 
 MARKER_TOPIC=/fm_data_record/episode_marker
 STATUS_TOPIC=/fm_data_record/recorder_status
@@ -31,8 +31,9 @@ usage() {
   cat <<'EOF'
 episode.sh — record an episode against the running stack
 
-Usage: ./scripts/run/episode.sh <record|stop|list> [options]
+Usage: ./scripts/run/episode.sh <catalog|record|stop|list> [options]
 
+  catalog   list/show/status from the selected recorder or processor (--host HOST)
   record    start a take, hold for --duration, end it, wait for the bag
   stop      end the take in flight (no duration, no wait)
   list      print the recorded episode index
@@ -102,6 +103,10 @@ wait_for_episode() {
 }
 
 main() {
+  if [[ "${1:-}" == catalog ]]; then
+    shift
+    exec bash scripts/internal/catalogue.sh capture "$@"
+  fi
   # shellcheck disable=SC2088  # deliberate: the recorder expands ~ itself, and a
   # shell on the far side of fm_stack_exec gets it via fm_stack_remote_path.
   local action="" duration=10 task_id=fm-loop-demo output_dir='~/recordings'
