@@ -100,6 +100,15 @@ if grep -q 'KERNELS==' "$rule"; then echo "converge must drop a legacy port pin"
 grep -q 'serial_device: "/dev/fm-tactile-glove-\*"' "$cfg/receiver-right.yaml"
 grep -q 'ack_interval_frames: 4' "$cfg/receiver-right.yaml"
 
+# 3a'. A config migrated from the single-glove install is keyed to the old fixed node
+#      name, which matches no tactile_receiver_<side> node; converge rekeys it to /**:
+#      and keeps the tuned values.
+printf 'tactile_receiver:\n  ros__parameters:\n    transport: "serial"\n    ack_interval_frames: 4\n' > "$cfg/receiver-left.yaml"
+run
+grep -qx '/\*\*:' "$cfg/receiver-left.yaml"
+if grep -q '^tactile_receiver:' "$cfg/receiver-left.yaml"; then echo "converge must rekey the single-glove node name" >&2; exit 1; fi
+grep -q 'ack_interval_frames: 4' "$cfg/receiver-left.yaml"
+
 # 3b. A stray rule whose name is not a hand is skipped, not installed.
 : > "$TMP_DIR/etc/udev/99-fm-tactile-bogus.rules"
 : > "$log"
