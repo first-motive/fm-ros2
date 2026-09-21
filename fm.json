@@ -18,7 +18,7 @@
       "help": "manage catalog membership or process and verify recorded episodes",
       "operations": {
         "dataset.catalog.show": {
-          "owner": "fm-data",
+          "owner": "fm-ros2",
           "target": "processor",
           "inputs": {"dataset_id": "catalog dataset identity"},
           "effect": "read",
@@ -27,7 +27,7 @@
           "availability": "processor must echo request_id on dataset detail; refusals use status"
         },
         "dataset.catalog.move": {
-          "owner": "fm-data",
+          "owner": "fm-ros2",
           "target": "processor",
           "inputs": {"dataset_id": "source catalog dataset", "destination": "destination catalog dataset", "episode": "repeatable episode identity"},
           "effect": "membership write",
@@ -46,7 +46,7 @@
       "help": "inspect processing, prepare models, manage profiles, and queue annotation",
       "operations": {
         "process.provision": {
-          "owner": "fm-data",
+          "owner": "fm-ros2",
           "target": "processor",
           "inputs": {"model": "qwen2.5-vl-7b (default) or qwen3.5-9b"},
           "effect": "download and verify pinned model weights",

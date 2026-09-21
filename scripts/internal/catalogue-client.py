@@ -95,7 +95,7 @@ def profile_request(args, parser):
 
 
 def request_for(args, parser):
-    """Build inputs only; fm-data owns validation and all catalogue changes."""
+    """Build inputs only; the selected service owns validation and catalogue changes."""
     if args.domain == "provision":
         if args.action != "start":
             if args.model:
