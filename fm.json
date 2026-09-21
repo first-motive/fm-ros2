@@ -15,15 +15,41 @@
     },
     "dataset": {
       "script": "scripts/run/dataset.sh",
-      "help": "process recorded episodes into a manifest, and verify it"
+      "help": "manage catalog membership or process and verify recorded episodes",
+      "operations": {
+        "dataset.catalog.move": {
+          "owner": "fm-data",
+          "target": "processor",
+          "inputs": {"dataset_id": "source catalog dataset", "destination": "destination catalog dataset", "episode": "repeatable episode identity"},
+          "effect": "membership write",
+          "confirmation": "explicit source, destination, and episode selection",
+          "result": "catalog_schema_version 1 status with exact request_id",
+          "availability": "selected processor must serve /process/datasets/*"
+        }
+      }
+    },
+    "project": {
+      "script": "scripts/run/project.sh",
+      "help": "list, create, rename, describe, delete, assign, or unassign projects (--host HOST)"
     },
     "process": {
       "script": "scripts/run/process.sh",
-      "help": "inspect the process supervisor and queue processing or annotation"
+      "help": "inspect processing, prepare models, manage profiles, and queue annotation",
+      "operations": {
+        "process.provision": {
+          "owner": "fm-data",
+          "target": "processor",
+          "inputs": {"model": "qwen2.5-vl-7b (default) or qwen3.5-9b"},
+          "effect": "download and verify pinned model weights",
+          "confirmation": "explicit model and processor selection; execution has separate approval",
+          "result": "provision state and exact request_id on /process/status",
+          "availability": "processor must configure provision_script and retain request_id"
+        }
+      }
     },
     "dataset-release": {
       "script": "scripts/run/release.sh",
-      "help": "inspect release candidates and packs, and verify a pack"
+      "help": "export, approve, build, verify, publish and deliver dataset releases on the processor"
     },
     "archive": {
       "script": "scripts/run/archive.sh",

@@ -108,6 +108,20 @@ else
 fi
 unset -f docker
 
+printf 'ROS_DOMAIN_ID=7\nFM_TRANSPORT=none\nIGNORED=value\n' >"$WORK/fm-processor.env"
+got="$(bash -s -- "$WORK/fm-processor.env" <<'SH'
+eval "$(sed '/^main /d' scripts/internal/catalogue.sh)"
+recorder_environment "$1"
+source scripts/env/comms.sh >&2
+printf '%s:%s:%s' "$ROS_DOMAIN_ID" "$FM_COMMS_PROFILE" "${IGNORED:-unset}"
+SH
+)"
+if [[ "$got" == "7:none:unset" ]]; then
+  pass "catalogue transport matches the recorder domain without importing unrelated settings"
+else
+  fail "catalogue transport differs from the recorder environment: $got"
+fi
+
 echo "== the verb itself routes, not only the library =="
 # The checks above exercise the library. This one exercises dataset.sh, so a
 # regression that stops calling the wrapper is caught where it happens.
@@ -144,4 +158,90 @@ if [[ "$fails" -gt 0 ]]; then
   echo "$fails check(s) failed"
   exit 1
 fi
+uv run --no-project python - <<'PY' || exit 1
+import json
+import subprocess
+import runpy
+
+match = runpy.run_path("scripts/internal/catalogue-client.py")["correlated_result"]
+assert match({"target_id": "pack-1", "request_id": "old"}, "new", detail_target="pack-1") is None
+assert match({"target_id": "pack-2", "request_id": "new"}, "new", detail_target="pack-1") is None
+assert match({"target_id": "pack-1", "request_id": "new", "evidence": "fresh"}, "new",
+             detail_target="pack-1")["evidence"] == "fresh"
+assert match({"current": {"request_id": "new", "target_id": "pack-1"}}, "new",
+             inspect_release=True)["state"] == "running"
+assert match({"queue": [{"request_id": "new", "target_id": "pack-1"}]}, "new",
+             inspect_release=True)["state"] == "queued"
+
+def preview(domain, *args):
+    result = subprocess.run(
+        ["uv", "run", "--no-project", "python", "scripts/internal/catalogue-client.py",
+         domain, *args, "--dry-run"], capture_output=True, text=True, check=True,
+    )
+    return json.loads(result.stdout)
+
+project = preview("project", "create", "--name", "Cup \"sort\"", "--description", "Two\nlines")
+assert project["command_topic"] == "/projects/command"
+assert project["request"]["name"] == 'Cup "sort"'
+assert project["request"]["description"] == "Two\nlines"
+assert project["request"]["request_id"]
+dataset = preview("dataset", "move", "--dataset-id", "source", "--destination", "training", "--episode", "take-1")
+assert dataset["command_topic"] == "/process/datasets/move"
+assert dataset["result_topic"] == "/process/datasets/status"
+assert dataset["request"]["options"] == {"destination_dataset_id": "training", "episode_ids": ["take-1"]}
+assert preview("dataset", "list")["request"] is None
+profile = preview("profile", "inspect", "--profile-id", "pick-place", "--profile-version", "v1")
+assert profile["command_topic"] == "/process/task_profiles/request"
+assert profile["result_topic"] == "/process/task_profiles/result"
+assert profile["request"]["operation"] == "inspect_profile"
+assert profile["request"]["profile_id"] == "pick-place"
+profile_save = subprocess.run(
+    ["uv", "run", "--no-project", "python", "scripts/internal/catalogue-client.py",
+     "profile", "save", "--request-stdin", "--dry-run"],
+    input=json.dumps({"profile": {"instruction": "Pick \"this\"\nthen place"}, "request_id": "old"}),
+    capture_output=True, text=True, check=True,
+)
+saved = json.loads(profile_save.stdout)["request"]
+assert saved["profile"]["instruction"] == 'Pick "this"\nthen place'
+assert saved["request_id"] != "old"
+assert saved["operation"] == "save_profile"
+refused = subprocess.run(
+    ["uv", "run", "--no-project", "python", "scripts/internal/catalogue-client.py",
+     "profile", "decide", "--dry-run"], capture_output=True, text=True,
+)
+assert refused.returncode == 2 and "requires --confirm" in refused.stderr
+release = preview("release", "export", "candidate-1", "--episode", "take-1", "--episode", "take-2")
+assert release["command_topic"] == "/release/export"
+assert release["result_topic"] == "/release/status"
+assert release["request"]["options"] == {"episode_ids": ["take-1", "take-2"]}
+assert preview("release", "result", "--request-id", "original")["request"] is None
+assert preview("release", "verify", "pack-1", "--strict")["request"]["options"] == {"strict": True}
+approval = {"candidate_inventory_sha256": "a" * 64, "review": {"reference": "human-review"}}
+approved = subprocess.run(
+    ["uv", "run", "--no-project", "python", "scripts/internal/catalogue-client.py",
+     "release", "approve", "candidate-1", "--request-stdin", "--confirm", "--dry-run"],
+    input=json.dumps(approval), capture_output=True, text=True, check=True,
+)
+assert json.loads(approved.stdout)["request"]["options"] == {"approval": approval}
+refused = subprocess.run(
+    ["uv", "run", "--no-project", "python", "scripts/internal/catalogue-client.py",
+     "release", "publish", "pack-1", "--confirmation-identity", "publish-1", "--dry-run"],
+    capture_output=True, text=True,
+)
+assert refused.returncode == 2 and "human --confirm" in refused.stderr
+prepared = preview("provision", "start", "--model", "qwen3.5-9b")
+assert prepared["command_topic"] == "/process/provision"
+assert prepared["result_topic"] == "/process/status"
+assert prepared["request"]["model"] == "qwen3.5-9b"
+assert prepared["request"]["request_id"]
+assert preview("provision", "result", "--request-id", "prepare-1")["request"] is None
+import runpy
+match = runpy.run_path("scripts/internal/catalogue-client.py")["correlated_result"]
+preparation = {"provision": {"state": "running", "request_id": "prepare-1"}}
+assert match(preparation, "other", provision=True) is None
+assert match(preparation, "prepare-1", provision=True)["state"] == "running"
+assert match({"request_id": "prepare-1", "request_error": "busy"}, "prepare-1", provision=True)["ok"] is False
+assert match({"provision": {"state": "failed", "request_id": "prepare-1"}}, "prepare-1", provision=True)["ok"] is False
+
+PY
 echo "dataset runtime: all checks passed"

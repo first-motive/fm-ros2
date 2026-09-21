@@ -29,3 +29,13 @@ check, or the next machine catches it — usually all three.
   interpreter the shell happens to have, which is why "works on my machine"
   reports are almost always this.
 <!-- fm-render:end agents-invariants -->
+
+## ROS Runtime Interpreter
+
+ROS transport clients inside an already provisioned Humble runtime use
+`/usr/bin/python3` after sourcing `/opt/ros/humble/setup.bash`. The binary
+`rclpy` extension belongs to that distro interpreter; a managed Python with a
+different ABI cannot load it. Existing runtime images do not require `uv`.
+This exception is limited to transport clients executed through the recorder
+or processor runtime. Host development, dry runs, tests and dependency work
+continue to use `uv`.

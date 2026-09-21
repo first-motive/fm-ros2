@@ -33,12 +33,16 @@ Usage: ./scripts/run/process.sh <status|list|show|inspect|run|annotate|real-anno
   inspect <episode>     alias for show
   run <episode>...      queue dataset processing for those episodes
   annotate <episode>... queue fake-adapter annotation for those episodes
+  provision start --model MODEL  prepare pinned weights on the processor (returns accepted/running, not completion)
+  provision status               inspect model preparation on the selected processor
+  provision result --request-id ID  inspect the same request without resubmission
   real-annotate <episode>... queue an approved real-model attempt
   retry <episode>...    queue a real-model retry with a new request identity
   review                 submit one bundle-bound review JSON (from --request or stdin)
   wait <request-id>      observe one submitted request until terminal status
   cloud-start            request one scoped cloud lane start through S3 lifecycle
   cloud-cancel           request cancellation for one exact cloud lane request
+  profiles ACTION        use this processor's task-profile authority (profiles --help)
   --emit                (run) emit clean RLDS as well as the manifest
   --reprocess           (run) re-run an episode whose manifest already exists
   --target T            (run) force one installed processing target
@@ -174,6 +178,14 @@ _print_outcome() {
 }
 
 main() {
+  if [[ "${1:-}" == provision ]]; then
+    shift
+    exec bash scripts/internal/catalogue.sh provision "$@"
+  fi
+  if [[ "${1:-}" == profiles ]]; then
+    shift
+    exec bash scripts/internal/catalogue.sh profile "$@"
+  fi
   local host="" argument remote_command="exec fm process" quoted replacement="'\\''"
   local -a forwarded=()
   while [[ $# -gt 0 ]]; do
