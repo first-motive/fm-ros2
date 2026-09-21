@@ -192,6 +192,15 @@ _write_config() {  # side
       sudo sed -i.bak "s|serial_device: \"/dev/fm-tactile-$side\"|serial_device: \"$GLOVE_PATTERN\"|" "$file"
       sudo rm -f "$file.bak"
     fi
+    # A config migrated from the single-glove install is keyed to the old fixed node
+    # name. The unit now names the node tactile_receiver_<side> (fm-tactile >= v0.2.0
+    # honours it), so that key would match nothing and the receiver would start on
+    # defaults (tcp, no token) and crash-loop, probing every glove port each restart.
+    if grep -q '^tactile_receiver:$' "$file"; then
+      item "keying $file to /**: (was the single-glove node name) ..."
+      sudo sed -i.bak 's|^tactile_receiver:$|/**:|' "$file"
+      sudo rm -f "$file.bak"
+    fi
     return 0
   fi
   item "writing $file (receiver config — edit, then restart the instance) ..."
