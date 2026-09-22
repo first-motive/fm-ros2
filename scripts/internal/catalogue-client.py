@@ -461,6 +461,12 @@ def _special_qos():
                       durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
 
+def _special_volatile_qos():
+    from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+    return QoSProfile(depth=16, reliability=ReliabilityPolicy.RELIABLE,
+                      durability=DurabilityPolicy.VOLATILE)
+
+
 def _wait_special_publishers(node, publisher, result_topics, deadline):
     while (publisher.get_subscription_count() == 0
            or any(node.count_publishers(topic) == 0 for topic in result_topics)):
@@ -471,7 +477,8 @@ def _wait_special_publishers(node, publisher, result_topics, deadline):
     return True
 
 
-def _run_string_request(request, command_topic, result_topic, args, validator, node_name, success=None):
+def _run_string_request(request, command_topic, result_topic, args, validator, node_name,
+                        success=None, result_qos=None):
     """Publish one String request after subscriptions exist and return one exact reply."""
     import rclpy
     from std_msgs.msg import String
@@ -489,7 +496,7 @@ def _run_string_request(request, command_topic, result_topic, args, validator, n
         if matched is not None:
             state["result"] = matched
 
-    qos = _special_qos()
+    qos = result_qos or _special_qos()
     subscription = node.create_subscription(String, result_topic, receive, qos)
     publisher = node.create_publisher(String, command_topic, 10)
     deadline = time.monotonic() + args.timeout
@@ -661,6 +668,7 @@ def _run_viewer(request, args):
     return _run_string_request(
         request, "/release/huggingface/view", "/release/huggingface/viewer", args,
         lambda value: _viewer_result(value, request["request_id"]), "fm_huggingface_viewer_cli",
+        result_qos=_special_volatile_qos(),
     )
 
 
@@ -677,7 +685,6 @@ def _media_metadata_error(metadata, request):
 
 def _run_review_media(request, args):
     import rclpy
-    from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
     from sensor_msgs.msg import CompressedImage
     from std_msgs.msg import String
 
@@ -703,13 +710,15 @@ def _run_review_media(request, args):
             metadata = json.loads(message.data)
         except (TypeError, ValueError):
             return
+        if (isinstance(metadata, dict)
+                and metadata.get("request_id") == request["request_id"]
+                and (metadata.get("ok") is False or metadata.get("status") == "failed")):
+            fail(str(metadata.get("reason_code") or metadata.get("error") or "review media refused"))
+            return
         error = _media_metadata_error(metadata, request)
         if error:
             if isinstance(metadata, dict) and metadata.get("request_id") == request["request_id"]:
                 fail(error)
-            return
-        if metadata.get("ok") is False or metadata.get("status") == "failed":
-            fail(str(metadata.get("reason_code") or metadata.get("error") or "review media refused"))
             return
         index = metadata.get("sequence_index")
         total = metadata.get("sequence_total")
@@ -777,8 +786,7 @@ def _run_review_media(request, args):
             fail("review media exceeds the bounded output size")
         maybe_done()
 
-    qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE,
-                     durability=DurabilityPolicy.TRANSIENT_LOCAL)
+    qos = _special_volatile_qos()
     rclpy.init()
     node = rclpy.create_node("fm_review_media_cli")
     subscriptions = [
@@ -925,12 +933,13 @@ def _run_showcase(request, args):
         state["chunks"][index] = data
         maybe_done()
 
-    qos = _special_qos()
+    meta_qos = _special_qos()
+    chunk_qos = _special_volatile_qos()
     rclpy.init()
     node = rclpy.create_node("fm_showcase_cli")
     subscriptions = [
-        node.create_subscription(String, "/process/showcase/meta", metadata_receive, qos),
-        node.create_subscription(String, "/process/showcase/chunk", chunk_receive, qos),
+        node.create_subscription(String, "/process/showcase/meta", metadata_receive, meta_qos),
+        node.create_subscription(String, "/process/showcase/chunk", chunk_receive, chunk_qos),
     ]
     publisher = node.create_publisher(String, "/process/showcase/select", 10)
     deadline = time.monotonic() + args.timeout
