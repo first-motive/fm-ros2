@@ -11,8 +11,17 @@
     },
     "episode": {
       "script": "scripts/run/episode.sh",
-      "help": "inspect a recorder catalogue, record an episode, end one, or list local takes",
+      "help": "inspect recordings, control an exact take, or inspect and update the recorder's episode-QA policy",
       "operations": {
+        "capture.lifecycle": {
+          "owner": "fm-ros2",
+          "target": "recorder",
+          "inputs": {"action": "start, stop, submit, discard, sync, sensors, result", "episode_id": "exact take", "outcome": "explicit success, failed, or unlabeled"},
+          "effect": "capture lifecycle write; result is read-only",
+          "confirmation": "discard requires --confirm; submit requires explicit operator outcome",
+          "result": "capture result with exact request_id and episode_id",
+          "availability": "recorder must support /capture/command contract_version 1"
+        },
         "capture.catalog.show": {
           "owner": "fm-ros2",
           "target": "recorder or processor",
@@ -21,6 +30,15 @@
           "confirmation": "none",
           "result": "capture detail with exact session and request_id",
           "availability": "capture browser must accept contract_version 1 selection and echo request_id"
+        },
+        "episode.qa": {
+          "owner": "fm-ros2",
+          "target": "recorder",
+          "inputs": {"action": "show, set, result", "inputfile": "complete JSON policy for set", "request_id": "exact retained policy receipt for result"},
+          "effect": "read active policy or replace the persisted episode-QA policy",
+          "confirmation": "set requires --inputfile and --confirm; show and result are read-only",
+          "result": "command_version 1 policy state with exact last_update or retained result request_id; applied=false is accepted but deferred",
+          "availability": "recorder must publish /episode_qa/policy and serve /episode_qa/policy/set"
         }
       }
     },

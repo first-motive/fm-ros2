@@ -65,12 +65,74 @@ and the one a script can drive — the workspace mounts these verbs onto `fm`:
 |------|------|
 | `fm stack up` / `down` / `status` | the robot stack, sim by default, `--real` for hardware |
 | `fm episode record` / `stop` / `list` | a take against the running stack |
+| `fm episode capture ACTION --host HOST` | acknowledged capture lifecycle and exact request inspection on the selected recorder |
 | `fm dataset process` / `verify` | the fm_data engine over what was recorded, then graded |
 | `fm process status` / `list` / `show` / `run` / `annotate` | the processor's supervisor: its queue, each episode's state, and new work through it |
+| `fm process review-media` / `showcase` / `review-pin` | verified review frames, HTML showcase delivery, and durable review leases |
 | `fm dataset-release status` / `list` / `show` / `verify` | the release supervisor's candidates and packs, and a read-only pack verify |
+| `fm dataset-release viewer ENDPOINT` | bounded, read-only Hugging Face dataset viewer requests |
+| `fm episode qa show` / `set` / `result` | inspect or explicitly replace the rig's episode-QA policy |
 | `fm sim` | one robot in a sim backend, in the foreground |
 
 Chained, those are the whole data path: [ONBOARDING.md](ONBOARDING.md).
+
+`episode record` and `episode stop` leave the operator outcome unlabeled unless
+you supply `--outcome success` or `--outcome failed`. A timer does not establish
+that the task succeeded.
+
+For an operator-controlled take, use the recorder's acknowledged capture path:
+
+```bash
+fm episode capture start --host RECORDER --episode-id TAKE --operator-id PERSON --task-id TASK --instruction 'Move the cup'
+fm episode capture stop --host RECORDER --episode-id TAKE
+fm episode capture submit --host RECORDER --episode-id TAKE --outcome failed
+fm episode capture result --host RECORDER --request-id REQUEST
+```
+
+Start requires the selected recorder to support `/capture/command` version 1.
+Stop closes and holds that exact take. Submit records the operator's outcome.
+`discard --episode-id TAKE --confirm` deletes the held take instead. Sync uses
+`sync --sync-state synced|pending`. Sensor selection uses repeated
+`sensors --disabled-device DEVICE`; no disabled devices selects all devices.
+The recorder validates the choices. Use `--dry-run` to inspect the request.
+
+Every new command prints its request ID. A lost reply means the outcome is
+unknown. Inspect that request before making another change. Result lookup does
+not submit a command. Ctrl-C stops waiting; it does not cancel recorder work.
+Older recorders remain readable through `episode catalog list/show/status`.
+
+The processor review adapters wait for both response streams before they publish
+one request. They verify the request ID, episode identity, every image digest,
+showcase chunk count, byte count, and final SHA-256 before writing local output:
+
+```bash
+fm process review-media TAKE --annotation-bundle-sha256 BUNDLE_SHA --mode frame --topic-frame-index 0
+fm process showcase TAKE --output /tmp/TAKE.html
+fm process review-pin acquire --target-id TAKE/annotation/BUNDLE_SHA --pin-id review-1
+fm process review-pin release --target-id TAKE/annotation/BUNDLE_SHA --pin-id review-1
+```
+
+The release viewer accepts `repositories`, `splits`, `size`, `files`, `preview`,
+`rows`, and `statistics`. Its query is bounded by the owner contract; rows are
+limited to 20:
+
+```bash
+fm dataset-release viewer rows first-motive/dataset --offset 0 --length 20
+```
+
+To replace the episode-QA policy, save the complete JSON policy to a file and
+use the explicit confirmation. A replacement can be accepted with `applied:
+false` while a take is open; that is an accepted deferred result, not a
+completed application:
+
+```bash
+fm episode qa show
+fm episode qa set --inputfile policy.json --confirm
+fm episode qa result --request-id REQUEST
+```
+
+The recorder publishes each selected request's retained result. A missing or
+uncorrelated result is unknown; the command does not resubmit it.
 
 ### Path-Specific Flags
 

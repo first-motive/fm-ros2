@@ -75,6 +75,12 @@ assert_resolves "stack up defaults to mujoco" "backend=mujoco" \
   ./scripts/run/stack.sh up
 assert_resolves "episode record defaults to mujoco" "backend=mujoco" \
   ./scripts/run/episode.sh record
+assert_resolves "timed capture does not invent operator success" "outcome=unlabeled" \
+  ./scripts/run/episode.sh record
+assert_resolves "stop preserves explicit failed outcome" "outcome=failed" \
+  ./scripts/run/episode.sh stop --outcome failed
+assert_refuses "capture refuses an unknown outcome" 2 \
+  ./scripts/run/episode.sh record --outcome guessed
 assert_resolves "sim defaults to mujoco" "backend=mujoco" \
   ./scripts/run/sim.sh
 

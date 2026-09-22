@@ -26,7 +26,7 @@ source scripts/internal/lib-supervisor.sh
 usage() {
   cat <<'USAGE'
 process.sh — drive and inspect the processor's supervisor
-Usage: ./scripts/run/process.sh <status|list|show|inspect|run|annotate|real-annotate|retry|review|wait|cloud-start|cloud-cancel> [options]
+Usage: ./scripts/run/process.sh <status|list|show|inspect|run|annotate|real-annotate|retry|review|review-media|showcase|review-pin|wait|cloud-start|cloud-cancel> [options]
   status                worker state, queue, current job, last outcome, refusals
   list                  processed/annotated state of every recorded episode
   show <episode>        the selected episode's full manifest and annotation detail
@@ -39,6 +39,10 @@ Usage: ./scripts/run/process.sh <status|list|show|inspect|run|annotate|real-anno
   real-annotate <episode>... queue an approved real-model attempt
   retry <episode>...    queue a real-model retry with a new request identity
   review                 submit one bundle-bound review JSON (from --request or stdin)
+  review-media <episode> fetch verified review frames for one annotation bundle
+  showcase <episode>    fetch and verify one generated HTML showcase
+  review-pin acquire|release --target-id TARGET --pin-id ID
+                         acquire or release one durable review lease
   wait <request-id>      observe one submitted request until terminal status
   cloud-start            request one scoped cloud lane start through S3 lifecycle
   cloud-cancel           request cancellation for one exact cloud lane request
@@ -55,6 +59,18 @@ Usage: ./scripts/run/process.sh <status|list|show|inspect|run|annotate|real-anno
   --profile-sha256 SHA   (real-annotate/retry) profile content digest
   --profile-approval-sha256 SHA (real-annotate/retry) approval digest
   --request-id ID        request identity; retry always mints a new one
+  --annotation-bundle-sha256 SHA (review-media) bundle identity
+  --mode MODE            (review-media) frame, scrub, range, or contact_sheet
+  --topic-frame-index N  (review-media) frame/scrub topic frame
+  --start-frame N        (review-media range) first frame
+  --end-frame N          (review-media range) last frame
+  --playback-rate RATE   (review-media range) 0.25, 0.5, or 1.0
+  --max-fps N            (review-media) maximum output rate, 1..30
+  --output PATH          (showcase) HTML path; (review-media) output directory
+  --output-dir PATH      (review-media) output directory
+  --target-id TARGET     (review-pin) episode/annotation/bundle identity
+  --pin-id ID            (review-pin) durable lease identity
+  --dry-run              print the exact request without contacting ROS
   --request FILE         (review) read the complete request from FILE or stdin with -
   --host HOST            run the same command on an explicit processor SSH host
   --lane LANE            (cloud-start/cloud-cancel) qwen2.5 or qwen3.5
@@ -209,18 +225,22 @@ main() {
     done
     exec ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$remote_command"
   fi
-  local action="" emit=false reprocess=false target="" json=false
+  local action="" emit=false reprocess=false target="" json=false dry_run=false
   local approved_by="" model="qwen2.5-vl-7b" runtime="processor_gpu"
   local approval_policy="desktop-real-annotation-v1"
   local profile_id="" profile_version="" profile_sha256="" profile_approval_sha256=""
   local request_id="" request_id_explicit=false request_file="-"
   local lane="" profile_digest="" run_minutes=""
+  local annotation_bundle_sha256="" media_mode="" topic_frame_index="" start_frame="" end_frame=""
+  local playback_rate="" max_fps="" special_output="" special_output_dir="" target_id="" pin_id=""
   local -a episodes=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -h | --help) usage; return 0 ;;
-      status | list | show | inspect | run | annotate | real-annotate | annotate-real | retry | review | wait | cloud-start | cloud-cancel | cancel)
+      status | list | show | inspect | run | annotate | real-annotate | annotate-real | retry | review | review-media | media | showcase | review-pin | review-pin-acquire | review-pin-release | wait | cloud-start | cloud-cancel | cancel)
         action="$1"; shift ;;
+      --episode-id) [[ $# -ge 2 ]] || { echo "error: --episode-id needs a value" >&2; return 2; }; episodes+=("$2"); shift 2 ;;
+      --episode-id=*) episodes+=("${1#--episode-id=}"); shift ;;
       --emit) emit=true; shift ;;
       --reprocess) reprocess=true; shift ;;
       --target) [[ $# -ge 2 ]] || { echo "error: --target needs a value" >&2; return 2; }; target="$2"; shift 2 ;;
@@ -251,8 +271,31 @@ main() {
       --profile-digest=*) profile_digest="${1#--profile-digest=}"; shift ;;
       --run-minutes) [[ $# -ge 2 ]] || { echo "error: --run-minutes needs a value" >&2; return 2; }; run_minutes="$2"; shift 2 ;;
       --run-minutes=*) run_minutes="${1#--run-minutes=}"; shift ;;
+      --annotation-bundle-sha256 | --bundle-sha256) [[ $# -ge 2 ]] || { echo "error: --annotation-bundle-sha256 needs a value" >&2; return 2; }; annotation_bundle_sha256="$2"; shift 2 ;;
+      --annotation-bundle-sha256=* | --bundle-sha256=*) annotation_bundle_sha256="${1#*=}"; shift ;;
+      --mode) [[ $# -ge 2 ]] || { echo "error: --mode needs a value" >&2; return 2; }; media_mode="$2"; shift 2 ;;
+      --mode=*) media_mode="${1#--mode=}"; shift ;;
+      --topic-frame-index) [[ $# -ge 2 ]] || { echo "error: --topic-frame-index needs a value" >&2; return 2; }; topic_frame_index="$2"; shift 2 ;;
+      --topic-frame-index=*) topic_frame_index="${1#--topic-frame-index=}"; shift ;;
+      --start-frame) [[ $# -ge 2 ]] || { echo "error: --start-frame needs a value" >&2; return 2; }; start_frame="$2"; shift 2 ;;
+      --start-frame=*) start_frame="${1#--start-frame=}"; shift ;;
+      --end-frame) [[ $# -ge 2 ]] || { echo "error: --end-frame needs a value" >&2; return 2; }; end_frame="$2"; shift 2 ;;
+      --end-frame=*) end_frame="${1#--end-frame=}"; shift ;;
+      --playback-rate) [[ $# -ge 2 ]] || { echo "error: --playback-rate needs a value" >&2; return 2; }; playback_rate="$2"; shift 2 ;;
+      --playback-rate=*) playback_rate="${1#--playback-rate=}"; shift ;;
+      --max-fps) [[ $# -ge 2 ]] || { echo "error: --max-fps needs a value" >&2; return 2; }; max_fps="$2"; shift 2 ;;
+      --max-fps=*) max_fps="${1#--max-fps=}"; shift ;;
+      --output) [[ $# -ge 2 ]] || { echo "error: --output needs a value" >&2; return 2; }; special_output="$2"; shift 2 ;;
+      --output=*) special_output="${1#--output=}"; shift ;;
+      --output-dir) [[ $# -ge 2 ]] || { echo "error: --output-dir needs a value" >&2; return 2; }; special_output_dir="$2"; shift 2 ;;
+      --output-dir=*) special_output_dir="${1#--output-dir=}"; shift ;;
+      --target-id) [[ $# -ge 2 ]] || { echo "error: --target-id needs a value" >&2; return 2; }; target_id="$2"; shift 2 ;;
+      --target-id=*) target_id="${1#--target-id=}"; shift ;;
+      --pin-id) [[ $# -ge 2 ]] || { echo "error: --pin-id needs a value" >&2; return 2; }; pin_id="$2"; shift 2 ;;
+      --pin-id=*) pin_id="${1#--pin-id=}"; shift ;;
       --new-attempt) shift ;;
       --json) json=true; shift ;;
+      --dry-run) dry_run=true; shift ;;
       --timeout) [[ $# -ge 2 ]] || { echo "error: --timeout needs a value" >&2; return 2; }; FM_SUPERVISOR_TIMEOUT="$2"; shift 2 ;;
       --timeout=*) FM_SUPERVISOR_TIMEOUT="${1#--timeout=}"; shift ;;
       -*) echo "error: unknown argument '$1'" >&2; return 2 ;;
@@ -267,9 +310,45 @@ main() {
   [[ "$action" == inspect ]] && action=show
   [[ "$action" == annotate-real ]] && action=real-annotate
   [[ "$action" == cancel ]] && action=cloud-cancel
+  local special_domain="" special_action="" pin_action=""
+  case "$action" in
+    review-media | media)
+      special_domain=review-media; special_action=fetch; action=review-media ;;
+    showcase)
+      special_domain=showcase; special_action=fetch ;;
+    review-pin)
+      [[ "${episodes[0]:-}" == acquire || "${episodes[0]:-}" == begin || "${episodes[0]:-}" == release || "${episodes[0]:-}" == end ]] || {
+        echo "error: review-pin needs acquire or release" >&2; return 2;
+      }
+      pin_action="${episodes[0]}"; episodes=(); special_domain=review-pin; special_action="$pin_action" ;;
+    review-pin-acquire)
+      special_domain=review-pin; special_action=acquire ;;
+    review-pin-release)
+      special_domain=review-pin; special_action=release ;;
+  esac
   # bash 3.2 (macOS) trips `set -u` on an empty array's length; count it safely.
   local count="${episodes[*]+${#episodes[@]}}"
   count="${count:-0}"
+  if [[ -n "$special_domain" ]]; then
+    case "$special_domain" in
+      review-media | showcase)
+        [[ "$count" -eq 1 ]] || { echo "error: $action needs exactly one episode id" >&2; return 2; }
+        [[ -n "$annotation_bundle_sha256" || "$special_domain" == showcase ]] || {
+          echo "error: review-media needs --annotation-bundle-sha256" >&2; return 2;
+        }
+        [[ -n "$media_mode" || "$special_domain" == showcase ]] || {
+          echo "error: review-media needs --mode" >&2; return 2;
+        } ;;
+      review-pin)
+        [[ "$count" -eq 0 ]] || { echo "error: review-pin takes no episode IDs; use --target-id" >&2; return 2; }
+        [[ -n "$target_id" && "$target_id" == */annotation/* ]] || {
+          echo "error: review-pin needs --target-id EPISODE/annotation/SHA" >&2; return 2;
+        }
+        [[ -n "$pin_id" && "$pin_id" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]] || {
+          echo "error: review-pin needs a safe --pin-id" >&2; return 2;
+        } ;;
+    esac
+  fi
   case "$action" in
     show) [[ "$count" -eq 1 ]] || { echo "error: show takes exactly one episode id" >&2; return 2; } ;;
     run | annotate | real-annotate | retry) [[ "$count" -ge 1 ]] || { echo "error: $action needs at least one episode id" >&2; return 2; } ;;
@@ -333,6 +412,41 @@ main() {
       _safe_uuid "$request_id" || { echo "error: cloud-cancel needs the exact active --request-id UUID" >&2; return 2; }
       ;;
   esac
+
+  if [[ -n "$special_domain" ]]; then
+    local -a special_args=("$special_domain" "$special_action")
+    if [[ "$special_domain" == review-media ]]; then
+      special_args+=(--episode-id "${episodes[0]}" --annotation-bundle-sha256 "$annotation_bundle_sha256" --mode "$media_mode")
+      [[ -n "$topic_frame_index" ]] && special_args+=(--topic-frame-index "$topic_frame_index")
+      [[ -n "$start_frame" ]] && special_args+=(--start-frame "$start_frame")
+      [[ -n "$end_frame" ]] && special_args+=(--end-frame "$end_frame")
+      [[ -n "$playback_rate" ]] && special_args+=(--playback-rate "$playback_rate")
+      [[ -n "$max_fps" ]] && special_args+=(--max-fps "$max_fps")
+      [[ -n "$special_output" ]] && special_args+=(--output "$special_output")
+      [[ -n "$special_output_dir" ]] && special_args+=(--output-dir "$special_output_dir")
+    elif [[ "$special_domain" == showcase ]]; then
+      special_args+=(--episode-id "${episodes[0]}")
+      [[ -n "$special_output" ]] && special_args+=(--output "$special_output")
+      [[ -n "$special_output_dir" ]] && special_args+=(--output-dir "$special_output_dir")
+    else
+      special_args+=(--target-id "$target_id" --pin-id "$pin_id")
+    fi
+    [[ -n "$request_id" ]] && special_args+=(--request-id "$request_id")
+    [[ "$json" == true ]] && special_args+=(--json)
+    [[ "$dry_run" == true ]] && special_args+=(--dry-run)
+    special_args+=(--timeout "$FM_SUPERVISOR_TIMEOUT")
+    if [[ "${FM_SELFTEST:-}" != "" ]]; then
+      echo "selftest ok: process $special_domain $special_action resolved (episodes=$count, json=$json)"
+      return 0
+    fi
+    if [[ "$dry_run" == true ]]; then
+      UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/fm-parity-uv-cache}" uv run --no-project python scripts/internal/catalogue-client.py "${special_args[@]}"
+      return $?
+    fi
+    fm_supervisor_require
+    fm_supervisor_exec python3 scripts/internal/catalogue-client.py "${special_args[@]}"
+    return $?
+  fi
 
   if [[ -n "${FM_SELFTEST:-}" ]]; then
     echo "selftest ok: process $action resolved (episodes=$count, emit=$emit, reprocess=$reprocess, json=$json)"

@@ -31,9 +31,13 @@ usage() {
   cat <<'EOF'
 episode.sh — record an episode against the running stack
 
-Usage: ./scripts/run/episode.sh <catalog|record|stop|list> [options]
+Usage: ./scripts/run/episode.sh <capture|catalog|qa|record|stop|list> [options]
 
   catalog   list/show/status from the selected recorder or processor (--host HOST)
+  capture   start/stop/submit/discard/sync/sensors/result on a selected recorder
+            Use capture --help for explicit episode, outcome and target options.
+  qa        show/set/result for the recorder's episode-QA policy (--host HOST)
+            set requires --inputfile POLICY.json and --confirm.
   record    start a take, hold for --duration, end it, wait for the bag
   stop      end the take in flight (no duration, no wait)
   list      print the recorded episode index
@@ -41,9 +45,11 @@ Usage: ./scripts/run/episode.sh <catalog|record|stop|list> [options]
   --duration S     seconds to record (default 10)
   --task-id T      task id stamped into the episode (default fm-loop-demo)
   --instruction I  natural-language instruction stamped into the episode
+  --outcome O      explicit success|failed|unlabeled (default unlabeled)
   --output-dir D   recorder output directory (default ~/recordings)
   --backend B      backend the stack was brought up on (default mujoco)
   --real           shorthand for --backend real
+  --host HOST      run catalog or QA on an explicit recorder
   -h, --help       show this help
 EOF
 }
@@ -55,9 +61,11 @@ EOF
 # a hung CI job rather than a failing one.
 publish_marker() {
   local overlay="$1" json="$2"
+  local message
+  message=$(fm_stack_exec "$overlay" /usr/bin/python3 -c 'import json,sys; print(json.dumps({"data":sys.argv[1]}))' "$json")
   fm_stack_exec "$overlay" timeout "$MARKER_TIMEOUT" \
     ros2 topic pub -1 -w 1 "$MARKER_TOPIC" \
-    std_msgs/msg/String "{data: '$json'}" >/dev/null
+    std_msgs/msg/String "$message" >/dev/null
 }
 
 ensure_recorder() {
@@ -103,15 +111,19 @@ wait_for_episode() {
 }
 
 main() {
-  if [[ "${1:-}" == catalog ]]; then
+  if [[ "${1:-}" == catalog || "${1:-}" == capture ]]; then
     shift
     exec bash scripts/internal/catalogue.sh capture "$@"
+  fi
+  if [[ "${1:-}" == qa ]]; then
+    shift
+    exec bash scripts/internal/catalogue.sh qa "$@"
   fi
   # shellcheck disable=SC2088  # deliberate: the recorder expands ~ itself, and a
   # shell on the far side of fm_stack_exec gets it via fm_stack_remote_path.
   local action="" duration=10 task_id=fm-loop-demo output_dir='~/recordings'
   local instruction="Move the arm through a short synthetic take."
-  local backend=mujoco real=false
+  local backend=mujoco real=false outcome=unlabeled
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -147,6 +159,15 @@ main() {
         instruction="${1#--instruction=}"
         shift
         ;;
+      --outcome)
+        [[ $# -ge 2 ]] || { echo "error: --outcome needs a value" >&2; return 2; }
+        outcome="$2"
+        shift 2
+        ;;
+      --outcome=*)
+        outcome="${1#--outcome=}"
+        shift
+        ;;
       --output-dir)
         output_dir="$2"
         shift 2
@@ -179,6 +200,10 @@ main() {
     echo "error: expected one of record, stop, list" >&2
     return 2
   fi
+  case "$outcome" in
+    success|failed|unlabeled) ;;
+    *) echo "error: --outcome must be success, failed, or unlabeled" >&2; return 2 ;;
+  esac
 
   if [[ "$real" == true ]]; then
     if [[ "$backend" != mujoco ]]; then
@@ -195,7 +220,7 @@ main() {
   overlay=$(fm_stack_overlay "$backend")
 
   if [[ -n "${FM_SELFTEST:-}" ]]; then
-    echo "selftest ok: episode $action resolved (backend=$backend, duration=${duration}s, task=$task_id)"
+    echo "selftest ok: episode $action resolved (backend=$backend, duration=${duration}s, task=$task_id, outcome=$outcome)"
     return 0
   fi
 
@@ -203,6 +228,9 @@ main() {
   # far side of fm_stack_exec does not — see fm_stack_remote_path.
   local index
   index="$(fm_stack_remote_path "$output_dir")/sessions.jsonl"
+  local end_marker='{"event": "end"}'
+  [[ "$outcome" != success ]] || end_marker='{"event": "end", "operator_success": true}'
+  [[ "$outcome" != failed ]] || end_marker='{"event": "end", "operator_success": false}'
 
   case "$action" in
     record)
@@ -212,17 +240,18 @@ main() {
       before="${before//[[:space:]]/}"
 
       echo ">> start marker — recording ${duration}s"
-      publish_marker "$overlay" \
-        "{\"event\": \"start\", \"task_id\": \"$task_id\", \"instruction\": \"$instruction\"}"
+      local start_marker
+      start_marker=$(fm_stack_exec "$overlay" /usr/bin/python3 -c 'import json,sys; print(json.dumps({"event":"start","task_id":sys.argv[1],"instruction":sys.argv[2]}))' "$task_id" "$instruction")
+      publish_marker "$overlay" "$start_marker"
       sleep "$duration"
 
       echo ">> end marker"
-      publish_marker "$overlay" '{"event": "end", "operator_success": true}'
+      publish_marker "$overlay" "$end_marker"
       wait_for_episode "$overlay" "$index" "$before"
       echo ">> episode recorded — indexed in $index"
       ;;
     stop)
-      publish_marker "$overlay" '{"event": "end", "operator_success": true}'
+      publish_marker "$overlay" "$end_marker"
       echo ">> end marker published"
       ;;
     list)
