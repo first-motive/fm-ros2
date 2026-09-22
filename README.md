@@ -10,6 +10,81 @@ access. This repo holds no package source — it assembles those repos into
 one colcon workspace via `vcs`, and carries the shared tooling (Docker, dev
 container, CI, scripts) and the full-system docs.
 
+## Projects, Working Datasets And Task Profiles
+
+These commands use the same service contracts as Desktop. Select the SSH host
+explicitly when the service runs elsewhere:
+
+```bash
+fm project list --host RECORDER --json
+fm project create --host RECORDER --name "Cup sorting" --description "Studio takes"
+fm project assign --host RECORDER --project-id PROJECT --episode-id EPISODE
+fm dataset catalog create --host PROCESSOR --dataset-id cups --name "Cup sorting"
+fm dataset catalog add --host PROCESSOR --dataset-id cups --episode EPISODE
+fm dataset catalog show --host PROCESSOR --dataset-id cups --json
+fm process profiles list --host PROCESSOR --json
+fm process profiles inspect --host PROCESSOR --profile-id PROFILE --profile-version VERSION --json
+fm process profiles validate --host PROCESSOR --request-stdin --json < request.json
+```
+
+`fm project --help`, `fm dataset catalog --help`, and
+`fm process profiles --help` list the actions and inputs. Profiles always use
+the selected processor's configured catalogue and draft workspace. Structured
+profile fields are read from stdin, not command arguments. The service owns
+schema validation, digests and approval checks. `decide --confirm` records an
+explicit human decision; automation must not invent one.
+
+Each request gets a new ID. Project and dataset `result --request-id ID` reads
+the service's retained result without submitting work. The service can replace
+that result with a later request, so missing history means unknown. Timeouts
+and Ctrl-C do not cancel remote work. Inspect the request before retrying.
+`--dry-run` prints the topics and request without sending it. Project deletion
+requires `--confirm`; it removes the project and membership, not recordings.
+An unavailable selected host never falls back to the local catalogue.
+
+`dataset catalog show` reads current membership, revision, compatibility and
+per-episode readiness. It requires a processor that echoes the request ID in
+dataset detail replies. Missing datasets return the exact refusal from the
+status topic; they do not replace another client's selected detail.
+
+Prepare pinned annotation weights on the selected processor with
+`fm process provision start --model qwen3.5-9b --host PROCESSOR --json`.
+The response reports the exact request ID and state. `running` acknowledges
+the download; it does not mean the model is ready. Inspect it with
+`fm process provision result --request-id ID --host PROCESSOR --json`, or enter
+the ID in Desktop's Process request inspector. `provision status` reads the
+latest preparation. The default model is `qwen2.5-vl-7b`, as in Desktop.
+This prepares weights only; model execution still needs its own approval.
+Stopping the CLI does not cancel a download. An older processor that omits
+request IDs cannot prove the result; inspect its status before trying again.
+
+## Dataset Release Commands
+
+`fm dataset-release --help` exposes the processor's existing release contract.
+Use `--host PROCESSOR` to select its authority, and `--dry-run` to inspect a
+request before sending it. The service owns all validation and credentials.
+
+```bash
+fm dataset-release export CANDIDATE --episode EPISODE --host PROCESSOR
+fm dataset-release prepare CANDIDATE --host PROCESSOR
+fm dataset-release show CANDIDATE --host PROCESSOR --json
+fm dataset-release approve CANDIDATE --host PROCESSOR --request-stdin --confirm < approval.json
+fm dataset-release build CANDIDATE --pack-id PACK --host PROCESSOR
+fm dataset-release verify PACK --strict --host PROCESSOR
+fm dataset-release publish PACK --confirmation-identity CONFIRMATION --confirm --host PROCESSOR
+fm dataset-release deliver PACK --delivery-id DELIVERY --confirm --host PROCESSOR
+fm dataset-release result --request-id REQUEST --host PROCESSOR --json
+```
+
+Approval is a human decision. Import the artifact-bound approval object; a
+reviewer's name alone is insufficient. Publication needs a separate human
+confirmation identity. Delivery makes a controlled local archive on the
+processor. These commands do not grant automation approval authority.
+Writes wait for the exact request's outcome. A timeout is unknown; inspect
+that request before retrying. Result lookup can report queued or running work
+and does not submit it again. The service retains only a bounded status view;
+an absent old outcome is not evidence of success or failure.
+
 ## Quick Start
 
 Provision, then launch from your terminal. The package repos are
@@ -500,3 +575,19 @@ Ten jobs per push and PR; each reproduces locally with the exact CI command
 
 Maintained by First Motive, a Ubundi subsidiary, under the `first-motive` org.
 Licensed under Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+
+### Inspect a recorder catalogue
+
+`fm episode catalog list --host HOST --json` reads the selected host's capture
+index. `show --episode-id ID` reads that exact episode's metadata and any
+recorded thumbnails the browser provides. `status` reads recorder status;
+a processor without a recorder can serve catalogue details but cannot supply
+live recorder status. No command starts a recorder or changes an episode.
+
+These commands use the existing recorder/processor transport. An explicit
+unavailable host never falls back to a local catalogue. `show` needs a capture
+browser that echoes request identity; it accepts only matching session and
+request IDs. A missing episode returns its exact error with exit 3. Use
+`--dry-run` to inspect the request and `--timeout SECONDS` to bound waiting
+(default 20 seconds). Ctrl-C stops waiting only.

@@ -72,6 +72,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@v7
 
       # The appliance updater must tell "a take is in flight" from "idle". The
       # tactile bridge appends to recordings/tactile-raw continuously, even while
@@ -493,6 +494,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
 
       # Install the pixi binary only (no full env solve — run-install: false) so the
       # shared dispatch smoke can run the lock check on the Windows runner.

@@ -65,12 +65,84 @@ and the one a script can drive — the workspace mounts these verbs onto `fm`:
 |------|------|
 | `fm stack up` / `down` / `status` | the robot stack, sim by default, `--real` for hardware |
 | `fm episode record` / `stop` / `list` | a take against the running stack |
+| `fm episode capture ACTION --host HOST` | acknowledged capture lifecycle and exact request inspection on the selected recorder |
 | `fm dataset process` / `verify` | the fm_data engine over what was recorded, then graded |
 | `fm process status` / `list` / `show` / `run` / `annotate` | the processor's supervisor: its queue, each episode's state, and new work through it |
+| `fm process review-media` / `showcase` / `review-pin` | verified review frames, HTML showcase delivery, and durable review leases |
 | `fm dataset-release status` / `list` / `show` / `verify` | the release supervisor's candidates and packs, and a read-only pack verify |
+| `fm dataset-release viewer ENDPOINT` | bounded, read-only Hugging Face dataset viewer requests |
+| `fm episode qa show` / `set` / `result` | inspect or explicitly replace the rig's episode-QA policy |
 | `fm sim` | one robot in a sim backend, in the foreground |
 
 Chained, those are the whole data path: [ONBOARDING.md](ONBOARDING.md).
+
+`episode record` and `episode stop` leave the operator outcome unlabeled unless
+you supply `--outcome success` or `--outcome failed`. A timer does not establish
+that the task succeeded.
+
+For an operator-controlled take, use the recorder's acknowledged capture path:
+
+```bash
+fm episode capture start --host RECORDER --episode-id TAKE --operator-id PERSON --task-id TASK --instruction 'Move the cup'
+fm episode capture stop --host RECORDER --episode-id TAKE
+fm episode capture submit --host RECORDER --episode-id TAKE --outcome failed
+fm episode capture result --host RECORDER --request-id REQUEST
+fm episode capture delete --host RECORDER --episode-id TAKE --confirm
+```
+
+Start requires the selected recorder to support `/capture/command` version 1.
+Stop closes and holds that exact take. Submit records the operator's outcome.
+`discard --episode-id TAKE --confirm` deletes the held take instead. Sync uses
+`sync --sync-state synced|pending`. Sensor selection uses repeated
+`sensors --disabled-device DEVICE`; no disabled devices selects all devices.
+The recorder validates the choices. Use `--dry-run` to inspect the request.
+
+`delete --episode-id TAKE --confirm` removes a finalized recording through the
+browser-owned `/capture/delete/command` contract. The browser must be launched
+with `allow_delete:=true`; active or held takes are refused. The result is
+retained on `/capture/delete/result` and can be inspected with the request ID.
+After a successful raw delete, the CLI also sends the exact episode to
+`/process/delete` with `confirm_annotation_lineage: true`, as Desktop does. The
+processor reports derived-data cleanup on its own status topic; raw deletion
+does not claim that cleanup succeeded.
+
+Every new command prints its request ID. A lost reply means the outcome is
+unknown. Inspect that request before making another change. Result lookup does
+not submit a command. Ctrl-C stops waiting; it does not cancel recorder work.
+Older recorders remain readable through `episode catalog list/show/status`.
+
+The processor review adapters wait for both response streams before they publish
+one request. They verify the request ID, episode identity, every image digest,
+showcase chunk count, byte count, and final SHA-256 before writing local output:
+
+```bash
+fm process review-media TAKE --annotation-bundle-sha256 BUNDLE_SHA --mode frame --topic-frame-index 0
+fm process showcase TAKE --output /tmp/TAKE.html
+fm process review-pin acquire --target-id TAKE/annotation/BUNDLE_SHA --pin-id review-1
+fm process review-pin release --target-id TAKE/annotation/BUNDLE_SHA --pin-id review-1
+```
+
+The release viewer accepts `repositories`, `splits`, `size`, `files`, `preview`,
+`rows`, and `statistics`. Its query is bounded by the owner contract; rows are
+limited to 20:
+
+```bash
+fm dataset-release viewer rows first-motive/dataset --offset 0 --length 20
+```
+
+To replace the episode-QA policy, save the complete JSON policy to a file and
+use the explicit confirmation. A replacement can be accepted with `applied:
+false` while a take is open; that is an accepted deferred result, not a
+completed application:
+
+```bash
+fm episode qa show
+fm episode qa set --inputfile policy.json --confirm
+fm episode qa result --request-id REQUEST
+```
+
+The recorder publishes each selected request's retained result. A missing or
+uncorrelated result is unknown; the command does not resubmit it.
 
 ### Path-Specific Flags
 
@@ -285,6 +357,31 @@ contract. See the [fm-teleop repo](https://github.com/first-motive/fm-teleop) fo
 the convergence model, the source-status table, and the add-a-source guide.
 
 ## Direct Scripts
+
+### Live control and tactile observation
+
+```sh
+fm teleop control status --host RECORDER --json
+fm teleop control engage true --host RECORDER --confirm
+fm teleop control reset --host RECORDER --confirm
+fm teleop control wrist-swap true --host RECORDER --confirm
+fm teleop control gloves --host RECORDER --duration 5
+```
+
+Use `--dry-run` to inspect the topic and payload without connecting to ROS.
+Engage and reset have no owner acknowledgement: a sent command reports
+`dispatched` with an `unknown` outcome. Tracking activity is not engage state.
+Wrist swap waits for the desired `/camera/wrist_swap_state` and reports
+`observed`; that topic has no request identity and does not prove that this
+command caused the change. A mismatch or timeout remains unknown. Interrupt
+stops the local wait, not robot motion.
+
+The glove command observes the same five tactile pads per hand as Desktop.
+It reports samples, peaks, freshness and pads above the threshold of 100.
+`--reset-local-peaks` clears only this observer's peaks. It does not reset a
+sensor. Duration is bounded to 60 seconds and owner waits to 120 seconds.
+
+### Launch scripts
 
 Each capability has a scriptable path that bypasses the menu, all converging on the
 same launch files the launcher dispatches:

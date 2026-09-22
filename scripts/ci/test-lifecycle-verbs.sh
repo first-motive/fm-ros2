@@ -75,6 +75,12 @@ assert_resolves "stack up defaults to mujoco" "backend=mujoco" \
   ./scripts/run/stack.sh up
 assert_resolves "episode record defaults to mujoco" "backend=mujoco" \
   ./scripts/run/episode.sh record
+assert_resolves "timed capture does not invent operator success" "outcome=unlabeled" \
+  ./scripts/run/episode.sh record
+assert_resolves "stop preserves explicit failed outcome" "outcome=failed" \
+  ./scripts/run/episode.sh stop --outcome failed
+assert_refuses "capture refuses an unknown outcome" 2 \
+  ./scripts/run/episode.sh record --outcome guessed
 assert_resolves "sim defaults to mujoco" "backend=mujoco" \
   ./scripts/run/sim.sh
 
@@ -107,8 +113,28 @@ assert_refuses "stack refuses a missing action" 2 ./scripts/run/stack.sh
 assert_refuses "episode refuses a missing action" 2 ./scripts/run/episode.sh
 assert_refuses "dataset refuses a missing action" 2 ./scripts/run/dataset.sh
 
+# Teleop control is a separate catalogue route.  Dry runs prove the wrapper,
+# owner topics, and safety boundary without starting ROS or touching hardware.
+assert_resolves "teleop engage uses the owner Bool topic" "/vision/engage" \
+  ./scripts/run/teleop.sh control engage true --confirm --dry-run
+assert_resolves "teleop reset publishes the owner's true pulse" "/vision/reset" \
+  ./scripts/run/teleop.sh control reset --confirm --dry-run
+assert_resolves "teleop swap names the applied owner state" "/camera/wrist_swap_state" \
+  ./scripts/run/teleop.sh control swap false --confirm --dry-run
+assert_resolves "teleop gloves uses the tactile sample owner input" \
+  "fm_tactile_msgs/msg/TactileSample" \
+  ./scripts/run/teleop.sh control gloves --duration 1 --reset-local-peaks --dry-run
+assert_refuses "teleop engage requires explicit confirmation" 2 \
+  ./scripts/run/teleop.sh control engage true --dry-run
+assert_refuses "teleop reset requires explicit confirmation" 2 \
+  ./scripts/run/teleop.sh control reset --dry-run
+assert_refuses "teleop swap requires explicit confirmation" 2 \
+  ./scripts/run/teleop.sh control swap true --dry-run
+assert_refuses "teleop glove duration must be finite" 2 \
+  ./scripts/run/teleop.sh control gloves --duration nan --dry-run
+
 # Every verb this repo mounts onto `fm` must be declared, or it is unreachable.
-for verb in stack episode dataset; do
+for verb in stack episode dataset teleop; do
   if grep -q "\"$verb\"" fm.json; then
     pass "fm.json declares $verb"
   else

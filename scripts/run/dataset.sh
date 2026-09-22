@@ -24,9 +24,9 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 # shellcheck source=scripts/internal/lib-stack.sh
-source scripts/internal/lib-stack.sh
+source scripts/internal/lib-stack.sh >&2
 # shellcheck source=scripts/internal/lib-processor.sh
-source scripts/internal/lib-processor.sh
+source scripts/internal/lib-processor.sh >&2
 
 # dataset_exec <overlay> <command...>
 # Run one engine command where the engine is. Same argument shape as
@@ -83,11 +83,12 @@ usage() {
   cat <<'EOF'
 dataset.sh — process recorded episodes into a manifest, and verify it
 
-Usage: ./scripts/run/dataset.sh <process|verify|profile> [options]
+Usage: fm dataset <process|verify|profile|catalog> [options]
 
   process   run the fm_data engine over the recorded episodes
   verify    assert the manifest exists and describes at least one episode
   profile   write a processing profile derived from the engine's default
+  catalog   manage working datasets on a processor (catalog --help)
 
   --input D      recorded-episode directory (default ~/recordings)
   --output D     processing output directory (default ~/processed);
@@ -190,6 +191,10 @@ print(f"wrote profile {out} ({len(sets)} override(s))")
 }
 
 main() {
+  if [[ "${1:-}" == catalog ]]; then
+    shift
+    exec bash scripts/internal/catalogue.sh dataset "$@"
+  fi
   # shellcheck disable=SC2088  # deliberate: expanded by the far-side shell via
   # fm_stack_remote_path, not by this one.
   local action="" input="" output="" config=""

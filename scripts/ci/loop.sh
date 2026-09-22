@@ -202,6 +202,7 @@ drive_actions "$NAMES"
 # gate is right to refuse.
 if ./scripts/run/episode.sh record --duration "$DURATION" \
   --task-id "$TASK_ID" --instruction "$INSTRUCTION" \
+  --outcome success \
   --output-dir "$RECORDINGS" --backend "$BACKEND"; then
   pass "episode recorded"
 else

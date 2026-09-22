@@ -11,19 +11,83 @@
     },
     "episode": {
       "script": "scripts/run/episode.sh",
-      "help": "record an episode against the running stack, end one, list them"
+      "help": "inspect recordings, control an exact take, or inspect and update the recorder's episode-QA policy",
+      "operations": {
+        "capture.lifecycle": {
+          "owner": "fm-ros2",
+          "target": "recorder",
+          "inputs": {"action": "start, stop, submit, discard, delete, sync, sensors, result", "episode_id": "exact take", "outcome": "explicit success, failed, or unlabeled"},
+          "effect": "capture lifecycle write; result is read-only",
+          "confirmation": "discard requires --confirm; submit requires explicit operator outcome",
+          "result": "capture result with exact request_id and episode_id",
+          "availability": "recorder must support /capture/command contract_version 1"
+        },
+        "capture.catalog.show": {
+          "owner": "fm-ros2",
+          "target": "recorder or processor",
+          "inputs": {"episode_id": "recorded session identity"},
+          "effect": "read",
+          "confirmation": "none",
+          "result": "capture detail with exact session and request_id",
+          "availability": "capture browser must accept contract_version 1 selection and echo request_id"
+        },
+        "episode.qa": {
+          "owner": "fm-ros2",
+          "target": "recorder",
+          "inputs": {"action": "show, set, result", "inputfile": "complete JSON policy for set", "request_id": "exact retained policy receipt for result"},
+          "effect": "read active policy or replace the persisted episode-QA policy",
+          "confirmation": "set requires --inputfile and --confirm; show and result are read-only",
+          "result": "command_version 1 policy state with exact last_update or retained result request_id; applied=false is accepted but deferred",
+          "availability": "recorder must publish /episode_qa/policy and serve /episode_qa/policy/set"
+        }
+      }
     },
     "dataset": {
       "script": "scripts/run/dataset.sh",
-      "help": "process recorded episodes into a manifest, and verify it"
+      "help": "manage catalog membership or process and verify recorded episodes",
+      "operations": {
+        "dataset.catalog.show": {
+          "owner": "fm-ros2",
+          "target": "processor",
+          "inputs": {"dataset_id": "catalog dataset identity"},
+          "effect": "read",
+          "confirmation": "none",
+          "result": "catalog_schema_version 1 detail with exact dataset_id and request_id",
+          "availability": "processor must echo request_id on dataset detail; refusals use status"
+        },
+        "dataset.catalog.move": {
+          "owner": "fm-ros2",
+          "target": "processor",
+          "inputs": {"dataset_id": "source catalog dataset", "destination": "destination catalog dataset", "episode": "repeatable episode identity"},
+          "effect": "membership write",
+          "confirmation": "explicit source, destination, and episode selection",
+          "result": "catalog_schema_version 1 status with exact request_id",
+          "availability": "selected processor must serve /process/datasets/*"
+        }
+      }
+    },
+    "project": {
+      "script": "scripts/run/project.sh",
+      "help": "list, create, rename, describe, delete, assign, or unassign projects (--host HOST)"
     },
     "process": {
       "script": "scripts/run/process.sh",
-      "help": "inspect the process supervisor and queue processing or annotation"
+      "help": "inspect processing, prepare models, manage profiles, and queue annotation",
+      "operations": {
+        "process.provision": {
+          "owner": "fm-ros2",
+          "target": "processor",
+          "inputs": {"model": "qwen2.5-vl-7b (default) or qwen3.5-9b"},
+          "effect": "download and verify pinned model weights",
+          "confirmation": "explicit model and processor selection; execution has separate approval",
+          "result": "provision state and exact request_id on /process/status",
+          "availability": "processor must configure provision_script and retain request_id"
+        }
+      }
     },
     "dataset-release": {
       "script": "scripts/run/release.sh",
-      "help": "inspect release candidates and packs, and verify a pack"
+      "help": "export, approve, build, verify, publish and deliver dataset releases on the processor"
     },
     "archive": {
       "script": "scripts/run/archive.sh",
@@ -35,7 +99,7 @@
     },
     "teleop": {
       "script": "scripts/run/teleop.sh",
-      "help": "jog a robot arm through moveit servo"
+      "help": "launch teleoperation, inspect tactile inputs, or send confirmed engage, reset and wrist-swap controls"
     },
     "sim": {
       "script": "scripts/run/sim.sh",

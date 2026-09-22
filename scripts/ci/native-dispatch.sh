@@ -85,7 +85,7 @@ main() {
   FM_SELFTEST=1 ./scripts/run/process.sh run ep-1 ep-2 --emit --reprocess \
     | grep -q 'process run resolved (episodes=2, emit=true, reprocess=true'
   FM_SELFTEST=1 ./scripts/run/release.sh verify pack-1 --strict \
-    | grep -q 'release verify resolved (target=pack-1, strict=true'
+    | grep -q '"command_topic": "/release/verify"'
   # Validation still runs ahead of the hook — selftest must not mask a bad flag.
   if FM_SELFTEST=1 ./scripts/run/teleop.sh --backend bogus >/dev/null 2>&1; then
     echo "FAIL: teleop.sh accepted an invalid backend" >&2; return 1
