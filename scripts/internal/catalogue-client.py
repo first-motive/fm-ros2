@@ -19,7 +19,8 @@ PROFILE_ACTIONS = {
     "inspect-candidate": "inspect_candidate",
 }
 RELEASE_ACTIONS = {"status", "list", "show", "export", "prepare", "approve", "build", "verify", "view", "deliver", "publish", "result"}
-CAPTURE_ACTIONS = {"start", "stop", "submit", "discard", "sync", "sensors"}
+CAPTURE_ACTIONS = {"start", "stop", "submit", "discard", "delete", "sync", "sensors"}
+PROCESS_DELETE_DISCOVERY_WAIT_S = 2.0
 SPECIAL_DOMAINS = {"qa", "review-media", "showcase", "viewer", "review-pin"}
 REVIEW_MEDIA_MODES = {"frame", "scrub", "range", "contact_sheet"}
 REVIEW_MEDIA_MAX_RANGE = 180
@@ -42,6 +43,7 @@ def capture_request(args, parser):
               "confirm": True if args.confirm else None}
     allowed = {"start": {"task_id", "instruction", "operator_id"},
                "submit": {"outcome"}, "discard": {"confirm"},
+               "delete": {"confirm"},
                "sync": {"sync_state"}, "sensors": {"disabled_device"}}
     if any(value is not None and key not in allowed.get(args.action, set())
            for key, value in fields.items()):
@@ -72,9 +74,11 @@ def capture_request(args, parser):
         if args.outcome is None:
             parser.error("submit requires the operator's --outcome success|failed|unlabeled")
         options["operator_success"] = {"success": True, "failed": False, "unlabeled": None}[args.outcome]
-    elif args.action == "discard":
+    elif args.action in {"discard", "delete"}:
         if not args.confirm:
-            parser.error("discard requires --confirm for the exact held take")
+            parser.error(
+                args.action + " requires --confirm for the exact episode"
+            )
         options["confirmed"] = True
     elif args.action == "sync":
         if args.sync_state is None:
@@ -1009,7 +1013,7 @@ def main():
                "Result lookup reads the service's retained last result; missing history is not success.",
     )
     parser.add_argument("domain", choices=["capture", "project", "dataset", "profile", "release", "provision"] + sorted(SPECIAL_DOMAINS))
-    parser.add_argument("action", help="capture: list/show/status/start/stop/submit/discard/sync/sensors/result; project: list/create/rename/describe/delete/assign/unassign/result; dataset: list/show/status/create/rename/add/remove/move/result; profile: " + "/".join(PROFILE_ACTIONS) + "; release: " + "/".join(sorted(RELEASE_ACTIONS)))
+    parser.add_argument("action", help="capture: list/show/status/start/stop/submit/discard/delete/sync/sensors/result; project: list/create/rename/describe/delete/assign/unassign/result; dataset: list/show/status/create/rename/add/remove/move/result; profile: " + "/".join(PROFILE_ACTIONS) + "; release: " + "/".join(sorted(RELEASE_ACTIONS)))
     parser.add_argument("--model", choices=["qwen2.5-vl-7b", "qwen3.5-9b"])
     parser.add_argument("--name")
     parser.add_argument("--description")
@@ -1132,7 +1136,10 @@ def main():
     if args.domain == "capture":
         command_topic = "/capture/command" if args.action in CAPTURE_ACTIONS else "/capture/select"
         result_topic = {"list": "/capture/index", "show": "/capture/detail",
-                        "status": "/fm_data_record/recorder_status"}.get(args.action, "/capture/result")
+                        "status": "/fm_data_record/recorder_status",
+                        "delete": "/capture/delete/result"}.get(args.action, "/capture/result")
+        if args.action == "delete":
+            command_topic = "/capture/delete/command"
     if args.domain == "provision":
         command_topic = "/process/provision"
         result_topic = "/process/status"
@@ -1171,10 +1178,16 @@ def main():
     qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE,
                      durability=DurabilityPolicy.TRANSIENT_LOCAL)
     subscription = node.create_subscription(String, result_topic, receive, qos)
+    delete_result_subscription = (
+        node.create_subscription(String, "/capture/delete/result", receive, qos)
+        if args.domain == "capture" and args.action == "result" else None
+    )
     refusal_subscription = (
         node.create_subscription(String, root + "/status", receive, qos)
         if args.domain == "dataset" and args.action == "show" else None
     )
+    publisher = None
+    process_delete_publisher = None
     try:
         deadline = time.monotonic() + args.timeout
         if request is not None:
@@ -1200,6 +1213,39 @@ def main():
                 print("No result. Inspect the same request before retrying; the outcome is unknown."
                       if request else "No catalogue received.", file=sys.stderr)
             return 3
+        if (args.domain == "capture" and args.action == "delete"
+                and result.get("ok") is True and args.episode_id):
+            # Match Desktop's two-stage delete: only a successful browser-owned
+            # finalized-recording receipt authorizes derived-data cleanup. The
+            # processor has no correlated result on this legacy topic, so keep
+            # the raw receipt as stdout and report discovery/outcome limits on
+            # stderr instead of presenting cleanup as complete.
+            process_delete_publisher = node.create_publisher(
+                String, "/process/delete", 10
+            )
+            cleanup_deadline = time.monotonic() + min(
+                PROCESS_DELETE_DISCOVERY_WAIT_S, args.timeout
+            )
+            while (process_delete_publisher.get_subscription_count() == 0
+                   and time.monotonic() < cleanup_deadline):
+                rclpy.spin_once(node, timeout_sec=0.1)
+            process_delete_publisher.publish(String(data=json.dumps({
+                "episodes": [args.episode_id],
+                "confirm_annotation_lineage": True,
+            }, sort_keys=True)))
+            if process_delete_publisher.get_subscription_count() > 0:
+                rclpy.spin_once(node, timeout_sec=0.1)
+                print(
+                    "Derived-data cleanup dispatched on /process/delete; "
+                    "inspect the processor status for its outcome.",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "No /process/delete subscriber was found; recording deletion "
+                    "completed, derived-data cleanup outcome is unknown.",
+                    file=sys.stderr,
+                )
         print(json.dumps(result, indent=None if args.json else 2, sort_keys=True))
         return 3 if result.get("ok") is False or result.get("issue_code") or result.get("error") else 0
     except KeyboardInterrupt:
@@ -1209,6 +1255,12 @@ def main():
         node.destroy_subscription(subscription)
         if refusal_subscription is not None:
             node.destroy_subscription(refusal_subscription)
+        if delete_result_subscription is not None:
+            node.destroy_subscription(delete_result_subscription)
+        if publisher is not None:
+            node.destroy_publisher(publisher)
+        if process_delete_publisher is not None:
+            node.destroy_publisher(process_delete_publisher)
         node.destroy_node()
         rclpy.shutdown()
 

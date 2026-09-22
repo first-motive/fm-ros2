@@ -87,6 +87,7 @@ fm episode capture start --host RECORDER --episode-id TAKE --operator-id PERSON 
 fm episode capture stop --host RECORDER --episode-id TAKE
 fm episode capture submit --host RECORDER --episode-id TAKE --outcome failed
 fm episode capture result --host RECORDER --request-id REQUEST
+fm episode capture delete --host RECORDER --episode-id TAKE --confirm
 ```
 
 Start requires the selected recorder to support `/capture/command` version 1.
@@ -95,6 +96,15 @@ Stop closes and holds that exact take. Submit records the operator's outcome.
 `sync --sync-state synced|pending`. Sensor selection uses repeated
 `sensors --disabled-device DEVICE`; no disabled devices selects all devices.
 The recorder validates the choices. Use `--dry-run` to inspect the request.
+
+`delete --episode-id TAKE --confirm` removes a finalized recording through the
+browser-owned `/capture/delete/command` contract. The browser must be launched
+with `allow_delete:=true`; active or held takes are refused. The result is
+retained on `/capture/delete/result` and can be inspected with the request ID.
+After a successful raw delete, the CLI also sends the exact episode to
+`/process/delete` with `confirm_annotation_lineage: true`, as Desktop does. The
+processor reports derived-data cleanup on its own status topic; raw deletion
+does not claim that cleanup succeeded.
 
 Every new command prints its request ID. A lost reply means the outcome is
 unknown. Inspect that request before making another change. Result lookup does
@@ -347,6 +357,31 @@ contract. See the [fm-teleop repo](https://github.com/first-motive/fm-teleop) fo
 the convergence model, the source-status table, and the add-a-source guide.
 
 ## Direct Scripts
+
+### Live control and tactile observation
+
+```sh
+fm teleop control status --host RECORDER --json
+fm teleop control engage true --host RECORDER --confirm
+fm teleop control reset --host RECORDER --confirm
+fm teleop control wrist-swap true --host RECORDER --confirm
+fm teleop control gloves --host RECORDER --duration 5
+```
+
+Use `--dry-run` to inspect the topic and payload without connecting to ROS.
+Engage and reset have no owner acknowledgement: a sent command reports
+`dispatched` with an `unknown` outcome. Tracking activity is not engage state.
+Wrist swap waits for the desired `/camera/wrist_swap_state` and reports
+`observed`; that topic has no request identity and does not prove that this
+command caused the change. A mismatch or timeout remains unknown. Interrupt
+stops the local wait, not robot motion.
+
+The glove command observes the same five tactile pads per hand as Desktop.
+It reports samples, peaks, freshness and pads above the threshold of 100.
+`--reset-local-peaks` clears only this observer's peaks. It does not reset a
+sensor. Duration is bounded to 60 seconds and owner waits to 120 seconds.
+
+### Launch scripts
 
 Each capability has a scriptable path that bypasses the menu, all converging on the
 same launch files the launcher dispatches:

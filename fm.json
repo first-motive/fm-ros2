@@ -16,7 +16,7 @@
         "capture.lifecycle": {
           "owner": "fm-ros2",
           "target": "recorder",
-          "inputs": {"action": "start, stop, submit, discard, sync, sensors, result", "episode_id": "exact take", "outcome": "explicit success, failed, or unlabeled"},
+          "inputs": {"action": "start, stop, submit, discard, delete, sync, sensors, result", "episode_id": "exact take", "outcome": "explicit success, failed, or unlabeled"},
           "effect": "capture lifecycle write; result is read-only",
           "confirmation": "discard requires --confirm; submit requires explicit operator outcome",
           "result": "capture result with exact request_id and episode_id",
@@ -99,7 +99,7 @@
     },
     "teleop": {
       "script": "scripts/run/teleop.sh",
-      "help": "jog a robot arm through moveit servo"
+      "help": "launch teleoperation, inspect tactile inputs, or send confirmed engage, reset and wrist-swap controls"
     },
     "sim": {
       "script": "scripts/run/sim.sh",

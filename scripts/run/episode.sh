@@ -34,7 +34,7 @@ episode.sh — record an episode against the running stack
 Usage: ./scripts/run/episode.sh <capture|catalog|qa|record|stop|list> [options]
 
   catalog   list/show/status from the selected recorder or processor (--host HOST)
-  capture   start/stop/submit/discard/sync/sensors/result on a selected recorder
+  capture   start/stop/submit/discard/delete/sync/sensors/result on a selected recorder
             Use capture --help for explicit episode, outcome and target options.
   qa        show/set/result for the recorder's episode-QA policy (--host HOST)
             set requires --inputfile POLICY.json and --confirm.

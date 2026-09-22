@@ -33,6 +33,7 @@ main() {
   local remote_command="exec fm $domain"
   [[ "$domain" != capture ]] || remote_command="exec fm episode catalog"
   [[ "$domain" != qa ]] || remote_command="exec fm episode qa"
+  [[ "$domain" != teleop-control ]] || remote_command="exec fm teleop control"
   [[ "$domain" != dataset ]] || remote_command+=" catalog"
   [[ "$domain" != profile ]] || remote_command="exec fm process profiles"
   [[ "$domain" != provision ]] || remote_command="exec fm process provision"
@@ -44,13 +45,14 @@ main() {
     done
     exec ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$remote_command"
   fi
-  local root
+  local root client_script="scripts/internal/catalogue-client.py"
+  [[ "$domain" != teleop-control ]] || client_script="scripts/internal/teleop-control.py"
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   if [[ "$local_only" == true ]]; then
-    exec uv run --no-project python "$root/scripts/internal/catalogue-client.py" "$domain" "${forwarded[@]}"
+    exec uv run --no-project python "$root/$client_script" "$domain" "${forwarded[@]}"
   fi
   cd "$root"
-  if [[ "$domain" == project || "$domain" == capture || "$domain" == qa ]] && [[ ! -f "${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}" ]]; then
+  if [[ "$domain" == project || "$domain" == capture || "$domain" == qa || "$domain" == teleop-control ]] && [[ ! -f "${FM_PROCESSOR_ENV_FILE:-/etc/fm-processor.env}" ]]; then
     if [[ ! -f /etc/fm-recorder.env || ! -f /opt/ros/humble/setup.bash || ! -f "$root/install/setup.bash" ]]; then
       echo "error: this host has no supported recorder or processor runtime" >&2
       return 1
@@ -65,7 +67,7 @@ main() {
     # shellcheck source=scripts/env/comms.sh
     source "$root/scripts/env/comms.sh" >&2
     set -u
-    /usr/bin/python3 -c "$(cat scripts/internal/catalogue-client.py)" "$domain" "${forwarded[@]}"
+    /usr/bin/python3 -c "$(cat "$client_script")" "$domain" "${forwarded[@]}"
     return
   fi
   # shellcheck source=scripts/internal/lib-supervisor.sh
@@ -82,10 +84,10 @@ main() {
     # shellcheck source=scripts/env/comms.sh
     source "$root/scripts/env/comms.sh" >&2
     set -u
-    /usr/bin/python3 -c "$(cat scripts/internal/catalogue-client.py)" "$domain" "${forwarded[@]}"
+    /usr/bin/python3 -c "$(cat "$client_script")" "$domain" "${forwarded[@]}"
     return
   fi
-  fm_supervisor_exec /usr/bin/python3 -c "$(cat scripts/internal/catalogue-client.py)" "$domain" "${forwarded[@]}"
+  fm_supervisor_exec /usr/bin/python3 -c "$(cat "$client_script")" "$domain" "${forwarded[@]}"
 }
 
 main "$@"

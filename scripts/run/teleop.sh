@@ -42,9 +42,18 @@
 #   ./scripts/run/teleop.sh --robot g1_d                 # Unitree right arm, mujoco
 #   ./scripts/run/teleop.sh --robot axol                 # Axol, one servo_node per arm
 #   ./scripts/run/teleop.sh --input joy                  # gamepad
+#   ./scripts/run/teleop.sh control status --host fmrec   # inspect rig controls
 #
 # Extra args pass straight through to `ros2 launch`.
 set -euo pipefail
+
+# Control commands use the recorder/processor catalogue path. Route before
+# sourcing the launch-only compose and transport profiles so a local dry run
+# stays independent of a ROS installation.
+if [[ "${1:-}" == control ]]; then
+  shift
+  exec bash "$(cd "$(dirname "${BASH_SOURCE[0]}")/../internal" && pwd)/catalogue.sh" teleop-control "$@"
+fi
 
 # The compose project every sim-side verb shares, so `run.sh`, `stack`, and this
 # one address the same container — and never the processor's (#135).
@@ -62,12 +71,20 @@ usage() {
 teleop.sh — jog a robot's arm interactively through MoveIt Servo
 
 Usage: ./scripts/run/teleop.sh [--robot R] [--variant V] [--backend B] [--input I] [-h] [ros2-launch-args...]
+       ./scripts/run/teleop.sh control ACTION [options]
 
   --robot R      openarm | so101 | g1_d | axol (default openarm)
   --variant V    description variant
   --backend B    mock | mujoco | gazebo | isaac | real (default mujoco)
   --input I      foxglove | joy | spacenav | vision | mirror (default foxglove)
   -h, --help     show this help
+
+control ACTION routes to the recorder-side teleoperation contract:
+  status         read owner state (engage remains unknown; no owner state topic)
+  engage BOOL    publish /vision/engage (requires --confirm; completion is unknown)
+  reset          publish /vision/reset=true (requires --confirm; completion is unknown)
+  swap BOOL      publish /camera/wrist_swap and inspect its applied state
+  gloves         observe both tactile gloves and local press peaks
 
 mock/mujoco use the macOS (CPU) overlay; gazebo/isaac/real use the Linux (GPU)
 overlay. Extra args pass straight through to `ros2 launch`.
