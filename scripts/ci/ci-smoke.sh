@@ -215,6 +215,10 @@ PY
   else
     fail "unitree hand bridge: HandCmd mapping wrong or absent"
     tail -5 /tmp/hand.log || true
+    # The parse error names a line of this file, so show those lines. On 28 Sep
+    # this failed twice on the hosted runner and never on a local run.
+    echo "captured HandCmd echo:"
+    head -8 /tmp/handcmd.yaml | cat -A || true
   fi
   sleep 2
 }
