@@ -23,7 +23,7 @@ repositories:
   lerobot:
     type: git
     url: https://github.com/huggingface/lerobot.git
-    version: 741c2d0a3939ba54d6cf47f29a7fbbba3766a600  # main @ 2026-06-03; no release tag yet
+    version: 7e241bd630a3719a56157a497ce5d08f244784f1  # tag v0.6.1
   openarm_description:
     # OpenArm description: a real ament_cmake ROS package (NOT flat files). Its
     # xacro entry uses $(find openarm_description) and package:// throughout, so it
