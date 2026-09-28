@@ -2,7 +2,7 @@
   "_fm_render": {
     "artifact": "render-lock",
     "origin": "rendered by the First Motive render plane \u2014 edit the upstream source, not this file",
-    "sha256": "eb7588150e365909e5d6ed0654f22d3533c15d38cb270bcd18699a0e3a6ab535"
+    "sha256": "d5617448d05fc7d44560e71b2a483f74c79979afcc13a7b6b4f325d50d505943"
   },
   "artifacts": {
     "agents-invariants": {
@@ -42,7 +42,7 @@
       "paths": [
         ".fm/external-pins.json"
       ],
-      "sha256": "f25be94c05300268b80668c02adf5381ffb1a13a626b9f9db3515012dc7f0405",
+      "sha256": "76ebeee263040ab772e0d5a657e6f3aca36d03fe7303ff7da59f35b51736f4ee",
       "stamp": "json"
     },
     "fm-docker-pin": {
