@@ -21,14 +21,19 @@ archive.sh — inspect and operate the processor archive services
 
 Usage: ./scripts/run/archive.sh <status|preflight|reconcile|install> [options]
        ./scripts/run/archive.sh <list|catalogue|adopt|verify|restore> [options]
+       ./scripts/run/archive.sh service <status|preflight|reconcile|install> [options]
+       ./scripts/run/archive.sh library <locations|refresh|list|search|show|files|folder|item|collection|protect|recover> [options]
+       ./scripts/run/archive.sh copy <plan|show|start> [options]
+       ./scripts/run/archive.sh jobs <list|show|wait|pause|resume|retry|cancel> [options]
 
   status       report service and queue-facing state (read-only)
   preflight    check local service, env, policy, and package prerequisites
   reconcile    restart installed services so the uploader replays its queue
   install      install both default-off services (idempotent)
 
-  Every other verb is the bucket itself and is owned by the data package; it is
-  delegated to src/fm_data/scripts/archive.sh (`fm data-archive`).
+  list, catalogue, adopt, verify and restore belong to the data package and
+  delegate to src/fm_data/scripts/archive.sh (`fm data-archive`).
+  library uses the configured coordinator through the ROS-free Tools handler.
 
   --json       emit one machine-readable JSON object
   --storage    with status, read uploader ledgers in the processor runtime
@@ -396,6 +401,21 @@ main() {
       remote_command+=" '$quoted'"
     done
     exec ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$remote_command"
+  fi
+  if [ "${1:-}" = service ]; then
+    shift
+    case "${1:-}" in
+      status|preflight|reconcile|install) ;;
+      -h|--help) usage; return 0 ;;
+      *) echo 'error: service requires status, preflight, reconcile or install' >&2; return 2 ;;
+    esac
+  elif [ "${1:-}" = library ] || [ "${1:-}" = copy ] || [ "${1:-}" = jobs ]; then
+    if ! command -v fm-archive-workflow >/dev/null 2>&1; then
+      printf '{"contract_version":1,"ok":false,"error_code":"archive_workflow_missing"}\n'
+      return 3
+    fi
+    data_archive --workflow "$@"
+    return $?
   fi
   local action="" json=false dry_run=false storage=false
   local original=("$@")

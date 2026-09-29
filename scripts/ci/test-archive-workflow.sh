@@ -18,6 +18,15 @@ for action in status preflight reconcile install; do
 done
 pass "fm archive exposes all four actions and parses options"
 
+for action in status preflight reconcile install; do
+  output="$(FM_SELFTEST=1 "$VERB" service "$action" --json --dry-run)"
+  grep -q "archive $action resolved" <<<"$output" || fail "service alias did not resolve: $action"
+done
+if FM_SELFTEST=1 "$VERB" service list --json >/dev/null 2>&1; then
+  fail "service must not expose bucket commands"
+fi
+pass "service aliases preserve the existing service operations"
+
 dry_output="$("$VERB" reconcile --dry-run --json)"
 grep -q '"action":"reconcile"' <<<"$dry_output" || fail "reconcile dry-run omitted action"
 grep -q '"result":"planned"' <<<"$dry_output" || fail "reconcile dry-run was not planned"
