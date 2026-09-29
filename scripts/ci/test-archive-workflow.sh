@@ -18,6 +18,15 @@ for action in status preflight reconcile install; do
 done
 pass "fm archive exposes all four actions and parses options"
 
+for action in status preflight reconcile install; do
+  output="$(FM_SELFTEST=1 "$VERB" service "$action" --json --dry-run)"
+  grep -q "archive $action resolved" <<<"$output" || fail "service alias did not resolve: $action"
+done
+if FM_SELFTEST=1 "$VERB" service list --json >/dev/null 2>&1; then
+  fail "service must not expose bucket commands"
+fi
+pass "service aliases preserve the existing service operations"
+
 dry_output="$("$VERB" reconcile --dry-run --json)"
 grep -q '"action":"reconcile"' <<<"$dry_output" || fail "reconcile dry-run omitted action"
 grep -q '"result":"planned"' <<<"$dry_output" || fail "reconcile dry-run was not planned"
@@ -232,5 +241,11 @@ if PATH="$TMP_DIR/bin:$PATH" "$VERB" --host -oProxyCommand=bad status; then
   fail "SSH option injection accepted"
 fi
 pass "remote archive preserves literal arguments and failure status"
+
+cp "$TMP_DIR/bin/fm" "$TMP_DIR/bin/fm-archive-workflow"
+PATH="$TMP_DIR/bin:$PATH" "$VERB" copy download plan --coordinator tower-test --destination "$TMP_DIR/download" --json
+printf '%s\n' copy download plan --coordinator tower-test --destination "$TMP_DIR/download" --json >"$TMP_DIR/expected-args"
+cmp "$TMP_DIR/expected-args" "$FM_TEST_ARGS" || fail "local download must bypass the provider environment"
+pass "download remains a local client operation"
 
 echo "test-archive-workflow: passed"
