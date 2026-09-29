@@ -22,8 +22,8 @@ archive.sh — inspect and operate the processor archive services
 Usage: ./scripts/run/archive.sh <status|preflight|reconcile|install> [options]
        ./scripts/run/archive.sh <list|catalogue|adopt|verify|restore> [options]
        ./scripts/run/archive.sh service <status|preflight|reconcile|install> [options]
-       ./scripts/run/archive.sh library <locations|refresh|list|search|show|files|folder|item|collection|protect|recover> [options]
-       ./scripts/run/archive.sh copy <plan|show|start> [options]
+       ./scripts/run/archive.sh library <locations|refresh|list|search|select|show|files|preview|history|folder|item|collection|protect|recover> [options]
+       ./scripts/run/archive.sh copy <plan|show|start|verify|download> [options]
        ./scripts/run/archive.sh jobs <list|show|wait|pause|resume|retry|cancel> [options]
 
   status       report service and queue-facing state (read-only)
@@ -413,6 +413,10 @@ main() {
     if ! command -v fm-archive-workflow >/dev/null 2>&1; then
       printf '{"contract_version":1,"ok":false,"error_code":"archive_workflow_missing"}\n'
       return 3
+    fi
+    if [ "${1:-}" = copy ] && [ "${2:-}" = download ]; then
+      fm-archive-workflow "$@"
+      return $?
     fi
     data_archive --workflow "$@"
     return $?

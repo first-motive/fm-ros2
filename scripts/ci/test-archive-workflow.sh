@@ -242,4 +242,10 @@ if PATH="$TMP_DIR/bin:$PATH" "$VERB" --host -oProxyCommand=bad status; then
 fi
 pass "remote archive preserves literal arguments and failure status"
 
+cp "$TMP_DIR/bin/fm" "$TMP_DIR/bin/fm-archive-workflow"
+PATH="$TMP_DIR/bin:$PATH" "$VERB" copy download plan --coordinator tower-test --destination "$TMP_DIR/download" --json
+printf '%s\n' copy download plan --coordinator tower-test --destination "$TMP_DIR/download" --json >"$TMP_DIR/expected-args"
+cmp "$TMP_DIR/expected-args" "$FM_TEST_ARGS" || fail "local download must bypass the provider environment"
+pass "download remains a local client operation"
+
 echo "test-archive-workflow: passed"
