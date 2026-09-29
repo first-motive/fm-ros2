@@ -7,8 +7,7 @@
 # newer one every ~15 minutes. A repo with no tag has no target on that channel,
 # so the updater reports it untagged and leaves it where the clone landed — which
 # means merged work in that repo never reaches a rig, however many times the timer
-# fires. Tagging the workspace repo alone is not enough; the release is the whole
-# set or it is nothing.
+# fires. Include every changed dependency when selecting a scoped release.
 #
 #   ./scripts/dev/cut-release.sh                  # print the plan, change nothing
 #   ./scripts/dev/cut-release.sh --only-untagged  # plan the seeding pass only
@@ -53,6 +52,7 @@ Options:
   --apply           create and push the tags (default: print the plan only)
   --minor           bump the minor version instead of the patch version
   --only-untagged   restrict the run to repos with no v* tag yet
+  --include PATH   release only this manifest path (. for root); repeatable
   -h, --help        show this help
 EOF
 }
@@ -131,15 +131,38 @@ EOF
 
 main() {
   local apply=0 part=patch only_untagged=0
+  local selection='' selected_path repos
   while [ $# -gt 0 ]; do
     case "$1" in
       --apply) apply=1; shift ;;
       --minor) part=minor; shift ;;
       --only-untagged) only_untagged=1; shift ;;
+      --include)
+        [ $# -ge 2 ] && [ -n "$2" ] || { echo 'error: --include needs a path' >&2; return 1; }
+        case "$2" in *$'\n'*) echo 'error: path contains a newline' >&2; return 1 ;; esac
+        selection="${selection}${2}"$'\n'
+        shift 2 ;;
       -h|--help) usage; return 0 ;;
       *) echo "error: unknown argument '$1'" >&2; usage >&2; return 1 ;;
     esac
   done
+
+  repos="$(_workspace_repos)"
+  if [ -n "$selection" ]; then
+    repos=''
+    while IFS= read -r selected_path; do
+      [ -n "$selected_path" ] || continue
+      if [ "$selected_path" = . ]; then
+        repos="${repos}${ROOT}"$'\n'
+      elif _workspace_repos | grep -Fx -- "$ROOT/$selected_path" >/dev/null; then
+        repos="${repos}${ROOT}/${selected_path}"$'\n'
+      else
+        echo "error: path is not in the workspace manifests: $selected_path" >&2
+        return 1
+      fi
+    done <<< "$selection"
+    repos="$(printf '%s' "$repos" | sort -u)"
+  fi
 
   # A release is the whole set, so the set has to be real before anything is
   # tagged. This script discovers repos from directories — src/*, docker/,
@@ -234,7 +257,7 @@ main() {
     planned=$((planned + 1))
     item "plan $name — ${current:-no tag} -> $next at $branch ${tip:0:7}"
   done <<EOF
-$(_workspace_repos)
+$repos
 EOF
 
   if [ "$planned" = 0 ]; then

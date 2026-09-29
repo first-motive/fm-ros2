@@ -114,6 +114,14 @@ for path in . docker comms src/fm_alpha src/fm_beta; do
   git -C "$dir" remote add origin "$TMP_DIR/$(basename "$dir").git"
 done
 init_repo "$WS/src/fm_retired"
+if bash "$WS/scripts/dev/cut-release.sh" --include src/fm_retired --apply > "$TMP_DIR/output" 2>&1; then
+  fail 'a path outside the manifests was accepted'
+fi
+bash "$WS/scripts/dev/cut-release.sh" --include src/fm_alpha --apply > "$TMP_DIR/output" 2>&1 || fail "scoped release failed: $(cat "$TMP_DIR/output")"
+git -C "$WS/src/fm_alpha" ls-remote --exit-code origin refs/tags/v0.1.0 >/dev/null || fail 'selected repo was not published'
+for path in . docker comms src/fm_beta; do
+  [ -z "$(git -C "$WS/$path" tag -l)" ] || fail "unselected repo was tagged: $path"
+done
 rc=0
 out="$(FM_TEST_ARCHIVED=fm_beta bash "$WS/scripts/dev/cut-release.sh" --apply 2>&1)" || rc=$?
 [ "$rc" != 0 ] || fail "an archived final member did not block the release"

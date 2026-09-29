@@ -45,6 +45,18 @@ The script selects the workspace root and the repos in `fm-ros2.repos` and
 `private-overlay.repos`. It excludes `external/` and old checkouts that are no
 longer in those manifests. Each selected path must have a checkout.
 
+For a deployment limited to specific repositories, repeat `--include PATH`:
+
+```bash
+./scripts/dev/cut-release.sh --include . --include src/fm_app
+./scripts/dev/cut-release.sh --include . --include src/fm_app --apply
+```
+
+Paths must match the manifests exactly; `.` selects the workspace root. Include
+every changed dependency required by the deployment. Other repositories receive
+no tag. The workspace must still be fully assembled, and all release checks
+still apply to the selected repositories.
+
 Before it creates the first tag, the script checks access and completed CI
 checks for every proposed release. An archived repo, a fetch failure, or a
 failed check stops the run. If a repo has `scripts/check-release.sh`, the script
@@ -85,9 +97,9 @@ sprint so no rig drifts more than a sprint behind `main`. Two rules around that:
 - **Never cut into a capture session.** The updater's busy gate holds a rig that
   is mid-take, so nothing is interrupted — but a rig that stays busy stays behind,
   and the convergence you wanted has not happened yet.
-- **Cut the whole set.** Partial release trains are how a repo quietly falls off
-  the channel. Run the script without `--only-untagged` unless you are seeding a
-  newly added repo.
+- **Check the scope.** Use the full set for routine release trains. Use
+  `--include` only for an explicit deployment scope that includes all required
+  changed dependencies; use `--only-untagged` to seed newly added repositories.
 
 ## Verifying
 
