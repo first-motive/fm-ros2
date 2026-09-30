@@ -53,6 +53,10 @@
       "script": "scripts/run/rig-health.sh",
       "help": "pass/fail check of every recording fixture, stream, unit and link on a rig (--host <rig>)"
     },
+    "lidar-health": {
+      "script": "scripts/run/lidar-health.sh",
+      "help": "the chest lidar's core temperature, work state and HMS fault codes (--host <rig>, --watch)"
+    },
     "recorder-tracker": {
       "script": "scripts/run/recorder-tracker.sh",
       "help": "read or set the recorder's hand tracker (on|off) and restart it (--host <rig>)"
