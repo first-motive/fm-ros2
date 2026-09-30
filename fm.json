@@ -56,6 +56,10 @@
     "recorder-tracker": {
       "script": "scripts/run/recorder-tracker.sh",
       "help": "read or set the recorder's hand tracker (on|off) and restart it (--host <rig>)"
+    },
+    "glove-receiver": {
+      "script": "scripts/run/glove-receiver.sh",
+      "help": "read or start/stop the tactile glove receivers (on|off) (--host <rig>)"
     }
   }
 }

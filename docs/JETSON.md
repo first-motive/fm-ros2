@@ -248,3 +248,8 @@ but two need awareness:
 - **Tracker trouble on arm64**: `fm recorder-tracker off --host <rig>` keeps
   RGB-D + IMU capture while the tracker is investigated; `on` turns it back on.
   Both restart the recorder and refuse while a take is recording.
+- **Recording without gloves**: `fm glove-receiver off --host <rig>` stops and
+  disables both receivers, so an idle receiver costs no CPU and stays off after a
+  reboot; `on` starts them again. `fm glove-receiver --host <rig>` shows per hand
+  whether the unit runs, which glove port it holds, and whether
+  `/glove_<hand>/tactile` is publishing. Both refuse while a take is recording.
