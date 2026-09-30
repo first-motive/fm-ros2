@@ -258,6 +258,8 @@ but two need awareness:
   Both restart the recorder and refuse while a take is recording.
 - **Recording without gloves**: `fm glove-receiver off --host <rig>` stops and
   disables both receivers, so an idle receiver costs no CPU and stays off after a
-  reboot; `on` starts them again. `fm glove-receiver --host <rig>` shows per hand
-  whether the unit runs, which glove port it holds, and whether
-  `/glove_<hand>/tactile` is publishing. Both refuse while a take is recording.
+  reboot and an appliance update; `on` starts them again. Add `--hand left|right`
+  to set one hand only, for example while one glove is away for repair.
+  `fm glove-receiver --host <rig>` shows per hand whether the unit runs, which
+  glove port it holds, and whether `/glove_<hand>/tactile` is publishing. A set
+  refuses while a take is recording.

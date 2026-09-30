@@ -2,12 +2,14 @@
 # glove-receiver.sh — read or set the tactile glove receivers (on|off).
 #
 # Each hand is its own unit, fm-tactile@left and fm-tactile@right. `on` enables and
-# starts both, `off` stops and disables both, so an off rig stays off after a reboot.
-# Status says, per hand, whether the unit runs, which glove port it holds, and whether
-# /glove_<hand>/tactile is publishing.
+# starts both, `off` stops and disables both, so an off rig stays off after a reboot and
+# after an appliance update. --hand sets one hand and leaves the other as it is, e.g. a
+# glove away for repair. Status always reports both hands: whether the unit runs, which
+# glove port it holds, and whether /glove_<hand>/tactile is publishing.
 #
 #   scripts/run/glove-receiver.sh                     # on the rig: print the state
 #   scripts/run/glove-receiver.sh on|off              # start+enable or stop+disable both
+#   scripts/run/glove-receiver.sh off --hand left     # one hand only
 #   scripts/run/glove-receiver.sh off --host fmrec    # from any machine, over ssh
 #   scripts/run/glove-receiver.sh status --json       # one JSON object for Desktop
 #
@@ -16,9 +18,9 @@
 # 3 refused.
 set -uo pipefail
 
-usage() { sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
-HOST="" JSON=false WANT=""
+HOST="" JSON=false WANT="" HAND=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     status) WANT=""; shift ;;
@@ -26,6 +28,9 @@ while [ "$#" -gt 0 ]; do
     --host)
       [[ "${2:-}" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.@:-]*$ ]] || { echo "error: --host needs one SSH host or alias" >&2; exit 2; }
       HOST="$2"; shift 2 ;;
+    --hand)
+      [[ "${2:-}" =~ ^(left|right)$ ]] || { echo "error: --hand needs left or right" >&2; exit 2; }
+      HAND="$2"; shift 2 ;;
     --json) JSON=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "error: unknown argument '$1'" >&2; usage >&2; exit 2 ;;
@@ -33,11 +38,13 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ -n "$HOST" ]; then
-  remote_args=(${WANT:+"$WANT"}); $JSON && remote_args+=(--json)
+  remote_args=(${WANT:+"$WANT"}); $JSON && remote_args+=(--json); [ -n "$HAND" ] && remote_args+=(--hand "$HAND")
   exec ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$HOST" bash -s -- "${remote_args[@]+"${remote_args[@]}"}" < "${BASH_SOURCE[0]}"
 fi
 
 HANDS=(left right)
+# The hands a set touches: both, or the one --hand names.
+if [ -n "$HAND" ]; then TARGETS=("$HAND"); else TARGETS=("${HANDS[@]}"); fi
 json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
 # on when both run, off when neither does, mixed otherwise.
@@ -139,14 +146,15 @@ systemctl cat fm-tactile@.service >/dev/null 2>&1 \
 # Settled is running and enabled for on, stopped and disabled for off, so an off rig
 # stays off across a reboot.
 settled=true
-for hand in "${HANDS[@]}"; do
+for hand in "${TARGETS[@]}"; do
   active=false enabled=false
   systemctl is-active -q "fm-tactile@$hand" && active=true
   systemctl is-enabled -q "fm-tactile@$hand" && enabled=true
   if [ "$WANT" = on ]; then $active && $enabled || settled=false
   else ! $active && ! $enabled || settled=false; fi
 done
-! $settled || finish ok "already $WANT, nothing changed"
+what="$WANT${HAND:+ for the $HAND hand}"
+! $settled || finish ok "already $what, nothing changed"
 
 # A take in flight holds its .mcap open, as the recorder's user; see recorder-tracker.sh.
 recdir="$(sed -n 's/^FM_RECORDER_RECORDINGS_DIR=//p' /etc/fm-recorder.env 2>/dev/null | tail -1)"
@@ -155,10 +163,10 @@ open_bag="$(find /proc/[0-9]*/fd -lname "$recdir/*.mcap*" -print -quit 2>/dev/nu
 [ -z "$open_bag" ] || finish recording "a take is recording (open .mcap under $recdir); stop it first"
 
 sudo -n true 2>/dev/null || finish no_sudo "$(id -un) has no passwordless sudo on $(hostname)"
-units=("${HANDS[@]/#/fm-tactile@}")
+units=("${TARGETS[@]/#/fm-tactile@}")
 if [ "$WANT" = on ]; then
   sudo systemctl enable -q --now "${units[@]}" || finish start_failed "the receivers did not start; see journalctl -u 'fm-tactile@*'"
 else
   sudo systemctl disable -q --now "${units[@]}" || finish stop_failed "the receivers did not stop; see journalctl -u 'fm-tactile@*'"
 fi
-finish ok "set $WANT" true
+finish ok "set $what" true

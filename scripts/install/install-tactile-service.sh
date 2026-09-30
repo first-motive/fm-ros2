@@ -33,6 +33,7 @@
 #
 # Usage:
 #   ./scripts/install/install-tactile-service.sh                  # converge every installed side (left if none yet)
+#                                                                  # (a side switched off stays off)
 #   ./scripts/install/install-tactile-service.sh install right    # install + enable + start one side
 #   ./scripts/install/install-tactile-service.sh uninstall right  # stop + disable + remove one side
 #   ./scripts/install/install-tactile-service.sh uninstall        # remove every side
@@ -83,7 +84,8 @@ install-tactile-service.sh — install/remove the fm-tactile glove receivers (Li
 
   [install] [SIDE]   write SIDE's udev rule + config and the templated unit, enable
                      for boot, start now. SIDE is left or right. No SIDE: converge
-                     every side already installed on this host (left if none yet)
+                     every side already installed on this host (left if none yet);
+                     a side switched off with fm glove-receiver stays off
   uninstall [SIDE]   stop + disable + remove SIDE's instance, rule, and config.
                      No SIDE: remove every side and the templated unit
   -h, --help         show this help
@@ -232,9 +234,16 @@ EOF
   sudo chown "$SERVICE_USER" "$file"
 }
 
-do_install() {  # side
-  local side="$1"
+do_install() {  # side [converge]
+  local side="$1" keep_off=false
   _require_linux_systemd || return 0
+  # A converge (the appliance updater) keeps an installed hand that was switched off
+  # (`fm glove-receiver off`) off. Enabling it again started a receiver for a glove
+  # away for repair (2026-09-30). A legacy host has no template unit yet, so it installs.
+  if [ "${2:-}" = converge ] && [ -e "$RULES_DIR/99-fm-tactile-$side.rules" ] && [ -e "$UNIT" ] \
+    && ! systemctl is-enabled -q "fm-tactile@$side.service" 2>/dev/null; then
+    keep_off=true
+  fi
   if [ ! -d "$OVERLAY/ros2_ws/src/fm_tactile_bridge" ]; then
     echo "WARNING: the tactile overlay is not checked out at $OVERLAY — skipping." >&2
     echo "         Run ./install.sh --recorder first (it clones and builds it)." >&2
@@ -276,8 +285,12 @@ do_install() {  # side
   _write_config "$side"
   _write_unit
 
-  item "enabling + starting fm-tactile@$side.service ..."
   sudo systemctl daemon-reload
+  if $keep_off; then
+    item "fm-tactile@$side.service is off (fm glove-receiver off) — left off"
+    return 0
+  fi
+  item "enabling + starting fm-tactile@$side.service ..."
   sudo systemctl enable "fm-tactile@$side.service"
   sudo systemctl restart "fm-tactile@$side.service"
 
@@ -327,7 +340,7 @@ do_converge() {
     # A rule file with a name that is not a hand is someone's stray edit, not a
     # side to install; skipping it keeps the auto-update converge alive.
     _require_side "$side" 2>/dev/null || { item "WARNING: ignoring $RULES_DIR/99-fm-tactile-$side.rules — not a hand"; continue; }
-    do_install "$side"
+    do_install "$side" converge
   done
 }
 

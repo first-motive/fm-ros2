@@ -67,7 +67,7 @@
     },
     "glove-receiver": {
       "script": "scripts/run/glove-receiver.sh",
-      "help": "read or start/stop the tactile glove receivers (on|off) (--host <rig>)"
+      "help": "read or start/stop the tactile glove receivers (on|off) (--hand left|right, --host <rig>)"
     }
   }
 }

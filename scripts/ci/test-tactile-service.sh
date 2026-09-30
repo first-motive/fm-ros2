@@ -19,9 +19,11 @@ cat > "$TMP_DIR/bin/sudo" <<'EOF'
 [ "$1" = -u ] && shift 2
 exec "$@"
 EOF
+# is-enabled answers "no" for a unit listed in $FM_TEST_DISABLED, as systemctl does.
 cat > "$TMP_DIR/bin/systemctl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FM_TEST_SYSTEMCTL_LOG"
+[ "$1" = is-enabled ] && [[ " ${FM_TEST_DISABLED:-} " == *" ${*: -1} "* ]] && exit 1
 exit 0
 EOF
 cat > "$TMP_DIR/bin/udevadm" <<'EOF'
@@ -90,6 +92,18 @@ run
 grep -qx 'enable fm-tactile@left.service' "$log"
 grep -qx 'enable fm-tactile@right.service' "$log"
 grep -qx 'tuned: yes' "$cfg/receiver-left.yaml"
+
+# 3'. A side switched off (fm glove-receiver off) stays off through a converge: the
+#     updater must not start a receiver for a glove away for repair. The other side
+#     converges as usual.
+: > "$log"
+FM_TEST_DISABLED="fm-tactile@left.service" run
+if grep -qE '^(enable|restart) fm-tactile@left.service$' "$log"; then echo "converge must keep a switched-off side off" >&2; exit 1; fi
+grep -qx 'enable fm-tactile@right.service' "$log"
+# An explicit install of that side still turns it on.
+: > "$log"
+FM_TEST_DISABLED="fm-tactile@left.service" run install left
+grep -qx 'enable fm-tactile@left.service' "$log"
 
 # 3a. A host converging from the pinned era: the old rule loses its pin and the tuned
 #     config keeps its values while its device path moves to the pattern.
