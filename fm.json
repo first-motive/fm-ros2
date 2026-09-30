@@ -57,6 +57,10 @@
       "script": "scripts/run/lidar-health.sh",
       "help": "the chest lidar's core temperature, work state and HMS fault codes (--host <rig>, --watch)"
     },
+    "lidar-power": {
+      "script": "scripts/run/lidar-power.sh",
+      "help": "read or set the chest lidar's work mode (idle|sample), which auto-idles between takes (--host <rig>)"
+    },
     "recorder-tracker": {
       "script": "scripts/run/recorder-tracker.sh",
       "help": "read or set the recorder's hand tracker (on|off) and restart it (--host <rig>)"
