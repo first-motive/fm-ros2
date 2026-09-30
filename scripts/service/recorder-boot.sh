@@ -12,6 +12,9 @@
 #   FM_RECORDER_TRACKER=on|off      run the hand tracker (off for a MediaPipe-less host)
 #   FM_RECORDER_LIDAR=auto|on|off   Livox MID-360S (auto = on iff the vendor driver
 #                                   overlay ~/ws_livox is built on this host)
+#   FM_RECORDER_LIDAR_IDLE=auto|off  idle the LiDAR between takes (fm_data_sensors
+#                                   lidar_power); off keeps it sampling
+#   FM_RECORDER_LIDAR_IDLE_MIN=<n>  minutes without a take before it idles (default 5)
 #   FM_RECORDER_RECORD=true|false   arm the recorder (true = armed+idle, waits for REC)
 #   FM_RECORDER_FOXGLOVE=true|false run the embedded foxglove bridge (default :8765)
 #   FM_BRIDGE_PORT=<port>          shared endpoint from /etc/fm-bridge.env
@@ -37,6 +40,8 @@ FOXGLOVE="${FM_RECORDER_FOXGLOVE:-true}"
 # provisions it best-effort). auto = run the LiDAR exactly when that overlay is
 # built here, so hosts without the sensor keep booting clean.
 LIDAR="${FM_RECORDER_LIDAR:-auto}"
+LIDAR_IDLE="${FM_RECORDER_LIDAR_IDLE:-auto}"
+LIDAR_IDLE_MIN="${FM_RECORDER_LIDAR_IDLE_MIN:-5}"
 LIVOX_OVERLAY="$HOME/ws_livox/install/setup.sh"
 # auto probes the BUILT DRIVER NODE, not the overlay's setup script: a half-built
 # overlay (setup.sh present, node binary absent — the first Jetson, 2026-08-13)
@@ -87,6 +92,17 @@ case "$FOXGLOVE" in
     exit 78
     ;;
 esac
+case "$LIDAR_IDLE" in
+  auto|off) ;;
+  *)
+    echo "recorder-boot: FM_RECORDER_LIDAR_IDLE must be auto or off, got '$LIDAR_IDLE'" >&2
+    exit 78
+    ;;
+esac
+if ! [[ "$LIDAR_IDLE_MIN" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  echo "recorder-boot: FM_RECORDER_LIDAR_IDLE_MIN must be a number of minutes, got '$LIDAR_IDLE_MIN'" >&2
+  exit 78
+fi
 
 LAUNCH_ARGS=(
   tracker:="$TRACKER"
@@ -94,6 +110,12 @@ LAUNCH_ARGS=(
   use_foxglove:="$FOXGLOVE"
   lidar:="$LIDAR"
 )
+
+# An older recorder package has no lidar_idle arguments and runs no lidar_power;
+# passing them anyway is harmless (undeclared launch arguments are ignored).
+if [ "$LIDAR" = on ]; then
+  LAUNCH_ARGS+=(lidar_idle:="$LIDAR_IDLE" lidar_idle_after_min:="$LIDAR_IDLE_MIN")
+fi
 
 if [ "$FOXGLOVE" = true ]; then
   if [ "$FM_BRIDGE_OWNER" = standalone ]; then

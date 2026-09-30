@@ -164,7 +164,7 @@ if [ -f /opt/ros/humble/setup.bash ] && [ -f "$ROOT/install/setup.bash" ] && [ -
   while IFS='|' read -r name state detail; do
     [ -n "$name" ] && report "$name" "$state" "$detail"
   done < <(python3 - "$config" "$lidar" <<'PY' 2>/dev/null
-import sys, time, yaml, rclpy
+import json, sys, time, yaml, rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rosidl_runtime_py.utilities import get_message
@@ -190,12 +190,22 @@ def watch(topic):
 
 for t in topics:
     node.create_subscription(get_message(t["type"]), t["topic"], watch(t["topic"]), qos_profile_sensor_data)
+# lidar_power idles the lidar between takes; /lidar/health says so with `resting`.
+lidar_resting = []
+if lidar_fitted:
+    from std_msgs.msg import String
+    node.create_subscription(
+        String, "/lidar/health",
+        lambda m: lidar_resting.append(json.loads(m.data).get("resting") is True), 10)
 end = time.monotonic() + 5.0
 while time.monotonic() < end:
     rclpy.spin_once(node, timeout_sec=0.05)
 for t in topics:
     got, want = seen[t["topic"]], float(t["expected_hz"])
     name = "stream " + t["topic"]
+    if len(got) < 2 and t["topic"].startswith("/lidar/") and lidar_resting and lidar_resting[-1]:
+        print(f"{name}|skip|lidar idle between takes; a take wakes it (fm lidar-power)")
+        continue
     if len(got) < 2:
         # The recorder's own contract decides: a required stream missing blocks a take.
         print(f"{name}|{'FAIL' if t.get('required') else 'warn'}|no messages in 5 s")

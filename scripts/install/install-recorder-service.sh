@@ -142,6 +142,11 @@ FM_RECORDER_TRACKER=on
 # Livox MID-360S chest LiDAR — auto runs it exactly when the vendor driver overlay
 # (~/ws_livox) is built on this host; force on|off to override:
 FM_RECORDER_LIDAR=auto
+# Idle the LiDAR between takes (IDLE powers down all but its network link) and wake
+# it for a take; off keeps it sampling. Temperature protection runs either way.
+# Minutes without a take before it idles:
+FM_RECORDER_LIDAR_IDLE=auto
+FM_RECORDER_LIDAR_IDLE_MIN=5
 # Arm the recorder (true = armed + idle, waits for a REC command):
 FM_RECORDER_RECORD=true
 # Run the embedded foxglove bridge here (fixed to the default port by older
