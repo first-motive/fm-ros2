@@ -20,7 +20,7 @@ MEDIAPIPE_VERSION="0.10.14"
 # Override with FM_TACTILE_REF to test a branch before it is tagged. v0.2.0 adds
 # glove orientation to TactileSample mid-message; Desktop before 1.9.10 cannot
 # decode it, so release and install that Desktop before this pin reaches a rig.
-TACTILE_REF="${FM_TACTILE_REF:-v0.2.1}"
+TACTILE_REF="${FM_TACTILE_REF:-v0.2.3}"
 # Snake-case checkout dir, matching src/fm_data and the external/ vendored sources:
 # the kebab repo slug is private and is never written into the tree in plaintext.
 TACTILE_DIR="src/external/fm_tactile"
