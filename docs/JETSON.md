@@ -144,6 +144,14 @@ The installer already built the vendor driver overlay (`~/ws_livox`), so
 restore the default `FM_RECORDER_LIDAR=auto` in `/etc/fm-recorder.env` (or
 delete the `off` line) and `sudo systemctl restart fm-recorder`.
 
+The lidar's own health (core temperature, work state, HMS fault codes) is on
+`/lidar/health`. `fm-recorder.service` grants `CAP_NET_RAW` so the health node
+can read the lidar's status push. Read it from any machine:
+
+```bash
+fm lidar-health --host fmrec [--json] [--watch]
+```
+
 ## 7. Updates Ride Release Tags
 
 The box fetches tags every ~15 minutes and moves **only when a newer `v*`
@@ -248,3 +256,8 @@ but two need awareness:
 - **Tracker trouble on arm64**: `fm recorder-tracker off --host <rig>` keeps
   RGB-D + IMU capture while the tracker is investigated; `on` turns it back on.
   Both restart the recorder and refuse while a take is recording.
+- **Recording without gloves**: `fm glove-receiver off --host <rig>` stops and
+  disables both receivers, so an idle receiver costs no CPU and stays off after a
+  reboot; `on` starts them again. `fm glove-receiver --host <rig>` shows per hand
+  whether the unit runs, which glove port it holds, and whether
+  `/glove_<hand>/tactile` is publishing. Both refuse while a take is recording.
