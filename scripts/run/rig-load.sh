@@ -3,7 +3,7 @@
 #
 # One read-only snapshot: total CPU, load average, the hottest SoC thermal zone,
 # memory, and the busiest nodes with their CPU (percent of one core) and RSS. The
-# numbers come from fm-data's hoststats.py — the same sampler that feeds the
+# numbers come from src/fm_data's hoststats.py — the same sampler that feeds the
 # recorder status Desktop shows — so the CLI and the app agree.
 #
 #   scripts/run/rig-load.sh                    # on the rig
@@ -11,7 +11,7 @@
 #   scripts/run/rig-load.sh --host fmrec --json --seconds 5
 #
 # --host pipes this checkout's hoststats.py to the rig's python3 (stdlib only), so
-# it works against a rig whose fm-data is older than the machine asking.
+# it works against a rig whose data overlay is older than the machine asking.
 # Exit 0 with a snapshot, 2 usage, 3 when no snapshot could be taken.
 set -uo pipefail
 
@@ -34,8 +34,8 @@ done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SAMPLER="$ROOT/src/fm_data/fm_data_record/fm_data_record/core/hoststats.py"
-[ -f "$SAMPLER" ] || { echo "error: $SAMPLER is missing; import the fm-data source first" >&2; exit 3; }
-grep -q "^def main" "$SAMPLER" || { echo "error: this fm-data predates the rig-load sampler; run fm update" >&2; exit 3; }
+[ -f "$SAMPLER" ] || { echo "error: $SAMPLER is missing; import the src/fm_data overlay first" >&2; exit 3; }
+grep -q "^def main" "$SAMPLER" || { echo "error: this src/fm_data predates the rig-load sampler; run fm update" >&2; exit 3; }
 
 args=(--seconds "$SECONDS_ARG"); $JSON && args+=(--json)
 if [ -n "$HOST" ]; then
