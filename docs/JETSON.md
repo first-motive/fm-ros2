@@ -245,5 +245,6 @@ but two need awareness:
   port for a few seconds, and expect `HELLO 1 glove_<side> …` lines.
 - **Stream not reaching the Mac**: boot-time interface auto-detection picked
   the wrong IP — pin `FM_LAN_IP=<lan-ip>` in `/etc/fm-recorder.env`.
-- **Tracker trouble on arm64**: `FM_RECORDER_TRACKER=off` keeps RGB-D + IMU
-  capture while the tracker is investigated.
+- **Tracker trouble on arm64**: `fm recorder-tracker off --host <rig>` keeps
+  RGB-D + IMU capture while the tracker is investigated; `on` turns it back on.
+  Both restart the recorder and refuse while a take is recording.
