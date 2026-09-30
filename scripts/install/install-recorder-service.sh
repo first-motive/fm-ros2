@@ -114,6 +114,11 @@ EnvironmentFile=-$ENVFILE
 EnvironmentFile=-$BRIDGE_ENV
 WorkingDirectory=$ROOT
 ExecStart=/bin/bash $WRAPPER
+# Raw packet sockets only, for fm_data_sensors' lidar_health node: it reads the
+# Livox status push the vendor driver drops. Ambient, so the whole recorder tree
+# holds it — the narrowest grant systemd offers a non-root user, and it keeps the
+# recorder off root.
+AmbientCapabilities=CAP_NET_RAW
 Restart=on-failure
 RestartSec=5
 
