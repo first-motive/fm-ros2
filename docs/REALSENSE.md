@@ -146,7 +146,7 @@ Episodes land in **`~/recordings`** on the host — depth never crosses the netw
 | Knob | Default | Use |
 |---|---|---|
 | `FM_LAN_IP` | (auto) | pin the DDS LAN interface if boot-time auto-detect picks the wrong IP |
-| `FM_RECORDER_TRACKER` | `on` | set `off` where MediaPipe won't install (some Jetsons) — still captures RGB-D + IMU |
+| `FM_RECORDER_TRACKER` | `on` | set `off` where MediaPipe won't install (some Jetsons) — still captures RGB-D + IMU. `fm recorder-tracker on\|off [--host <rig>]` sets it and restarts the recorder |
 | `FM_RECORDER_LIDAR` | `auto` | Livox MID-360: `auto` runs it exactly when the vendor overlay (`~/ws_livox`) is built; set `off` until the LiDAR's dedicated interface is configured |
 | `FM_RECORDER_RECORD` | `true` | `false` = preview (camera + bridge + status, no capture) |
 | `FM_RECORDER_FOXGLOVE` | `true` | `false` when `fm-foxglove.service` is the standalone owner |

@@ -52,6 +52,10 @@
     "rig-health": {
       "script": "scripts/run/rig-health.sh",
       "help": "pass/fail check of every recording fixture, stream, unit and link on a rig (--host <rig>)"
+    },
+    "recorder-tracker": {
+      "script": "scripts/run/recorder-tracker.sh",
+      "help": "read or set the recorder's hand tracker (on|off) and restart it (--host <rig>)"
     }
   }
 }
