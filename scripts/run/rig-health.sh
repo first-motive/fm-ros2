@@ -60,7 +60,11 @@ fi
 
 for unit in fm-recorder fm-watchdog fm-episode-qa fm-zenoh-bridge fm-tactile@left fm-tactile@right; do
   state="$(systemctl is-active "$unit" 2>/dev/null)"
-  if [ "$state" = active ]; then report "unit $unit" ok active; else report "unit $unit" FAIL "${state:-not installed}"; fi
+  if [ "$state" = active ]; then report "unit $unit" ok active
+  # A glove receiver stopped and disabled is an operator's choice (fm glove-receiver off).
+  elif [[ "$unit" == fm-tactile@* ]] && [ "$(systemctl is-enabled "$unit" 2>/dev/null)" = disabled ]; then
+    report "unit $unit" skip "off — fm glove-receiver on starts it"
+  else report "unit $unit" FAIL "${state:-not installed}"; fi
 done
 
 # --- host ------------------------------------------------------------------------
@@ -100,7 +104,10 @@ else report "head camera" ok "RealSense on USB 3"; fi
 wrists="$(count_usb 6366:3370)"
 if [ "$wrists" = 2 ]; then report "wrist cameras" ok "2 found"; else report "wrist cameras" FAIL "$wrists of 2 found"; fi
 gloves="$(count_usb 1a86:7523)"
-if [ "$gloves" = 2 ]; then report "glove boards" ok "2 found"; else report "glove boards" FAIL "$gloves of 2 found"; fi
+if [ "$gloves" = 2 ]; then report "glove boards" ok "2 found"
+elif [ "$(systemctl is-enabled fm-tactile@left fm-tactile@right 2>/dev/null | sort -u)" = disabled ]; then
+  report "glove boards" skip "$gloves of 2 found; glove receivers are off"
+else report "glove boards" FAIL "$gloves of 2 found"; fi
 
 lidar="$(sudo -n sed -n 's/^FM_RECORDER_LIDAR=//p' /etc/fm-recorder.env 2>/dev/null | tail -1)"
 if [ "$lidar" = on ]; then report lidar warn "expected (FM_RECORDER_LIDAR=on) — see the stream check"
