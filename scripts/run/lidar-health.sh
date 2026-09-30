@@ -10,11 +10,12 @@
 #   scripts/run/lidar-health.sh --watch [--json]  # every reading until Ctrl-C
 #
 # Read-only. No temperature limit is applied: Livox documents none for the core, and
-# its HMS codes already report temperature trouble. Exit 0 healthy, 1 an HMS code is
-# set, 2 usage, 3 no reading (lidar off, or the recorder is down).
+# its HMS codes already report temperature trouble. A notice (the latched link-recovered
+# 0x0401) is shown but is not a fault. Exit 0 healthy, 1 an HMS fault is set, 2 usage,
+# 3 no reading (lidar off, or the recorder is down).
 set -uo pipefail
 
-usage() { sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 HOST="" JSON=false WATCH=false
 while [ "$#" -gt 0 ]; do
@@ -72,8 +73,10 @@ def emit(health):
     temp = health.get("core_temp_c")
     state = health.get("work_state_name") or health.get("work_state")
     hms = ", ".join(f"{f['code']} ({f['level']})" for f in faults) or "none"
+    # Notices (the latched link-recovered 0x0401) are information, not a fault.
+    notices = "".join(f"  notice {n['code']}" for n in health.get("notices") or [])
     print(f"{time.strftime('%H:%M:%S')}  core {temp if temp is not None else '?'} °C  "
-          f"state {state}  HMS {hms}", flush=True)
+          f"state {state}  HMS {hms}{notices}", flush=True)
 
 
 rclpy.init()
