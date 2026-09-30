@@ -61,6 +61,10 @@
       "script": "scripts/run/recorder-tracker.sh",
       "help": "read or set the recorder's hand tracker (on|off) and restart it (--host <rig>)"
     },
+    "rig-load": {
+      "script": "scripts/run/rig-load.sh",
+      "help": "read-only CPU, load, temperature and per-node CPU/RSS of a rig (--host <rig>)"
+    },
     "glove-receiver": {
       "script": "scripts/run/glove-receiver.sh",
       "help": "read or start/stop the tactile glove receivers (on|off) (--host <rig>)"
