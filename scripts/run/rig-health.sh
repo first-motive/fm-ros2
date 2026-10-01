@@ -109,9 +109,17 @@ elif [ "$(systemctl is-enabled fm-tactile@left fm-tactile@right 2>/dev/null | so
   report "glove boards" skip "$gloves of 2 found; glove receivers are off"
 else report "glove boards" FAIL "$gloves of 2 found"; fi
 
-lidar="$(sudo -n sed -n 's/^FM_RECORDER_LIDAR=//p' /etc/fm-recorder.env 2>/dev/null | tail -1)"
-if [ "$lidar" = on ]; then report lidar warn "expected (FM_RECORDER_LIDAR=on) — see the stream check"
-else report lidar skip "not fitted yet"; fi
+# Resolve FM_RECORDER_LIDAR the way recorder-boot.sh does: unset or auto means on
+# exactly when the Livox driver node is built in the recorder user's home.
+lidar_mode="$(sudo -n sed -n 's/^FM_RECORDER_LIDAR=//p' /etc/fm-recorder.env 2>/dev/null | tail -1)"
+lidar_mode="${lidar_mode:-auto}" lidar="$lidar_mode"
+if [ "$lidar" = auto ]; then
+  recorder_home="$(getent passwd "$(systemctl show fm-recorder -p User --value 2>/dev/null)" | cut -d: -f6)"
+  [ -x "${recorder_home:-$HOME}/ws_livox/install/livox_ros_driver2/lib/livox_ros_driver2/livox_ros_driver2_node" ] && lidar=on || lidar=off
+fi
+if [ "$lidar" = on ]; then report lidar ok "on (FM_RECORDER_LIDAR=$lidar_mode) — see the stream check"
+elif [ "$lidar_mode" = auto ]; then report lidar skip "not fitted: the Livox driver is not built (FM_RECORDER_LIDAR=auto)"
+else report lidar skip "off (FM_RECORDER_LIDAR=$lidar_mode)"; fi
 
 # Bus-powered budget: what hangs off a hub that draws from one upstream port, against
 # that port's 500 mA. A self-powered hub (bmAttributes bit 6) has its own supply — the
