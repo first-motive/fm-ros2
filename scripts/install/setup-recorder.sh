@@ -98,10 +98,11 @@ fi
 #    is installed into the package share dir. The script lives inside the data engine, so the
 #    clone above must land first (#126).
 item "installing MediaPipe==$MEDIAPIPE_VERSION + downloading the hand model ..."
-pip3 install --user "mediapipe==$MEDIAPIPE_VERSION"
 # MediaPipe pulls numpy 2.x, but the system matplotlib (a MediaPipe import dep) is built for
-# numpy 1.x ("_ARRAY_API not found" / "numpy.core.multiarray failed to import"). Pin numpy < 2.
-pip3 install --user "numpy<2"
+# numpy 1.x ("_ARRAY_API not found" / "numpy.core.multiarray failed to import"). Pin numpy < 2,
+# and opencv-contrib below 4.12 (4.12+ requires numpy >= 2). All three go in ONE resolve: a
+# separate `numpy<2` step left opencv-contrib 5.x installed, so every rerun was ResolutionImpossible.
+pip3 install --user "mediapipe==$MEDIAPIPE_VERSION" "numpy<2" "opencv-contrib-python<4.12"
 bash src/fm_data/fm_data_perception/scripts/download_model.sh
 
 # 4c. Tactile glove overlay — the ESP32 receiver (fm_tactile_bridge) and its message package
