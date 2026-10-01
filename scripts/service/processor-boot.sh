@@ -50,7 +50,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # setup-processor.sh keeps node-facing Python dependencies in this workspace
 # target so a compose recreation cannot discard them with the old container.
-export PYTHONPATH="$ROOT/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT/src/fm_data/fm_data_perception:$ROOT/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
 # The container runs as root while the host installer owns the release venv.
 # Keep Python from writing root-owned bytecode into that bind-mounted runtime.
 export PYTHONDONTWRITEBYTECODE=1
@@ -115,6 +115,9 @@ fi
 # The engine's dedicated venv isolates its numpy pin from other tenants of the
 # host (setup-processor.sh creates it); default to it whenever it exists.
 ENGINE_PYTHON="${FM_PROCESSOR_ENGINE_PYTHON:-}"
+PERCEPTION_PYTHON="${FM_PROCESSOR_PERCEPTION_PYTHON:-$ROOT/.perception-venv/bin/python}"
+HAND_MODEL="${FM_PROCESSOR_HAND_MODEL:-$ROOT/src/fm_data/fm_data_perception/models/hand_landmarker.task}"
+export FM_HAND_TRACKING_ROOT="$OUTPUT_DIR"
 if [ -z "$ENGINE_PYTHON" ] && [ -x "$ROOT/.engine-venv/bin/python" ]; then
   ENGINE_PYTHON="$ROOT/.engine-venv/bin/python"
 fi
@@ -273,6 +276,9 @@ if [ -n "$CONFIG" ]; then
 fi
 if [ -n "$ENGINE_PYTHON" ]; then
   LAUNCH_ARGS+=(engine_python:="$ENGINE_PYTHON")
+fi
+if [ -x "$PERCEPTION_PYTHON" ] && [ -f "$HAND_MODEL" ]; then
+  LAUNCH_ARGS+=(perception_python:="$PERCEPTION_PYTHON" hand_model:="$HAND_MODEL")
 fi
 if [ -n "$ANNOTATIONS_DIR" ]; then
   LAUNCH_ARGS+=(annotations_dir:="$ANNOTATIONS_DIR")

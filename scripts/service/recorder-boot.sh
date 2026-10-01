@@ -33,7 +33,7 @@ if ! source "$ROOT/scripts/env/bridge.sh"; then
   exit 78
 fi
 
-TRACKER="${FM_RECORDER_TRACKER:-on}"
+TRACKER="off"
 RECORD="${FM_RECORDER_RECORD:-true}"
 FOXGLOVE="${FM_RECORDER_FOXGLOVE:-true}"
 # The Livox vendor driver lives in its own overlay workspace (setup-recorder.sh

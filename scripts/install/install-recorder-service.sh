@@ -138,7 +138,7 @@ EOF
 #ROS_DOMAIN_ID=0
 # Hand tracker — set off on a host where MediaPipe won't install (e.g. some Jetsons);
 # the recorder still captures RGB-D + IMU headless without it:
-FM_RECORDER_TRACKER=on
+FM_RECORDER_TRACKER=off
 # Livox MID-360S chest LiDAR — auto runs it exactly when the vendor driver overlay
 # (~/ws_livox) is built on this host; force on|off to override:
 FM_RECORDER_LIDAR=auto

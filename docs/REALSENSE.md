@@ -86,7 +86,7 @@ that boots straight into recording-ready — no login, no `ros2 launch` by hand.
 `scripts/service/recorder-boot.sh` on every boot: it sources ROS + the workspace overlay + `comms.sh`,
 then launches the whole stack via `egocentric_record.launch.py` —
 
-    head camera (/head + aligned depth) + hand tracker + recorder (armed, idle) + optional embedded Foxglove bridge
+    head camera (/head + aligned depth) + recorder (armed, idle) + optional embedded Foxglove bridge
 
 The recorder comes up **armed but idle**: it waits for a REC command and records nothing until one
 arrives. Nothing needs a display on the host.
@@ -146,7 +146,6 @@ Episodes land in **`~/recordings`** on the host — depth never crosses the netw
 | Knob | Default | Use |
 |---|---|---|
 | `FM_LAN_IP` | (auto) | pin the DDS LAN interface if boot-time auto-detect picks the wrong IP |
-| `FM_RECORDER_TRACKER` | `on` | set `off` where MediaPipe won't install (some Jetsons) — still captures RGB-D + IMU. `fm recorder-tracker on\|off [--host <rig>]` sets it and restarts the recorder |
 | `FM_RECORDER_LIDAR` | `auto` | Livox MID-360: `auto` runs it exactly when the vendor overlay (`~/ws_livox`) is built; set `off` until the LiDAR's dedicated interface is configured |
 | `FM_RECORDER_RECORD` | `true` | `false` = preview (camera + bridge + status, no capture) |
 | `FM_RECORDER_FOXGLOVE` | `true` | `false` when `fm-foxglove.service` is the standalone owner |
@@ -165,3 +164,15 @@ Episodes land in **`~/recordings`** on the host — depth never crosses the netw
 # or directly:
 ./scripts/install/install-recorder-service.sh uninstall
 ```
+
+## Offline hand tracking
+
+The recorder captures head colour and calibration. Hand tracking runs on the
+processor after sync. Run `fm process hands <episode>` or select **Track
+hands** in Desktop Review. The processor installer creates `.perception-venv`
+and downloads the SHA-checked model. The raw take stays unchanged. `fm process
+list` reports the completed hand set. `fm recorder-tracker` is retired.
+
+The recorder also requests the latched `/head/extrinsics/depth_to_color`
+stream. Confirm that the installed RealSense driver publishes it before the
+cut-over. Missing extrinsics do not block recording or 2D hand tracking.

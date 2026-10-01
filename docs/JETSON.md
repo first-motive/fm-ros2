@@ -69,7 +69,7 @@ curl -fsSL https://raw.githubusercontent.com/first-motive/fm-ros2/main/install.s
 ```
 
 On a fresh Jetson this installs everything: ROS 2 Humble itself, the camera
-drivers, MediaPipe (arm64 wheels exist for the pinned version), the private
+drivers, the private
 data engine and tactile overlay pinned to their newest release tags, the
 targeted colcon build, and the appliance layer — `fm-recorder.service`,
 `fm-tactile.service`, the release-channel auto-update timer, the mDNS advert
@@ -253,9 +253,8 @@ but two need awareness:
   port for a few seconds, and expect `HELLO 1 glove_<side> …` lines.
 - **Stream not reaching the Mac**: boot-time interface auto-detection picked
   the wrong IP — pin `FM_LAN_IP=<lan-ip>` in `/etc/fm-recorder.env`.
-- **Tracker trouble on arm64**: `fm recorder-tracker off --host <rig>` keeps
-  RGB-D + IMU capture while the tracker is investigated; `on` turns it back on.
-  Both restart the recorder and refuse while a take is recording.
+- **Hand tracking**: run `fm process hands <episode>` after sync, or use
+  **Track hands** in Desktop Review. The recorder does not run MediaPipe.
 - **Recording without gloves**: `fm glove-receiver off --host <rig>` stops and
   disables both receivers, so an idle receiver costs no CPU and stays off after a
   reboot and an appliance update; `on` starts them again. Add `--hand left|right`
