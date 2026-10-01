@@ -154,10 +154,10 @@ else
 fi
 
 echo "== the ~/...-shaped knobs reach the same directory =="
-# process_supervisor's model_views_dir default and setup-qwen.sh's FM_QWEN_ROOT
-# name $HOME inside the container and no env knob overrides them. Without this
-# bind they resolve to the writable layer, so the 16 GB weights view downloads
-# again on every recreate and qwen_ready never turns true.
+# The ~/fm-data-runs defaults (and a host still on setup-qwen.sh's legacy model
+# cache) name $HOME inside the container. Without this bind they resolve to the
+# writable layer, so their contents vanish on every recreate. processor-boot.sh
+# now passes model_views_dir explicitly; test-processor-service-exit.sh covers it.
 if grep -q -- '/fm-data-runs:${HOME}/fm-data-runs' compose.processor.yaml; then
   pass "the runs directory is bound at the container HOME as well"
 else

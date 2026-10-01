@@ -63,6 +63,9 @@ PROCESSOR_DATA_ROOT="$(fm_data_root "$ROOT")"
 # Keep the user-authenticated Hub state there too. Login remains an explicit
 # operator action; the service only selects the path.
 export HF_HOME="${FM_PROCESSOR_HUGGINGFACE_HOME:-$PROCESSOR_DATA_ROOT/hf}"
+# setup-qwen.sh's default weights root. The supervisor reports qwen_ready from
+# here and hands it back to setup-qwen.sh as FM_QWEN_ROOT, so both sides agree.
+QWEN_ROOT="${FM_QWEN_ROOT:-$PROCESSOR_DATA_ROOT/hf}"
 
 RECORDINGS_DIR="${FM_PROCESSOR_RECORDINGS_DIR:-~/recordings}"
 OUTPUT_DIR="${FM_PROCESSOR_OUTPUT_DIR:-~/processed}"
@@ -293,6 +296,7 @@ fi
 # workspace's own setup-qwen.sh; passing the path here keeps the supervisor
 # free of workspace-layout knowledge.
 LAUNCH_ARGS+=(provision_script:="$ROOT/scripts/install/setup-qwen.sh")
+LAUNCH_ARGS+=(model_views_dir:="$QWEN_ROOT/_model-views")
 # App-approved real annotation stages through the annotation package's own
 # staging script in this workspace's source tree.
 LAUNCH_ARGS+=(stage_script:="$ROOT/src/fm_data/fm_data_annotate/scripts/stage_qwen_run.sh")

@@ -116,6 +116,29 @@ else
   fail "container entry does not establish source identity before launch"
 fi
 
+# setup-qwen.sh downloads under <data root>/hf since #179, but the supervisor
+# kept reading ~/fm-data-runs/_model-views, so every finished provision on the
+# tower reported "failed". The wrapper must pass the root setup-qwen.sh uses.
+# assert_model_views <description> <expected suffix> [FM_QWEN_ROOT]
+assert_model_views() {
+  local description="$1" expected="$2" got
+  # shellcheck disable=SC2016  # deliberate: the stub expands its args when it runs
+  printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@" >"%s/args"\nexit 143\n' "$stub_dir" >"$stub_dir/ros2"
+  rm -f "$stub_dir/args"
+  env ${3:+FM_QWEN_ROOT="$3"} FM_LAN_IP=127.0.0.1 PATH="$stub_dir:$PATH" \
+    FM_ARCHIVE_UPLOADER_STATE_DIR="$stub_dir/state" \
+    bash "$WRAPPER" >/dev/null 2>&1
+  got="$(grep '^model_views_dir:=' "$stub_dir/args" 2>/dev/null)"
+  if [[ "$got" == *"$expected" ]]; then
+    pass "$description"
+  else
+    fail "$description — got '${got:-no model_views_dir}', expected '*$expected'"
+  fi
+}
+assert_model_views "model views default to setup-qwen.sh's hf root" "/hf/_model-views"
+assert_model_views "FM_QWEN_ROOT moves the model views with setup-qwen.sh" \
+  "model_views_dir:=$stub_dir/qwen/_model-views" "$stub_dir/qwen"
+
 echo
 if [[ "$fails" -gt 0 ]]; then
   echo "$fails check(s) failed"
