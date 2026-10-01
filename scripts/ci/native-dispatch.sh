@@ -93,6 +93,21 @@ main() {
   if FM_SELFTEST=1 ./scripts/run/process.sh show '../etc' >/dev/null 2>&1; then
     echo "FAIL: process.sh accepted a path as an episode id" >&2; return 1
   fi
+  # A status read that gets no message must fail with its own error, not a
+  # JSON traceback from the formatter that runs on the empty payload.
+  local fake out
+  fake="$(mktemp -d)"
+  mkdir "$fake/bin" && : >"$fake/env"
+  printf '#!/bin/sh\nexit 124\n' >"$fake/bin/ros2" && chmod +x "$fake/bin/ros2"
+  if out=$(PATH="$fake/bin:$PATH" FM_PROCESSOR_ENV_FILE="$fake/env" FM_PROCESSOR_RUNTIME=native \
+      ./scripts/run/process.sh status --timeout 1 2>&1); then
+    echo "FAIL: process.sh status passed with nothing published" >&2; return 1
+  fi
+  rm -rf "$fake"
+  if grep -q Traceback <<<"$out"; then
+    echo "FAIL: process.sh status printed a traceback on an empty read:" >&2
+    printf '%s\n' "$out" >&2; return 1
+  fi
 
   echo "PASS: native dispatch + flag parsing"
 

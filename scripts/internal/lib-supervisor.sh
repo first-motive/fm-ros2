@@ -457,8 +457,13 @@ exit $rc
 # Pretty-print the JSON on stdin with a small formatter, run in the processor's
 # runtime rather than the host's — the same reason dataset.sh parses the
 # manifest there: jq is not in the image, python always is.
+# Empty stdin means the read before it failed and already said why; fail
+# quietly instead of printing a JSON traceback under that message.
 fm_supervisor_format() {
-  fm_supervisor_exec python3 -c "$1"
+  local payload
+  payload=$(cat)
+  [[ -n "$payload" ]] || return 1
+  printf '%s\n' "$payload" | fm_supervisor_exec python3 -c "$1"
 }
 
 # fm_supervisor_request_id
