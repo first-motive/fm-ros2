@@ -139,7 +139,7 @@ Usage: ./install.sh [install|uninstall] [options]
 Path (where the stack runs):
   --native            native ROS2 via pixi + RoboStack (default on macOS/Windows)
   --container         Docker + compose (default on Linux; tests/CI/parity elsewhere)
-  --recorder          native Linux camera host: RealSense driver + hand tracker +
+  --recorder          native Linux camera host: RealSense driver +
                       tactile-glove receiver + episode recording, streaming to
                       laptops over DDS. Ubuntu 22.04 + ROS 2 Humble required.
                       See docs/REALSENSE.md.
@@ -590,7 +590,7 @@ main() {
   fi
 
   # Vendor the external sources the build consumes into external/. The recorder role
-  # builds only the tracker and the processor only the data engine (no sim/robot/
+  # builds capture packages and the processor builds the data engine (no sim/robot/
   # MoveIt), so both skip the heavy external vendoring.
   if [[ "$path" != recorder && "$path" != processor ]]; then
     step "Vendor Externals"
@@ -613,7 +613,7 @@ main() {
   # Set up the selected path and viewer, then persist the profile. run.sh reads
   # .fm_ros2.json to route the launch; both paths share the imported workspace above.
   if [[ "$path" == recorder ]]; then
-    # Recorder: native Linux camera host — RealSense driver, MediaPipe tracker, episode
+    # Recorder: native Linux camera host — RealSense driver, episode
     # recording, DDS-to-laptops. No pixi/container, no viewer install (headless).
     # --service (FM_INSTALL_SERVICE=1) also installs the on-boot appliance service.
     step "Recorder Setup"
@@ -688,7 +688,7 @@ main() {
   step "Ready"
   item "workspace provisioned at $PWD (path=$path, viewer=$viewer, comms=$comms)"
   if [[ "$path" == recorder ]]; then
-    item "recorder ready — see the camera/tracker/record commands above (and docs/REALSENSE.md)"
+    item "recorder ready — see the camera/record commands above (and docs/REALSENSE.md)"
   elif [[ "$path" == processor ]]; then
     item "processor ready — see the process_session launch commands above"
   else

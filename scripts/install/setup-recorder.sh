@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # setup-recorder.sh — provision a native Linux host (Ubuntu 22.04 + ROS 2 Humble) as the First
-# Motive "recorder": it drives the RealSense depth camera, runs the hand tracker (with metric
+# Motive "recorder": it drives the RealSense depth camera and records episodes (with metric
 # depth Z), records RGB-D episodes locally, and streams the small results to any Mac over DDS.
 #
 # The camera stays on this machine; laptops consume the stream. macOS cannot drive the RealSense
@@ -15,7 +15,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 . "$ROOT/scripts/env/bridge.sh"
 cd "$ROOT"
 
-MEDIAPIPE_VERSION="0.10.14"
 # Pinned ref for the tactile-glove overlay (fm_tactile_msgs + fm_tactile_bridge).
 # Override with FM_TACTILE_REF to test a branch before it is tagged. v0.2.0 adds
 # glove orientation to TactileSample mid-message; Desktop before 1.9.10 cannot
@@ -94,17 +93,6 @@ if [ ! -d src/fm_data/.git ]; then
   }
 fi
 
-# 4. MediaPipe + hand model (the tracker's perception). Download the model BEFORE the build so it
-#    is installed into the package share dir. The script lives inside the data engine, so the
-#    clone above must land first (#126).
-item "installing MediaPipe==$MEDIAPIPE_VERSION + downloading the hand model ..."
-# MediaPipe pulls numpy 2.x, but the system matplotlib (a MediaPipe import dep) is built for
-# numpy 1.x ("_ARRAY_API not found" / "numpy.core.multiarray failed to import"). Pin numpy < 2,
-# and opencv-contrib below 4.12 (4.12+ requires numpy >= 2). All three go in ONE resolve: a
-# separate `numpy<2` step left opencv-contrib 5.x installed, so every rerun was ResolutionImpossible.
-pip3 install --user "mediapipe==$MEDIAPIPE_VERSION" "numpy<2" "opencv-contrib-python<4.12"
-bash src/fm_data/fm_data_perception/scripts/download_model.sh
-
 # 4c. Tactile glove overlay — the ESP32 receiver (fm_tactile_bridge) and its message package
 #     (fm_tactile_msgs) live in their own private repo. Cloned under src/ so colcon discovers
 #     it in the same workspace overlay the recorder builds into; src/ is gitignored here, so
@@ -145,19 +133,17 @@ fi
 #     (a dev checkout) is never moved.
 if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
   pin_release src/fm_data
-  pin_release src/fm_teleop
 fi
 
-# 5. Build the tracker + the recorder/sensors only — no sim / robot-control / MoveIt / dataset
+# 5. Build the recorder/sensors only — no sim / robot-control / MoveIt / dataset
 #    engine. rosdep resolves system deps; failures there are non-fatal (the apt deps above cover
 #    the core path), so the build still proceeds.
-item "resolving deps + building tracker + recorder + tactile bridge ..."
+item "resolving deps + building recorder + tactile bridge ..."
 sudo rosdep init 2>/dev/null || true
 rosdep update 2>/dev/null || true
-rosdep install --from-paths src/fm_data/fm_data_perception src/fm_data/fm_data_record \
+rosdep install --from-paths src/fm_data/fm_data_record \
   src/fm_data/fm_data_sensors \
   src/fm_data/fm_data_watchdog src/fm_data/fm_data_episode_qa \
-  src/fm_teleop/fm_teleop_core src/fm_teleop/fm_teleop_msgs \
   "$TACTILE_DIR/ros2_ws/src" \
   --ignore-src -y --rosdistro humble 2>/dev/null || \
   item "rosdep install skipped/partial — continuing (apt deps above cover the core path)"
@@ -169,10 +155,7 @@ pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "set
 # The fm_data checkout has a top-level metapackage package.xml, so colcon's recursive discovery
 # stops there and never sees the nested fm_data_record / fm_data_sensors / fm_data_perception.
 # List their dirs explicitly as base-paths (mirrors the data engine's own README).
-# The tracker lives in fm_data_perception; the only teleop packages the rig builds are the
-# two dependency-free ones it publishes and filters with — fm_teleop_msgs (the perception
-# interfaces) and fm_teleop_core (the One-Euro filters). No MediaPipe-bearing teleop node,
-# no vision stack: a teleop refactor cannot break recording.
+# No perception or teleop package is needed by the egocentric capture build.
 # fm_tactile_bridge pulls fm_tactile_msgs transitively; the recorder needs that message
 # package on its PYTHONPATH too, or get_message() cannot import the type and it drops
 # /glove_left/tactile with a warning every tick.
@@ -183,20 +166,12 @@ pip3 install --user "setuptools==59.6.0" 2>/dev/null || pip3 install --user "set
 # unbuilt package took the rig down. Building them is inert on its own — nothing
 # starts until a unit does.
 colcon build --symlink-install \
-  --base-paths src/fm_data/fm_data_perception src/fm_data/fm_data_record \
+  --base-paths src/fm_data/fm_data_record \
   src/fm_data/fm_data_sensors \
   src/fm_data/fm_data_watchdog src/fm_data/fm_data_episode_qa \
-  src/fm_teleop/fm_teleop_core src/fm_teleop/fm_teleop_msgs \
   "$TACTILE_DIR/ros2_ws/src" \
-  --packages-up-to fm_data_perception fm_data_record fm_data_sensors fm_tactile_bridge \
+  --packages-up-to fm_data_record fm_data_sensors fm_tactile_bridge \
   fm_data_watchdog fm_data_episode_qa
-
-# 4b. --symlink-install can leave the model files in the package share dir as dangling symlinks;
-#     copy the real .task files in so hand_tracker (which resolves them from share) finds them.
-_share_models="install/fm_data_perception/share/fm_data_perception/models"
-if [ -d "$_share_models" ]; then
-  cp -f src/fm_data/fm_data_perception/models/*.task "$_share_models"/ 2>/dev/null || true
-fi
 
 # 4c. Livox MID-360S chest LiDAR stack (best-effort — an optional sensor must never
 #     cost the camera-host role). The vendor driver builds in its OWN overlay
@@ -274,7 +249,7 @@ fi
 
 # 6. Boot service (opt-in via install.sh --recorder --service -> FM_INSTALL_SERVICE=1).
 #    Installs a systemd unit so this host comes up as a headless recorder appliance:
-#    camera + tracker + recorder (armed, idle) plus either the default embedded
+#    camera + recorder (armed, idle) plus either the default embedded
 #    bridge or the persisted standalone owner, driven remotely from a Mac. A plain
 #    --recorder just builds; the appliance is opt-in.
 if [ "${FM_INSTALL_SERVICE:-0}" = 1 ]; then
@@ -349,12 +324,11 @@ cat <<EOF
 Next — plug the RealSense into a USB3 port, open a NEW terminal, then:
 
   source /opt/ros/humble/setup.bash
-  source "$ROOT/install/setup.bash"          # the built tracker + recorder
+  source "$ROOT/install/setup.bash"          # the built recorder
   source "$ROOT/scripts/env/comms.sh"        # comms profile (auto in new shells via ~/.bashrc)
 
-  # Camera (/head RealSense) + hand tracker (metric depth Z) + recorder — one command:
+  # Camera (/head RealSense) + recorder — one command:
   ros2 launch fm_data_record egocentric_record.launch.py
-  #   camera-only (no tracker):  ros2 launch fm_data_record egocentric_record.launch.py tracker:=off
 
   # Record an episode — the recorder is marker-bounded (MCAP). Start / stop a take with:
   ros2 topic pub --once /fm_data_record/episode_marker std_msgs/msg/String "data: '{\\"event\\": \\"start\\"}'"

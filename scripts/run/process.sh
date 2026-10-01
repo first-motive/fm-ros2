@@ -26,12 +26,13 @@ source scripts/internal/lib-supervisor.sh
 usage() {
   cat <<'USAGE'
 process.sh — drive and inspect the processor's supervisor
-Usage: ./scripts/run/process.sh <status|list|show|inspect|run|annotate|real-annotate|retry|review|wait|cloud-start|cloud-cancel> [options]
+Usage: ./scripts/run/process.sh <status|list|show|inspect|run|hands|annotate|real-annotate|retry|review|wait|cloud-start|cloud-cancel> [options]
   status                worker state, queue, current job, last outcome, refusals
   list                  processed/annotated state of every recorded episode
   show <episode>        the selected episode's full manifest and annotation detail
   inspect <episode>     alias for show
   run <episode>...      queue dataset processing for those episodes
+  hands <episode>...    queue offline hand tracking
   annotate <episode>... queue fake-adapter annotation for those episodes
   real-annotate <episode>... queue an approved real-model attempt
   retry <episode>...    queue a real-model retry with a new request identity
@@ -207,7 +208,7 @@ main() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -h | --help) usage; return 0 ;;
-      status | list | show | inspect | run | annotate | real-annotate | annotate-real | retry | review | wait | cloud-start | cloud-cancel | cancel)
+      status | list | show | inspect | run | hands | annotate | real-annotate | annotate-real | retry | review | wait | cloud-start | cloud-cancel | cancel)
         action="$1"; shift ;;
       --emit) emit=true; shift ;;
       --reprocess) reprocess=true; shift ;;
@@ -260,7 +261,7 @@ main() {
   count="${count:-0}"
   case "$action" in
     show) [[ "$count" -eq 1 ]] || { echo "error: show takes exactly one episode id" >&2; return 2; } ;;
-    run | annotate | real-annotate | retry) [[ "$count" -ge 1 ]] || { echo "error: $action needs at least one episode id" >&2; return 2; } ;;
+    run | hands | annotate | real-annotate | retry) [[ "$count" -ge 1 ]] || { echo "error: $action needs at least one episode id" >&2; return 2; } ;;
     wait)
       if [[ -z "$request_id" && "$count" -eq 1 ]]; then request_id="${episodes[0]}"; episodes=(); count=0; fi
       [[ "$count" -eq 0 ]] || { echo "error: wait takes one request id" >&2; return 2; }
@@ -275,7 +276,7 @@ main() {
     _safe_id "$target" || { echo "error: '$target' is not a target id" >&2; return 2; }
   fi
   case "$action" in
-    run | annotate)
+    run | hands | annotate)
       if [[ -n "$request_id" ]]; then
         _safe_id "$request_id" || { echo "error: --request-id is not contract-safe" >&2; return 2; }
       fi
@@ -361,7 +362,7 @@ main() {
       if [[ "$json" == true ]]; then printf '%s\n' "$outcome"; else printf '%s\n' "$outcome" | fm_supervisor_format "$FMT_RESULT"; fi
       return "$rc"
       ;;
-    run | annotate)
+    run | hands | annotate)
       local ids request request_id_outcome rc=0
       request_id="${request_id:-$(fm_supervisor_request_id)}"
       ids=$(printf '"%s",' "${episodes[@]}")
