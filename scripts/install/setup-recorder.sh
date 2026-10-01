@@ -228,15 +228,27 @@ item "provisioning the Livox MID-360S stack (best-effort) ..."
   # setup scripts before a failed build finishes, and that half-built overlay left
   # the first Jetson's launch in a "package not found" loop (2026-08-13). Probing
   # the node also makes a re-run (or the auto-updater's next tick) retry the build.
-  if [ ! -x "$HOME/ws_livox/install/livox_ros_driver2/lib/livox_ros_driver2/livox_ros_driver2_node" ]; then
+  _livox_drv="$HOME/ws_livox/src/livox_ros_driver2"
+  _livox_node="$HOME/ws_livox/install/livox_ros_driver2/lib/livox_ros_driver2/livox_ros_driver2_node"
+  if [ ! -x "$_livox_node" ]; then
     mkdir -p "$HOME/ws_livox/src"
-    [ -d "$HOME/ws_livox/src/livox_ros_driver2" ] || \
-      git clone https://github.com/Livox-SDK/livox_ros_driver2.git \
-        "$HOME/ws_livox/src/livox_ros_driver2"
-    git -C "$HOME/ws_livox/src/livox_ros_driver2" checkout -q "$_livox_drv_ref" 2>/dev/null || true
+    [ -d "$_livox_drv" ] || \
+      git clone https://github.com/Livox-SDK/livox_ros_driver2.git "$_livox_drv"
+    git -C "$_livox_drv" checkout -q "$_livox_drv_ref" 2>/dev/null || true
+  fi
+  # Without time sync the vendor driver paces clouds from a clock that stops while
+  # the lidar idles (lidar_power), then floods small clouds after a wake until it
+  # catches up. The patch restarts the cadence. Applying it to an already-built
+  # overlay removes the node, so the build below runs once with the patch.
+  _livox_patch="$ROOT/scripts/install/patches/livox-ros-driver2-publish-cadence.patch"
+  if ! git -C "$_livox_drv" apply --reverse --check "$_livox_patch" 2>/dev/null; then
+    git -C "$_livox_drv" apply "$_livox_patch"
+    rm -f "$_livox_node"
+  fi
+  if [ ! -x "$_livox_node" ]; then
     # The vendor build script selects the ROS2 package.xml and colcon-builds the
     # overlay workspace (run from the repo dir, per the vendor README).
-    ( cd "$HOME/ws_livox/src/livox_ros_driver2" && ./build.sh humble >/dev/null )
+    ( cd "$_livox_drv" && ./build.sh humble >/dev/null )
   fi
 ) || item "WARNING: Livox stack provisioning failed — the LiDAR stays off (FM_RECORDER_LIDAR=auto); fix and re-run anytime"
 
