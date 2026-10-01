@@ -1,0 +1,18 @@
+diff --git a/src/comm/pub_handler.cpp b/src/comm/pub_handler.cpp
+index aa59d37..7ea01fd 100644
+--- a/src/comm/pub_handler.cpp
++++ b/src/comm/pub_handler.cpp
+@@ -205,6 +205,13 @@ void PubHandler::CheckTimer(uint32_t id) {
+       return;
+     }
+     last_pub_time_ += std::chrono::nanoseconds(publish_interval_);
++    // First Motive: no packets arrive while the lidar is in IDLE, so this check
++    // does not run and last_pub_time_ falls behind. Without this reset, the
++    // driver publishes on every packet batch after a wake until it catches up
++    // (about 200 small clouds a second for ~10 s after a 5 min idle). Restart.
++    if (now_time - last_pub_time_ >= std::chrono::nanoseconds(publish_interval_)) {
++      last_pub_time_ = now_time;
++    }
+     for (auto &process_handler : lidar_process_handlers_) {
+       frame_.base_time[frame_.lidar_num] = process_handler.second->GetLidarBaseTime();
+       uint32_t handle = process_handler.first;
