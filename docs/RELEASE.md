@@ -89,6 +89,28 @@ Two things the script deliberately leaves to you:
 - **The rollout.** Nothing is pushed to any rig. Each timer fetches on its own
   schedule and converges within a tick.
 
+## Trialling A Change Off The Channel
+
+A trial puts unreleased work on chosen machines through exact pins, while the
+rest of the fleet stays on stable tags. Name its tags so that a reader can tell
+which versions belong together:
+
+- **One name for the whole trial.** Every repo in the trial uses the same
+  pre-release name, for example `v0.3.0-rc.1` in fm-ros2, fm-comms, and
+  fm-docker. A per-repo counter makes a pair such as `fm-ros2 zenoh.3` with
+  `comms zenoh.10`, which nobody can read.
+- **A new number for each change.** When the trial changes, cut `rc.2` in every
+  repo that the trial pins. A missing number in a repo is acceptable; a reused
+  number is not.
+- **A pushed tag never moves.** This applies to pre-release tags as well. A moved
+  tag means two machines can report the same version and run different code,
+  and a checkout that holds the old copy can no longer fetch. The public repos
+  enforce it with the `release tags never move` tag ruleset.
+- **Close the trial.** When the work merges to `main` and ships in a stable tag,
+  move each pinned machine back to the channel and confirm that
+  `appliance-update.sh --check <role>` no longer reports `pinned`. Leave the
+  trial's tags in place as history.
+
 ## Cadence
 
 Cut a release when merged work should reach the fleet, and at least once a
