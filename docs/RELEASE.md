@@ -58,8 +58,9 @@ no tag. The workspace must still be fully assembled, and all release checks
 still apply to the selected repositories.
 
 Before it creates the first tag, the script checks access and completed CI
-checks for every proposed release. An archived repo, a fetch failure, or a
-failed check stops the run. If a repo has `scripts/check-release.sh`, the script
+checks for every proposed release. An archived repo, a fetch failure, a
+failed check, or a stable tag that moved on the remote stops the run. The script
+fetches only stable tags, so a moved pre-release tag does not block it. If a repo has `scripts/check-release.sh`, the script
 runs that package-owned check from the proposed commit with the new tag as its
 first argument. The hook must refuse invalid release metadata.
 
