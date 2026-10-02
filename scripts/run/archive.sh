@@ -400,7 +400,14 @@ main() {
       quoted="${argument//\'/$replacement}"
       remote_command+=" '$quoted'"
     done
-    exec ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$remote_command"
+    # Desktop sends one request per click, so each would otherwise pay a full
+    # SSH handshake (about half a second). The first request leaves a private
+    # master connection for five minutes and later ones reuse it. A dead
+    # master is replaced by a fresh connection, so this only ever saves time.
+    [ -d "$HOME/.ssh" ] || mkdir -m 700 "$HOME/.ssh" 2>/dev/null || true
+    exec ssh -o BatchMode=yes -o ConnectTimeout=10 \
+      -o ControlMaster=auto -o ControlPersist=300 -o "ControlPath=$HOME/.ssh/fm-archive-%C" \
+      -- "$host" "$remote_command"
   fi
   if [ "${1:-}" = service ]; then
     shift
