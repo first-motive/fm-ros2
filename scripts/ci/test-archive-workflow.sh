@@ -201,8 +201,10 @@ cat >"$TMP_DIR/bin/ssh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 [ "$1" = -o ] && [ "$2" = BatchMode=yes ] && [ "$3" = -o ] && [ "$4" = ConnectTimeout=10 ]
-[ "$5" = -- ] && [ "$6" = tower-test ] || exit 9
-exec sh -c "$7"
+[ "$5" = -o ] && [ "$6" = ControlMaster=auto ] && [ "$7" = -o ] && [ "$8" = ControlPersist=300 ] || exit 8
+[ "$9" = -o ] && [ "${10}" = "ControlPath=$HOME/.ssh/fm-archive-%C" ] || exit 8
+[ "${11}" = -- ] && [ "${12}" = tower-test ] || exit 9
+exec sh -c "${13}"
 EOF
 cat >"$TMP_DIR/bin/fm" <<'EOF'
 #!/usr/bin/env bash
