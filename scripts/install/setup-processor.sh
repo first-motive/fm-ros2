@@ -286,7 +286,10 @@ python3 -m venv "$ENGINE_VENV"
 # editable path writes NO console scripts (dataset_process / annotation_run were
 # silently absent from the venv's bin — hit live 2026-07-23). Modern pip +
 # setuptools install editables per PEP 660, with proper entry-point scripts.
-"$ENGINE_VENV/bin/pip" install --quiet --upgrade pip setuptools
+# The Humble image has no host uv on PATH. Bootstrap the machine setup's pinned
+# version into this persistent environment, without changing the system Python.
+"$ENGINE_VENV/bin/pip" install --quiet --upgrade pip setuptools "uv==0.9.29"
+PROCESSOR_UV="$ENGINE_VENV/bin/uv"
 if "$ENGINE_VENV/bin/python" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)'; then
   "$ENGINE_VENV/bin/pip" install --quiet -r src/fm_data/fm_data_dataset/requirements-bags.txt
 else
@@ -308,19 +311,24 @@ item "installing the annotation tooling (fm_data_annotate + media tier) into the
 # (fmtower, 2026-09-03).
 item "installing the release pack tooling (fm_data_package) into the venv ..."
 "$ENGINE_VENV/bin/pip" install --quiet -e src/fm_data/fm_data_package
-uv pip install --python "$ENGINE_VENV/bin/python" \
+"$PROCESSOR_UV" pip install --python "$ENGINE_VENV/bin/python" \
   -e src/fm_data/fm_data_perception -e src/fm_data/fm_data_record
 
 # Offline perception has its own dependency tier and no ROS overlay.
 PERCEPTION_VENV="$ROOT/.perception-venv"
+PERCEPTION_PYTHON=3.12
+if in_container; then
+  # Reuse the mounted host Python so this venv survives container replacement.
+  PERCEPTION_PYTHON="$ROOT/.release-venv/bin/python"
+fi
 item "installing the offline hand-tracking runtime ..."
-uv venv --python 3.12 --allow-existing "$PERCEPTION_VENV"
-uv pip install --python "$PERCEPTION_VENV/bin/python" \
+"$PROCESSOR_UV" venv --python "$PERCEPTION_PYTHON" --relocatable --allow-existing "$PERCEPTION_VENV"
+"$PROCESSOR_UV" pip install --python "$PERCEPTION_VENV/bin/python" \
   -r src/fm_data/fm_data_perception/requirements-offline.txt \
   -e src/fm_data/fm_data_perception -e src/fm_data/fm_data_annotate
 bash src/fm_data/fm_data_perception/scripts/download_model.sh
-uv run --no-project --python "$PERCEPTION_VENV/bin/python" \
-  python -m fm_data_perception.offline --help >/dev/null
+"$PROCESSOR_UV" run --no-project --python "$PERCEPTION_VENV/bin/python" \
+  python -I -m fm_data_perception.offline --help >/dev/null
 item "verifying the bundle-bound review-media runtime ..."
 "$ENGINE_VENV/bin/python" -c \
   'from PIL import Image; from fm_data_annotate.media import decode_camera_frames; from fm_data_dataset.core.review_media import stream_review_media; import fm_data_package.verify_cli'
