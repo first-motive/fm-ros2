@@ -151,4 +151,24 @@ for path in . docker comms src/fm_alpha src/fm_beta; do
 done
 [ -z "$(git -C "$WS/src/fm_retired" tag -l)" ] || fail 'a stale checkout joined the release'
 
+# A pre-release tag that moved on the remote is off the release channel, so it
+# must not block a release. The local copy keeps the old target.
+first="$(git -C "$WS/comms" rev-parse HEAD)"
+git -C "$WS/comms" commit -q --allow-empty -m 'transport trial'
+git -C "$WS/comms" tag v0.2.0-trial.1
+git -C "$WS/comms" push -q origin main
+git -C "$TMP_DIR/comms.git" tag v0.2.0-trial.1 "$first"
+rc=0
+out="$(bash "$WS/scripts/dev/cut-release.sh" 2>&1)" || rc=$?
+[ "$rc" = 0 ] || fail "a moved pre-release tag blocked the release (rc=$rc): $out"
+grep -q 'plan comms' <<< "$out" || fail "comms was not planned past a moved pre-release tag: $out"
+
+# A stable tag that moved on the remote breaks the channel's one promise, so the
+# train stops and names the tag.
+git -C "$TMP_DIR/comms.git" tag -f v0.1.0 "$(git -C "$WS/comms" rev-parse HEAD)" >/dev/null
+rc=0
+out="$(bash "$WS/scripts/dev/cut-release.sh" 2>&1)" || rc=$?
+[ "$rc" != 0 ] || fail "a moved stable tag did not block the release"
+grep -q 'v0.1.0 moved on the remote' <<< "$out" || fail "the moved stable tag was not named: $out"
+
 echo "test-cut-release: passed"

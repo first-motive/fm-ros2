@@ -186,6 +186,7 @@ main() {
   fi
 
   local dir name branch current next tip tagged planned=0 slug check snapshot
+  local remote_tags stable_refs oid ref local_oid
   local -a release_dirs=() release_tags=() release_tips=()
   while IFS= read -r dir; do
     name="$(basename "$dir")"
@@ -193,9 +194,24 @@ main() {
     # Tag tips and the default branch both come from the remote, so fetch before
     # reading either. A fetch that fails is almost always missing access to a
     # private repo; skip that repo loudly rather than releasing a partial set in
-    # silence.
-    if ! git -C "$dir" fetch -q origin 'refs/tags/*:refs/tags/*' 2>/dev/null; then
-      item "ERROR $name — could not fetch tags (check access and tag conflicts)"
+    # silence. Only stable tags are fetched: a pre-release tag is off the
+    # channel, and one that moved on the remote must not block the release.
+    if ! remote_tags="$(git -C "$dir" ls-remote --tags --refs origin 'v[0-9]*' 2>/dev/null)"; then
+      item "ERROR $name — could not fetch tags (check access)"
+      return 1
+    fi
+    stable_refs="$(awk '$2 ~ /^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+$/ { print $1, $2 }' <<< "$remote_tags")"
+    while read -r oid ref; do
+      [ -n "$ref" ] || continue
+      local_oid="$(git -C "$dir" rev-parse -q --verify "$ref" || true)"
+      if [ -n "$local_oid" ] && [ "$local_oid" != "$oid" ]; then
+        item "ERROR $name — ${ref#refs/tags/} moved on the remote; a published tag must never move, so investigate before releasing"
+        return 1
+      fi
+    done <<< "$stable_refs"
+    # shellcheck disable=SC2046 # One refspec per word; tag names hold no spaces.
+    if [ -n "$stable_refs" ] && ! git -C "$dir" fetch -q origin $(awk '{ print $2 ":" $2 }' <<< "$stable_refs") 2>/dev/null; then
+      item "ERROR $name — could not fetch tags (check access)"
       return 1
     fi
     branch="$(_default_branch "$dir")"
