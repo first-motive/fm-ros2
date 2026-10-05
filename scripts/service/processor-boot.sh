@@ -50,7 +50,10 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # setup-processor.sh keeps node-facing Python dependencies in this workspace
 # target so a compose recreation cannot discard them with the old container.
-export PYTHONPATH="$ROOT/src/fm_data/fm_data_perception:$ROOT/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
+# It also installs a copy of fm_data_annotate there. The supervisor hashes the
+# tree it imports to match cloud images, and the copy has no scripts/ directory,
+# so the source checkout must come first or no image ever matches (#242).
+export PYTHONPATH="$ROOT/src/fm_data/fm_data_perception:$ROOT/src/fm_data/fm_data_annotate:$ROOT/.ros-runtime${PYTHONPATH:+:$PYTHONPATH}"
 # The container runs as root while the host installer owns the release venv.
 # Keep Python from writing root-owned bytecode into that bind-mounted runtime.
 export PYTHONDONTWRITEBYTECODE=1

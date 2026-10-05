@@ -132,6 +132,8 @@ grep -q 'FM_PROCESSOR_UV_PYTHON_ROOT' scripts/internal/lib-processor.sh \
 grep -q '\.ros-runtime' scripts/internal/lib-processor.sh \
   && grep -q '\.ros-runtime' scripts/service/processor-boot.sh \
   && echo "PASS: ROS Python dependencies survive container recreation" || { echo "FAIL: persistent ROS Python runtime missing"; fail=1; }
+grep -q 'src/fm_data/fm_data_annotate:\$ROOT/\.ros-runtime' scripts/service/processor-boot.sh \
+  && echo "PASS: processor imports fm_data_annotate from source before the runtime copy" || { echo "FAIL: .ros-runtime shadows the fm_data_annotate source"; fail=1; }
 grep -q 'git curl ffmpeg' scripts/install/setup-processor.sh \
   && echo "PASS: processor setup installs release media tools" || { echo "FAIL: ffmpeg install missing"; fail=1; }
 grep -q 'FM_PROCESSOR_HUGGINGFACE_HOME:-$PROCESSOR_DATA_ROOT/hf' scripts/service/processor-boot.sh \
