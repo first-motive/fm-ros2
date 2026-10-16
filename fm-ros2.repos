@@ -2,7 +2,7 @@
 #
 # Public-workspace assembly: pulls the shared container infra into docker/, the
 # Zenoh transport configs into comms/, and the four public First Motive package
-# repos into src/, each tracking main. Paths are
+# repos into src/, each tracking main except fm-sim (see its entry). Paths are
 # relative to the workspace root, so import from the root (no `src` argument). A
 # private data overlay lives in a separate manifest — team members with
 # access import it on top of this one; see docs/ARCHITECTURE.md. Externals
@@ -40,7 +40,10 @@ repositories:
   src/fm_sim:
     type: git
     url: https://github.com/first-motive/fm-sim.git
-    version: main
+    # Held at the last Humble commit: fm-sim main moved to Jazzy (fm-sim#40), and
+    # this workspace is Humble. Teleoperate still launches fm_bringup sim.launch.py
+    # against these backends.
+    version: 18b70c1d8b856ad3ece77d647150a7e8c1ab7171
   src/fm_teleop:
     type: git
     url: https://github.com/first-motive/fm-teleop.git
