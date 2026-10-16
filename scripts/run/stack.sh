@@ -17,9 +17,9 @@
 # `stack up` is the inverse of `stack down`, and each is safe to repeat: `up`
 # leaves an already-running stack alone, `down` on nothing exits clean.
 #
-# Where sim.sh launches one robot in the foreground and hands you its log, this
-# runs the stack detached and returns, so a script can record an episode against
-# it. Both take the same --robot/--variant/--backend/--task-env arguments.
+# It runs the stack detached and returns, so a script can record an episode
+# against it. `fm sim` belongs to fm-sim: its agent runs catalogued sim runs,
+# not this stack.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -237,7 +237,7 @@ main() {
   local overlay
   overlay=$(fm_stack_overlay "$backend")
 
-  # CI self-test hook, matching sim.sh: arguments parsed and the overlay picked,
+  # CI self-test hook, matching teleop.sh: arguments parsed and the overlay picked,
   # stopping before any Docker or ROS call CI cannot make. Proves `fm stack`
   # reaches this script and resolves its flags.
   if [[ -n "${FM_SELFTEST:-}" ]]; then

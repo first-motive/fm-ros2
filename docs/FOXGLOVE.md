@@ -195,13 +195,15 @@ For a live MuJoCo-backed SO101 scene, start the simulator with a task
 environment and then connect Foxglove Studio to the shared bridge:
 
 ```bash
-./scripts/run/sim.sh --robot so101 --backend mujoco --task-env pick_place
-./scripts/run/sim.sh --robot so101 --backend mujoco --task-env table_reach
-./scripts/run/sim.sh --robot so101 --backend mujoco --task-env bin_sort
+./scripts/run/stack.sh up --robot so101 --backend mujoco --task-env pick_place
+./scripts/run/stack.sh up --robot so101 --backend mujoco --task-env table_reach
+./scripts/run/stack.sh up --robot so101 --backend mujoco --task-env bin_sort
 ```
 
-`sim.sh` prints the selected task environment and ensures Docker is running on
-macOS before it launches the graph.
+`stack up` launches the graph detached and returns once `/joint_states` has a
+publisher. It needs the container runtime already running on macOS (OrbStack);
+`./scripts/run/stack.sh down` tears the scene down before you switch task
+environment.
 
 After the scene is up, verify the bridge can see the robot and task props:
 

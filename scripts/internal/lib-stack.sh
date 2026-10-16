@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Shared stack resolution for the fm_ros2 lifecycle verbs. Sourced by
-# scripts/run/stack.sh, scripts/run/episode.sh, scripts/run/dataset.sh and
-# scripts/run/sim.sh — never executed.
+# scripts/run/stack.sh, scripts/run/episode.sh and scripts/run/dataset.sh —
+# never executed.
 #
 # Four facts the verbs would otherwise each re-derive:
 #

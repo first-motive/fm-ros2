@@ -78,8 +78,6 @@ main() {
   # so asserting them here covers the CLI's whole verb surface for this repo.
   FM_SELFTEST=1 ./scripts/run/teleop.sh --robot g1_d --backend mock \
     | grep -q 'teleop resolved (robot=g1_d, backend=mock'
-  FM_SELFTEST=1 ./scripts/run/sim.sh --robot so101 --backend mujoco \
-    | grep -q 'sim resolved (robot=so101, backend=mujoco'
   FM_SELFTEST=1 ./scripts/run/foxglove.sh -t -p 9000 \
     | grep -q 'foxglove resolved (mode=throwaway, port=9000'
   FM_SELFTEST=1 ./scripts/run/process.sh run ep-1 ep-2 --emit --reprocess \

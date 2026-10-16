@@ -2,7 +2,7 @@
   "_fm_render": {
     "artifact": "render-lock",
     "origin": "rendered by the First Motive render plane \u2014 edit the upstream source, not this file",
-    "sha256": "d5617448d05fc7d44560e71b2a483f74c79979afcc13a7b6b4f325d50d505943"
+    "sha256": "1d6de943e0ceb4867160797e1fffe655870e3491137d6088f7019d63d721de0a"
   },
   "artifacts": {
     "agents-invariants": {
@@ -49,8 +49,7 @@
       "mode": "block",
       "paths": [
         "scripts/internal/container.sh",
-        "scripts/install/setup-macos.sh",
-        "scripts/run/sim.sh"
+        "scripts/install/setup-macos.sh"
       ],
       "sha256": "19a047f515a3016c31c93a42aef126d53c3efd4aa3f314511e4c1a49ba4ce6d7",
       "stamp": "sh"
