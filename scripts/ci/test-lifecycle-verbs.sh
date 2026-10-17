@@ -75,8 +75,6 @@ assert_resolves "stack up defaults to mujoco" "backend=mujoco" \
   ./scripts/run/stack.sh up
 assert_resolves "episode record defaults to mujoco" "backend=mujoco" \
   ./scripts/run/episode.sh record
-assert_resolves "sim defaults to mujoco" "backend=mujoco" \
-  ./scripts/run/sim.sh
 
 # --real is the flag, and it reaches the Linux overlay rather than just renaming
 # the backend.

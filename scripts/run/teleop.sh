@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Jog a robot's arm interactively through MoveIt Servo (--robot openarm | so101 |
 # g1_d | axol). Brings up Servo plus the selected teleop input against a sim (or real)
-# target. The compose overlay follows from --backend, same mapping as sim.sh:
+# target. The compose overlay follows from --backend, same mapping as stack.sh:
 #
 #   mock, mujoco   -> compose.macos   (Mac daily driver, CPU)
 #   gazebo, isaac  -> compose.linux   (Linux/GPU)
@@ -33,8 +33,9 @@
 # is deferred (no ros2_control plugin yet), so it is sim-only. The OpenArm/SO101/Unitree
 # real paths are plumbed but untested — no physical hardware yet.
 #
-# Prerequisites: build the workspace first (see sim.sh). The sim/real target must
-# be reachable — run ./scripts/run/sim.sh in another terminal, or wire the real arm.
+# Prerequisites: build the workspace first (./scripts/run/build.sh). The sim/real
+# target must be reachable — bring it up with ./scripts/run/stack.sh up (the same
+# --robot/--backend flags), or wire the real arm.
 #
 # Then:
 #   ./scripts/run/teleop.sh                              # openarm, mujoco target, foxglove

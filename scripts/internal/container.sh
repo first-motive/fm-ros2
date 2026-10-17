@@ -22,7 +22,7 @@
 #   vcs import < fm-ros2.repos       # pull docker/ infra + the package repos into src/
 #   ./scripts/install/import-externals.sh    # vendor robot sources into external/
 #
-# scripts/run/view-robot.sh, scripts/run/sim.sh, and scripts/run/teleop.sh coexist as the
+# scripts/run/view-robot.sh, scripts/run/stack.sh, and scripts/run/teleop.sh coexist as the
 # direct, scriptable paths to the same launches — use them when you want one
 # capability without the menu.
 #

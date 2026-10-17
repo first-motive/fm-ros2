@@ -68,7 +68,11 @@ and the one a script can drive — the workspace mounts these verbs onto `fm`:
 | `fm dataset process` / `verify` | the fm_data engine over what was recorded, then graded |
 | `fm process status` / `list` / `show` / `run` / `annotate` | the processor's supervisor: its queue, each episode's state, and new work through it |
 | `fm dataset-release status` / `list` / `show` / `verify` | the release supervisor's candidates and packs, and a read-only pack verify |
-| `fm sim` | one robot in a sim backend, in the foreground |
+
+`fm sim` is not one of these: fm-sim owns it. It drives a sim host's agent
+(`fm sim catalog|up|down|status|runs|logs|trial --host H`, with `--host local`
+running the agent in-process against OrbStack) and is documented in
+[fm-sim](https://github.com/first-motive/fm-sim).
 
 Chained, those are the whole data path: [ONBOARDING.md](ONBOARDING.md).
 
@@ -247,15 +251,19 @@ is its validated path. Axol's mujoco model is authored in-repo (Almond Bot ships
 MJCF) and drives both arms.
 
 ```bash
-./scripts/run/sim.sh                              # openarm right_arm in MuJoCo (default)
-./scripts/run/sim.sh --robot so101 --backend mock # SO101, no sim
-./scripts/run/sim.sh --robot g1_d --backend mock  # Unitree right arm (body holds)
-./scripts/run/sim.sh --variant default_bimanual   # both OpenArm arms
-./scripts/run/sim.sh --robot axol --backend mujoco # Axol, both arms in MuJoCo
+./scripts/run/stack.sh up                              # openarm right_arm in MuJoCo (default)
+./scripts/run/stack.sh up --robot so101 --backend mock # SO101, no sim
+./scripts/run/stack.sh up --robot g1_d --backend mock  # Unitree right arm (body holds)
+./scripts/run/stack.sh up --variant default_bimanual   # both OpenArm arms
+./scripts/run/stack.sh up --robot axol --backend mujoco # Axol, both arms in MuJoCo
+./scripts/run/stack.sh down                            # tear it down
 ```
 
-Teleop adds MoveIt Servo plus an input source. Run `sim.sh` in one terminal, then
-`teleop.sh` in another:
+`stack up` launches `fm_bringup sim.launch.py` detached and returns once
+`/joint_states` and `/dynamic_joint_states` have a publisher.
+
+Teleop adds MoveIt Servo plus an input source. Bring the stack up first, then run
+`teleop.sh`:
 
 ```bash
 ./scripts/run/teleop.sh                            # openarm, Foxglove panel -> Servo
@@ -292,6 +300,6 @@ same launch files the launcher dispatches:
 ```
 run.sh           → menu → action → robot → variant (→ backend) → launch
 view-robot.sh    → one robot description, no menu
-sim.sh           → one sim backend, no menu
+stack.sh         → one robot stack, detached, no menu
 teleop.sh        → Servo + one input, no menu
 ```
