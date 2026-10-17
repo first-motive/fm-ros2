@@ -46,15 +46,25 @@ runs:
         git config --global \
           url."https://x-access-token:${TOKEN}@github.com/".insteadOf \
           "https://github.com/"
-        # Clone the package repos straight from the manifest URLs — no vcstool, so
-        # CI carries no extra Python deps.
+        # Clone the package repos straight from the manifest — no vcstool, so CI
+        # carries no extra Python deps. Each entry's `version:` is honoured: a
+        # 40-hex commit is fetched by SHA, anything else (branch, tag) is cloned by
+        # name. Without this a pinned repo is built at its default branch.
         mkdir -p src
-        while read -r url; do
+        while read -r url version; do
           name="$(basename "$url" .git)"
           # fm-docker is shared container infra, not a colcon package — skip it.
           [ "$name" = "fm-docker" ] && continue
-          echo "cloning $name"
           # Snake the local checkout dir (src/fm_robot) to match the package name;
           # the GitHub slug in $url stays kebab (fm-robot.git).
-          git clone --depth 1 "$url" "src/${name//-/_}"
-        done < <(grep -oE 'https://github.com/[^ ]+\.git' "$MANIFEST")
+          dir="src/${name//-/_}"
+          echo "cloning $name @ $version"
+          if [[ "$version" =~ ^[0-9a-f]{40}$ ]]; then
+            git init -q "$dir"
+            git -C "$dir" fetch -q --depth 1 "$url" "$version"
+            git -C "$dir" checkout -q --detach FETCH_HEAD
+          else
+            git -c advice.detachedHead=false clone -q --depth 1 --branch "$version" "$url" "$dir"
+          fi
+        done < <(awk '$1 == "url:" { url = $2 }
+                      $1 == "version:" && url { print url, $2; url = "" }' "$MANIFEST")

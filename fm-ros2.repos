@@ -42,7 +42,8 @@ repositories:
     url: https://github.com/first-motive/fm-sim.git
     # Held at the last Humble commit: fm-sim main moved to Jazzy (fm-sim#40), and
     # this workspace is Humble. Teleoperate still launches fm_bringup sim.launch.py
-    # against these backends.
+    # against these backends. CI's import-packages action clones this SHA too, so
+    # the Jazzy-only tests on main (test_description_topic) never run on Humble.
     version: 18b70c1d8b856ad3ece77d647150a7e8c1ab7171
   src/fm_teleop:
     type: git
