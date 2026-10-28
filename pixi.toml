@@ -73,13 +73,9 @@ ros-humble-image-transport-plugins = "*"
 # scripts/internal/native-build.sh, which points CMake's FindPython at the env interpreter
 # (rosidl_generator_py cannot otherwise locate the conda Python's dev component on
 # osx-arm64, and the failure aborts the whole build) and, on macOS, heals the
-# controller_manager bug + adds -dead_strip_dylibs (see that script). PYTHONWARNINGS
-# silences setuptools' per-package "Unknown distribution option: 'tests_require'"
-# spam (same pattern install.sh uses for the pkg_resources warning) until the
-# package repos drop the deprecated tests_require from their setup.py.
+# controller_manager bug + adds -dead_strip_dylibs (see that script).
 [tasks.build]
 cmd = "bash scripts/internal/native-build.sh"
-env = { PYTHONWARNINGS = "ignore:Unknown distribution option:UserWarning" }
 
 # Run the fm_ package tests natively.
 [tasks.test]
