@@ -32,6 +32,16 @@ repositories:
     type: git
     url: https://github.com/enactic/openarm_description.git
     version: 846a82d8baf64efdbb7f55c7f64b9b004939061b  # HEAD @ 2026-06-03; fork before patching
+  franka_description:
+    # Franka Panda description: a real ament_cmake ROS package, like
+    # openarm_description. fm_description's Panda xacro includes it through
+    # $(find franka_description) and its collision meshes stay on package://, so it
+    # must be BUILT — import-externals.sh leaves it out of COLCON_IGNORE. Upstream
+    # names the Panda `fer` (joints fer_joint1..7, fer_finger_joint1..2). Sim-only:
+    # no real backend is wired. Apache-2.0.
+    type: git
+    url: https://github.com/frankaemika/franka_description.git
+    version: 7aeeddc449edf8d62b594f9e36a81da53e7796f9  # tag 2.9.0; fork before patching
   so_arm:
     # SO-ARM100 (LeRobot SO101): plain files, NOT a ROS package. The SO101 flat
     # URDF + assets/ are vendored into fm_description's share (like the G1), and

@@ -218,8 +218,8 @@ backend → overlay              hosts the controller_manager
 ```
 
 The controllers, controller_manager, and `<ros2_control>` interfaces stay identical
-across backends — only the `<hardware>` System plugin changes. Four robots are wired
-through one registry (`fm_bringup.registry`); adding a fifth is one entry there.
+across backends — only the `<hardware>` System plugin changes. Five robots are wired
+through one registry (`fm_bringup.registry`); adding a sixth is one entry there.
 
 ```
 robot    arm DOF   Servo Cartesian              real backend
@@ -227,6 +227,7 @@ robot    arm DOF   Servo Cartesian              real backend
   g1_d     7        full 6-DOF (right arm)       arm_sdk bridge — NOT ros2_control
   so101    5        translation-only (orient. drifts)   feetech serial plugin
   axol     7 + 7    full 6-DOF (both arms)       deferred — CAN over USB-C, not yet plumbed
+  panda    7        full 6-DOF                   none — sim-only
 ```
 
 Two deliberate asymmetries:
@@ -243,7 +244,7 @@ Two deliberate asymmetries:
 
 The openarm, g1_d, and so101 real backends are plumbed but **untested** — no physical
 hardware yet; Axol's real backend is **deferred** (its CAN driver has no ros2_control
-plugin yet, so only the sim backends are wired). On the Mac, `mock` + `mujoco`
+plugin yet, so only the sim backends are wired); the Panda is sim-only by design. On the Mac, `mock` + `mujoco`
 validate; `gazebo`/`isaac` are wired-not-validated (Linux/GPU-gated). The Unitree's mujoco
 model is the bipedal `g1_29dof` (its arm joint names match; legs differ from the
 wheeled body), so Unitree mujoco is wired-not-validated pending a wheeled Unitree MJCF — `mock`
@@ -256,6 +257,7 @@ MJCF) and drives both arms.
 ./scripts/run/stack.sh up --robot g1_d --backend mock  # Unitree right arm (body holds)
 ./scripts/run/stack.sh up --variant default_bimanual   # both OpenArm arms
 ./scripts/run/stack.sh up --robot axol --backend mujoco # Axol, both arms in MuJoCo
+./scripts/run/stack.sh up --robot panda --backend mujoco # Franka Panda in MuJoCo
 ./scripts/run/stack.sh down                            # tear it down
 ```
 
@@ -270,6 +272,7 @@ Teleop adds MoveIt Servo plus an input source. Bring the stack up first, then ru
 ./scripts/run/teleop.sh --robot so101 --backend mock
 ./scripts/run/teleop.sh --robot g1_d               # Unitree right arm
 ./scripts/run/teleop.sh --robot axol               # Axol, one servo_node per arm
+./scripts/run/teleop.sh --robot panda              # Franka Panda
 ```
 
 In the Foxglove panel, pick the robot in the panel settings so the joint set and
