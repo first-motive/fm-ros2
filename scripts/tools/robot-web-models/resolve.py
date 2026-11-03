@@ -43,6 +43,7 @@ ROBOTS = [
         ],
     },
     {"key": "axol", "variants": ["axol"], "aliases": {"bimanual": "axol"}},
+    {"key": "panda", "variants": ["panda"]},
 ]
 
 # The mock backend yields the plain description: no simulator plugins, no
