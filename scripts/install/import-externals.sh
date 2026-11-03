@@ -60,6 +60,7 @@ main() {
   # Selective workspace build: externals are sources to read or file-vendor, NOT to
   # build — except real ament packages whose code or xacro we consume directly:
   #   openarm_description  — xacro needs $(find openarm_description) + package://
+  #   franka_description   — same for the Panda xacro: $(find franka_description) + package://
   #   openarm_ros2         — bringup + bimanual MoveIt config (launch/config only)
   #   unitree_ros2         — the unitree_hg/go/api DDS message packages; unitree_hg
   #                          carries LowCmd, which the Unitree arm_sdk bridge publishes
@@ -78,7 +79,7 @@ main() {
   #                                     Its COLCON_IGNORE also stops colcon descending into
   #                                     the repo's nested cli/*/setup.py, which otherwise
   #                                     break package identification.
-  local BUILD_DIRS=(openarm_description openarm_ros2 unitree_ros2)
+  local BUILD_DIRS=(openarm_description franka_description openarm_ros2 unitree_ros2)
   # Native macOS wrist-camera capture: robostack osx-arm64 ships no generic USB camera
   # driver, so opencv_cam (+ its ros2_shared param dep) is built from source there. On
   # Linux the usb_cam binary is used instead, so both stay COLCON_IGNORE'd (they fall

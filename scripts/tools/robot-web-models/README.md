@@ -1,6 +1,6 @@
 # Robot Web Models
 
-Packages the four registry robots as browser-ready 3D model packages for the
+Packages the five registry robots as browser-ready 3D model packages for the
 First Motive website viewer: one URDF per variant plus the visual meshes as
 GLB, with a manifest per robot and an index over all of them. Nothing here
 runs on a rig; it is a maintainer tool that turns the workspace's descriptions
@@ -17,7 +17,7 @@ fm_bringup registry ──▶ resolve.py ──▶ <work>/            ──▶ 
 ## Run
 
 ```bash
-./scripts/tools/robot-web-models/run.sh                 # all four robots
+./scripts/tools/robot-web-models/run.sh                 # all five robots
 ./scripts/tools/robot-web-models/run.sh --robots so101  # one robot
 ./scripts/tools/robot-web-models/run.sh --force         # ignore the GLB cache
 ./scripts/tools/robot-web-models/run.sh --no-optimize   # plain trimesh GLB, for debugging a mesh

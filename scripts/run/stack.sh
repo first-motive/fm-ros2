@@ -39,7 +39,7 @@ Usage: ./scripts/run/stack.sh <up|down|status> [options] [ros2-launch-args...]
   down      stop the stack and the container behind it
   status    report whether the stack is up and which topics it carries
 
-  --robot R      openarm | so101 | g1_d | axol (default openarm)
+  --robot R      openarm | so101 | g1_d | axol | panda (default openarm)
   --variant V    description variant (e.g. default_bimanual)
   --backend B    mock | mujoco | gazebo | isaac | real (default mujoco)
   --real         shorthand for --backend real

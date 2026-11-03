@@ -66,7 +66,7 @@ sessions with no extra DDS config. Tear it down with
 runs an isolated bridge that cleans up on exit.
 
 To view a robot URDF in Foxglove, run `./scripts/run/view-robot.sh` (default Unitree;
-`--robot so101`, `--robot axol`, or `--robot openarm` for the others) — it starts
+`--robot so101`, `--robot axol`, `--robot openarm`, or `--robot panda` for the others) — it starts
 robot_state_publisher plus the bridge with meshes. See the
 [fm-robot repo](https://github.com/first-motive/fm-robot) (`fm_description`) for the
 robot table, variants, and caveats.

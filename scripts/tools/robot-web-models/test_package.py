@@ -141,6 +141,17 @@ def test_resolve_variant_guard():
             assert pk.worker_safe(f"{variant}.urdf")
 
 
+def test_resolve_covers_every_viewable_robot():
+    # view-robot.sh holds the workspace's robot list; a robot added there but not
+    # to ROBOTS would silently never reach the website.
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../run/view-robot.sh")
+    with open(script, encoding="utf-8") as fh:
+        lines = [ln for ln in fh if "local VALID_ROBOTS=(" in ln]
+    assert len(lines) == 1, "view-robot.sh must declare VALID_ROBOTS on one line"
+    viewable = set(lines[0].split("(", 1)[1].split(")", 1)[0].split())
+    assert viewable == {r["key"] for r in rs.ROBOTS}
+
+
 def test_assert_clean_json():
     pk.assert_clean_json({"a": [1, "x", {"b": "pkg/rel.stl"}]})
     with pytest.raises(ValueError):
