@@ -250,4 +250,10 @@ printf '%s\n' copy download plan --coordinator tower-test --destination "$TMP_DI
 cmp "$TMP_DIR/expected-args" "$FM_TEST_ARGS" || fail "local download must bypass the provider environment"
 pass "download remains a local client operation"
 
+rm -f "$FM_TEST_ARGS"
+PATH="$TMP_DIR/bin:$PATH" "$VERB" offload show plan-1 --json
+printf '%s\n' data-archive --workflow offload show plan-1 --json >"$TMP_DIR/expected-args"
+cmp "$TMP_DIR/expected-args" "$FM_TEST_ARGS" || fail "offload must reach the coordinator workflow"
+pass "offload reaches the coordinator workflow"
+
 echo "test-archive-workflow: passed"
