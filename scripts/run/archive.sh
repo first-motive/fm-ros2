@@ -25,6 +25,7 @@ Usage: ./scripts/run/archive.sh <status|preflight|reconcile|install> [options]
        ./scripts/run/archive.sh library <locations|refresh|list|search|select|show|files|preview|history|folder|item|collection|protect|recover> [options]
        ./scripts/run/archive.sh copy <plan|show|start|verify|download> [options]
        ./scripts/run/archive.sh jobs <list|show|wait|pause|resume|retry|cancel> [options]
+       ./scripts/run/archive.sh offload <plan|show|start> [options]
 
   status       report service and queue-facing state (read-only)
   preflight    check local service, env, policy, and package prerequisites
@@ -416,7 +417,7 @@ main() {
       -h|--help) usage; return 0 ;;
       *) echo 'error: service requires status, preflight, reconcile or install' >&2; return 2 ;;
     esac
-  elif [ "${1:-}" = library ] || [ "${1:-}" = copy ] || [ "${1:-}" = jobs ]; then
+  elif [ "${1:-}" = library ] || [ "${1:-}" = copy ] || [ "${1:-}" = jobs ] || [ "${1:-}" = offload ]; then
     if ! command -v fm-archive-workflow >/dev/null 2>&1; then
       printf '{"contract_version":1,"ok":false,"error_code":"archive_workflow_missing"}\n'
       return 3
