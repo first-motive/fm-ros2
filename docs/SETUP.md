@@ -209,6 +209,18 @@ certificate and public CA certificate to the tower, set
 The installer verifies the chain, certificate purpose, identity, expiry window,
 and key match before it changes the active certificate.
 
+The processor's start check (`fm-aws-identity-monitor --start`) lets the
+processor start with a warning while its certificate is inside the 30-day renewal
+window. The six-hour expiry timer runs the strict check, so the critical renewal
+warning still fires. An expired or invalid certificate stops the processor.
+This applies once `install` has written the current drop-in. A host installed
+before it keeps the strict start check, and `install` refuses a certificate that
+is already inside the window, so renew the certificate to refresh the drop-in.
+
+To renew, run the same install command: it reuses the tower-local key and CSR.
+Sign the CSR on the offline CA, then install the new public certificate with
+`FM_AWS_IDENTITY_CERTIFICATE_INPUT` as above.
+
 Use these commands for repeatable checks and recovery:
 
 ```bash

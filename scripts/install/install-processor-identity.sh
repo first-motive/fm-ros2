@@ -578,7 +578,7 @@ Environment=AWS_DEFAULT_PROFILE=$FM_AWS_IDENTITY_PROFILE
 Environment=FM_AWS_PROFILE=$FM_AWS_IDENTITY_PROFILE
 Environment=AWS_DEFAULT_REGION=$AWS_REGION
 Environment=AWS_REGION=$AWS_REGION
-ExecStartPre=$MONITOR_BIN
+ExecStartPre=$MONITOR_BIN --start
 EOF
 }
 
@@ -781,6 +781,9 @@ do_check() {
   [ -f "$PROFILE_FILE" ] || { die "credential_process profile is missing: $PROFILE_FILE"; return 1; }
   grep -Fq "credential_process = $CREDENTIAL_WRAPPER" "$PROFILE_FILE" || { die "profile credential_process is not pinned to the wrapper"; return 1; }
   [ -f "$DROPIN_FILE" ] || { die "processor service identity drop-in is missing"; return 1; }
+  grep -Fqx "ExecStartPre=$MONITOR_BIN --start" "$DROPIN_FILE" || {
+    die "processor drop-in predates the monitor's --start mode, so the processor refuses to start inside the renewal window; re-run install (with a renewed certificate if this one is already inside the window)"; return 1;
+  }
   verify_expiry_units
   printf 'check: processor identity valid (account=%s region=%s profile=%s)\n' \
     "$FM_AWS_IDENTITY_ACCOUNT_ID" "$AWS_REGION" "$FM_AWS_IDENTITY_PROFILE"
