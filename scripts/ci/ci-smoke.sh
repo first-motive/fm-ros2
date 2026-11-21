@@ -79,7 +79,7 @@ assert_mock_controllers() {
   local pid=$!
   local ok=false
   for _ in $(seq 1 "$READY_TIMEOUT"); do
-    if ros2 control list_controllers 2>/dev/null | grep -E "${controller}.*active" >/dev/null; then
+    if ros2 control list_controllers 2>/dev/null | sed "s/\x1b\[[0-9;]*m//g" | grep -E "^${controller}([[:space:]]|\[).*[[:space:]]active([[:space:]]|$)" >/dev/null; then
       ok=true
       break
     fi
