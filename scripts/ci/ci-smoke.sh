@@ -314,7 +314,7 @@ assert_rviz_vnc() {
   # reason — a `sleep 6` that happened to be enough on a fast box is a flake on a
   # slow one, which is the failure mode this whole script exists to remove.
   DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1 timeout 40 ros2 launch fm_description \
-    view_robot.launch.py robot:=axol variant:=bimanual use_rviz:=true \
+    view_robot.launch.py robot:=axol variant:=ox_cart use_rviz:=true \
     use_foxglove:=false >/tmp/rviz_render.log 2>&1 &
   local pid=$!
   local up=false broken=false
@@ -366,7 +366,7 @@ main() {
   echo "==> ci-smoke: four-robot headless asserts"
   assert_mock_controllers so101 so101_arm_controller
   assert_mock_controllers g1_d g1_right_arm_controller
-  assert_mock_controllers axol axol_right_arm_controller
+  assert_mock_controllers axol axol_right_jtc
   assert_g1_base_diff_drive
   assert_g1_arm_bridge
   assert_g1_hand_bridge
