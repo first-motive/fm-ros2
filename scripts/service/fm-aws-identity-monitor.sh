@@ -4,7 +4,20 @@
 # This script is safe to run as a systemd ExecStartPre (the processor account only
 # needs the public certificate and CA) or as the root-owned six-hour timer.  It
 # never calls AWS and never prints key material or credentials.
+#
+# --start is the processor's ExecStartPre mode: a certificate inside its renewal
+# window still lets the processor start, with a warning, because it is valid.
+# The timer runs without it, so the renewal window still fails there and raises
+# the critical expiry warning.  An expired or invalid certificate fails in both.
 set -euo pipefail
+
+START_MODE=0
+[ "$#" -le 1 ] || { echo "usage: $0 [--start]" >&2; exit 2; }
+case "${1:-}" in
+  --start) START_MODE=1 ;;
+  '') ;;
+  *) echo "usage: $0 [--start]" >&2; exit 2 ;;
+esac
 
 CERTIFICATE="${FM_AWS_IDENTITY_CERTIFICATE_PATH:-/etc/fm-aws-identity/certificate.pem}"
 CA_CERTIFICATE="${FM_AWS_IDENTITY_CA_CERTIFICATE_PATH:-/etc/fm-aws-identity/ca.cert.pem}"
@@ -51,8 +64,15 @@ openssl x509 -in "$CERTIFICATE" -checkend 0 -noout >/dev/null 2>&1 || {
   fail_closed "processor certificate is expired"; exit 1
 }
 if ! openssl x509 -in "$CERTIFICATE" -checkend "$WARNING_SECONDS" -noout >/dev/null 2>&1; then
-  fail_closed "processor certificate is inside its renewal window (${WARNING_SECONDS}s)"
-  exit 1
+  if [ "$START_MODE" -eq 0 ]; then
+    fail_closed "processor certificate is inside its renewal window (${WARNING_SECONDS}s)"
+    exit 1
+  fi
+  message="processor certificate is inside its renewal window (${WARNING_SECONDS}s); starting, renew it"
+  if command -v logger >/dev/null 2>&1; then
+    logger -p authpriv.warning -t "$LOG_TAG" -- "$message" 2>/dev/null || true
+  fi
+  echo "WARNING: $message" >&2
 fi
 
 serial="$(openssl x509 -in "$CERTIFICATE" -noout -serial 2>/dev/null | sed 's/^serial=//')"

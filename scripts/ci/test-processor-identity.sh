@@ -113,6 +113,11 @@ openssl x509 -req -in "$TMP_DIR/state/processor.csr.pem" -CA "$TMP_DIR/ca.pem" \
 FM_AWS_IDENTITY_CA_CERTIFICATE_INPUT="$TMP_DIR/ca.pem" \
 FM_AWS_IDENTITY_CERTIFICATE_INPUT="$TMP_DIR/cert.pem" \
   bash "$IDENTITY" install >/dev/null
+dropin="$(find "$TMP_DIR" -name 10-fm-aws-identity.conf -print -quit)"
+[ -n "$dropin" ] || fail "identity install did not write the processor drop-in"
+grep -q '^ExecStartPre=.*fm-aws-identity-monitor --start$' "$dropin" || \
+  fail "processor drop-in does not use the monitor's --start mode"
+pass "processor drop-in starts through the monitor's --start mode"
 bash "$IDENTITY" check >/dev/null
 pass "offline CA resume verifies chain, CN, CA:FALSE, digitalSignature, clientAuth, validity, and key match"
 
@@ -335,5 +340,47 @@ if [ "$(/usr/bin/uname -s)" = Linux ] && command -v sudo >/dev/null 2>&1 && sudo
 else
   pass "production sudo boundary test skipped because passwordless Linux sudo is unavailable"
 fi
+
+# A certificate inside its renewal window is still valid: the processor's
+# ExecStartPre (--start) lets it start with a warning, while the timer's strict
+# run keeps failing so the critical expiry warning still fires.
+MONITOR="$ROOT/scripts/service/fm-aws-identity-monitor.sh"
+openssl x509 -req -in "$TMP_DIR/state/processor.csr.pem" -CA "$TMP_DIR/ca.pem" \
+  -CAkey "$TMP_DIR/ca.key" -CAcreateserial -out "$TMP_DIR/due-cert.pem" -days 10 \
+  -sha384 -extfile <(printf '%s\n' \
+    'basicConstraints=critical,CA:FALSE' \
+    'keyUsage=critical,digitalSignature' \
+    'extendedKeyUsage=clientAuth') >/dev/null 2>&1
+due_env=(FM_AWS_IDENTITY_CERTIFICATE_PATH="$TMP_DIR/due-cert.pem" FM_AWS_IDENTITY_CA_CERTIFICATE_PATH="$TMP_DIR/ca.pem")
+if env "${due_env[@]}" bash "$MONITOR" >/dev/null 2>"$TMP_DIR/strict.err"; then
+  fail "strict monitor accepted a certificate inside its renewal window"
+fi
+grep -q 'inside its renewal window' "$TMP_DIR/strict.err" || fail "strict monitor failed for a reason other than the renewal window"
+pass "strict monitor fails inside the renewal window"
+env "${due_env[@]}" bash "$MONITOR" --start >/dev/null 2>"$TMP_DIR/due.err" || \
+  fail "start-mode monitor refused a valid certificate inside its renewal window"
+grep -q '^WARNING: processor certificate is inside its renewal window' "$TMP_DIR/due.err" || \
+  fail "start-mode monitor did not warn about the renewal window"
+pass "start-mode monitor starts inside the renewal window with a warning"
+for bad_args in "--bogus" "--start extra"; do
+  rc=0
+  # shellcheck disable=SC2086 # split the argument list on purpose
+  env "${due_env[@]}" bash "$MONITOR" $bad_args >/dev/null 2>"$TMP_DIR/args.err" || rc=$?
+  [ "$rc" -eq 2 ] && grep -q '^usage:' "$TMP_DIR/args.err" || fail "monitor did not refuse arguments: $bad_args (rc=$rc)"
+done
+pass "monitor refuses unknown and extra arguments"
+openssl x509 -req -in "$TMP_DIR/state/processor.csr.pem" -CA "$TMP_DIR/ca.pem" \
+  -CAkey "$TMP_DIR/ca.key" -CAcreateserial -out "$TMP_DIR/expired-cert.pem" -days 0 \
+  -sha384 -extfile <(printf '%s\n' \
+    'basicConstraints=critical,CA:FALSE' \
+    'keyUsage=critical,digitalSignature' \
+    'extendedKeyUsage=clientAuth') >/dev/null 2>&1
+sleep 1
+if FM_AWS_IDENTITY_CERTIFICATE_PATH="$TMP_DIR/expired-cert.pem" FM_AWS_IDENTITY_CA_CERTIFICATE_PATH="$TMP_DIR/ca.pem" \
+    bash "$MONITOR" --start >/dev/null 2>"$TMP_DIR/expired.err"; then
+  fail "start-mode monitor accepted an expired certificate"
+fi
+grep -qE 'is expired|does not verify' "$TMP_DIR/expired.err" || fail "start-mode monitor failed an expired certificate for another reason"
+pass "start-mode monitor still refuses an expired certificate"
 
 echo "processor identity: all checks passed"
